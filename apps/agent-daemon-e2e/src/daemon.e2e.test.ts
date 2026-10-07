@@ -178,8 +178,10 @@ describe('Agent daemon (e2e)', () => {
       {
         name,
         runtimeKind: 'gondolin_pi',
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-5',
+        models: {
+          generation: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+        },
+
         sandbox: {},
       },
       { teamId },
@@ -853,8 +855,8 @@ describe('Agent daemon (e2e)', () => {
       stateDirs,
       slotStore,
       slotIdentity,
-      provider: runtimeProfile.provider,
-      model: runtimeProfile.model,
+      provider: runtimeProfile.models.generation!.provider,
+      model: runtimeProfile.models.generation!.model,
       warmRetentionSec,
     });
     expect(firstOutput.output.status).toBe('completed');
@@ -879,8 +881,8 @@ describe('Agent daemon (e2e)', () => {
       stateDirs,
       slotStore,
       slotIdentity,
-      provider: runtimeProfile.provider,
-      model: runtimeProfile.model,
+      provider: runtimeProfile.models.generation!.provider,
+      model: runtimeProfile.models.generation!.model,
       warmRetentionSec,
     });
     expect(secondOutput.output.status).toBe('completed');
@@ -956,8 +958,8 @@ describe('Agent daemon (e2e)', () => {
           stateDirs,
           slotStore,
           slotIdentity,
-          provider: runtimeProfile.provider,
-          model: runtimeProfile.model,
+          provider: runtimeProfile.models.generation!.provider,
+          model: runtimeProfile.models.generation!.model,
           warmRetentionSec,
         });
         expect(parentRun.output.status).toBe('completed');
@@ -1082,8 +1084,8 @@ describe('Agent daemon (e2e)', () => {
           stateDirs,
           slotStore,
           slotIdentity,
-          provider: runtimeProfile.provider,
-          model: runtimeProfile.model,
+          provider: runtimeProfile.models.generation!.provider,
+          model: runtimeProfile.models.generation!.model,
           warmRetentionSec,
           runtimeSessionStore,
           sessionMarker: seededMarker,
@@ -1172,8 +1174,10 @@ describe('Agent daemon (e2e)', () => {
         {
           name,
           runtimeKind: 'gondolin_pi',
-          provider: 'anthropic',
-          model: 'claude-sonnet-4-5',
+          models: {
+            generation: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+          },
+
           sandbox,
           ...overrides,
         },
@@ -1302,8 +1306,8 @@ describe('Agent daemon (e2e)', () => {
           cwd: process.cwd(),
         });
         expect(resolved.id).toBe(allowedProfile.id);
-        expect(resolved.provider).toBe('anthropic');
-        expect(resolved.model).toBe('claude-sonnet-4-5');
+        expect(resolved.models.generation!.provider).toBe('anthropic');
+        expect(resolved.models.generation!.model).toBe('claude-sonnet-4-5');
         expect(resolved.sandboxConfig).toEqual(allowedProfile.sandbox);
 
         const executorManifest = {
