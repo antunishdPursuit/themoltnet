@@ -176,29 +176,21 @@ describe('checkGates', () => {
         },
       ];
       if (count === 2) entries.push({ ...entries[1], id: 3 });
-      const refs = entries.map((entry) => ({
-        kind: 'info',
-        payload: {
-          event: 'runtime_entry',
-          format: 'pi-durable.v1',
-          storeId: 'store',
-          commitSeq: 4,
-          entryId: entry.id,
-        },
-      }));
-      const agent = fakeAgent(
-        [...messages(), ...refs, refs[1]],
-        completedAttempt,
-      );
-      const read = vi.fn().mockResolvedValue({
-        items: (async function* () {
-          yield {
-            seq: 4,
-            writes: entries.map((value) => ({ type: 'entry', value })),
-          };
-        })(),
+      const agent = fakeAgent(messages(), completedAttempt);
+      const get = vi.fn().mockResolvedValue({
+        messages: entries.flatMap((entry) =>
+          entry.model.map((message) => ({
+            entryId: String(entry.id),
+            inherited: false,
+            message,
+          })),
+        ),
+        nextBeforeEntryId: null,
       });
-      agent.runtimeSessions = { read };
+      agent.tasks.conversations = {
+        list: vi.fn().mockResolvedValue({ items: [{ conversationId: '1' }] }),
+        get,
+      };
       const result = await checkGates(
         agent,
         't1',
@@ -206,9 +198,13 @@ describe('checkGates', () => {
         { requireToolCalls: ['moltnet_upload_task_artifact'] },
         EXPECTED_WITH_TEAM,
       );
-      expect(read).toHaveBeenCalledExactlyOnceWith('store', 3, {
-        teamId: 'team-1',
-      });
+      expect(get).toHaveBeenCalledExactlyOnceWith(
+        't1',
+        1,
+        '1',
+        { teamId: 'team-1' },
+        { beforeEntryId: undefined },
+      );
       expect(result.passed).toBe(!isError && count === 1);
       if (count === 2)
         expect(result.failures).toContainEqual({
@@ -225,108 +221,53 @@ describe('checkGates', () => {
     },
   );
 
-  it('shares bounded pages across out-of-order references and isolates stores', async () => {
-    const refs = ['store-a', 'store-b'].flatMap((storeId) =>
-      Array.from({ length: 99 }, (_, index) => ({
-        kind: 'info',
-        payload: {
-          event: 'runtime_entry',
-          format: 'pi-durable.v1',
-          storeId,
-          commitSeq: 99 - index,
-          entryId: 99 - index,
-        },
-      })),
-    );
-    const agent = fakeAgent([...messages(), ...refs], completedAttempt);
-    const read = vi.fn(async (storeId: string, afterSeq: number) => ({
-      items: (async function* () {
-        for (
-          let seq = afterSeq + 1;
-          seq <= Math.min(afterSeq + 50, 101);
-          seq++
-        ) {
-          yield {
-            seq,
-            writes: [
-              {
-                type: 'entry',
-                value: {
-                  id: seq,
-                  model: [
-                    {
-                      role: 'assistant',
-                      content: [
-                        {
-                          type: 'toolCall',
-                          name: seq <= 99 ? storeId : 'unreferenced-tool',
-                        },
-                      ],
-                    },
-                    ...(storeId === 'store-a' && seq === 1
-                      ? [
-                          {
-                            role: 'toolResult',
-                            toolName: 'submit_run_eval_output',
-                            isError: false,
-                            content: [],
-                          },
-                        ]
-                      : []),
-                  ],
-                },
-              },
-            ],
-          };
-        }
-      })(),
-    }));
-    agent.runtimeSessions = { read };
+  it('fails closed when conversation evidence is unavailable', async () => {
+    const agent = fakeAgent(messages(), completedAttempt);
+    agent.tasks.conversations = {
+      list: vi.fn().mockRejectedValue(new Error('Conversation unavailable')),
+      get: vi.fn(),
+    };
+    const result = await checkGates(agent, 't1', 1, {}, EXPECTED_WITH_TEAM);
+    expect(result.failures).toContainEqual({
+      gate: 'runtime_evidence',
+      detail: 'Conversation unavailable',
+    });
+  });
 
+  it('does not count inherited or partial tool calls as attempt evidence', async () => {
+    const agent = fakeAgent(messages(), completedAttempt);
+    agent.tasks.conversations = {
+      list: vi.fn().mockResolvedValue({ items: [{ conversationId: '1' }] }),
+      get: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            entryId: '1',
+            inherited: true,
+            message: {
+              role: 'assistant',
+              content: [{ type: 'toolCall', name: 'prior_tool' }],
+            },
+          },
+          {
+            entryId: null,
+            inherited: false,
+            message: {
+              role: 'assistant',
+              content: [{ type: 'toolCall', name: 'prior_tool' }],
+            },
+          },
+        ],
+        nextBeforeEntryId: null,
+      }),
+    };
     const result = await checkGates(
       agent,
       't1',
       1,
-      {
-        requireToolCalls: ['store-a', 'store-b'],
-        forbidToolCalls: ['unreferenced-tool'],
-      },
+      { requireToolCalls: ['prior_tool'] },
       EXPECTED_WITH_TEAM,
     );
-
-    expect(result.passed).toBe(true);
-    expect(read.mock.calls).toEqual([
-      ['store-a', 0, { teamId: 'team-1' }],
-      ['store-a', 50, { teamId: 'team-1' }],
-      ['store-b', 0, { teamId: 'team-1' }],
-      ['store-b', 50, { teamId: 'team-1' }],
-    ]);
-  });
-
-  it('fails closed when referenced Durable evidence is unavailable', async () => {
-    const agent = fakeAgent(
-      [
-        ...messages(),
-        {
-          kind: 'info',
-          payload: {
-            event: 'runtime_entry',
-            format: 'pi-durable.v1',
-            storeId: 'store',
-            commitSeq: 4,
-            entryId: 1,
-          },
-        },
-      ],
-      completedAttempt,
-    );
-    agent.runtimeSessions = { read: vi.fn().mockResolvedValue({ items: [] }) };
-    const result = await checkGates(agent, 't1', 1, {}, EXPECTED_WITH_TEAM);
     expect(result.passed).toBe(false);
-    expect(result.failures).toContainEqual({
-      gate: 'runtime_evidence',
-      detail: 'Durable evidence commit is unavailable',
-    });
   });
 
   it('passes a clean attempt against default gates', async () => {
