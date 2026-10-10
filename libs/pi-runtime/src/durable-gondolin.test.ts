@@ -27,7 +27,7 @@ import { remoteLog } from '../__tests__/durable-log.js';
 import { createGondolinDurableTaskExecutor } from './durable-gondolin.js';
 import { acquireDurableTransport } from './durable-transport.js';
 import { agentSigningCapability } from './host-capabilities/agent-signing.js';
-import type { ExecutePiTaskOptions } from './runtime/execute-pi-task.js';
+import type { GondolinDurableTaskOptions } from './runtime/durable-task-options.js';
 import {
   defineGondolinTemplate,
   definePiBrokeredHttpSecret,
@@ -111,7 +111,7 @@ function setup(granted: boolean, tools: string[] = []) {
   const close = vi.fn().mockResolvedValue(undefined);
   const revokeSecret = vi.fn();
   const resumeVm = vi
-    .fn<NonNullable<ExecutePiTaskOptions['resumeVm']>>()
+    .fn<NonNullable<GondolinDurableTaskOptions['resumeVm']>>()
     .mockResolvedValue({
       vm: { id: 'vm', fs: {}, close },
       credentials: { agentEnv: {} },
@@ -146,7 +146,7 @@ function setup(granted: boolean, tools: string[] = []) {
           allowedShellCommands: [],
         }),
       },
-    } as unknown as ExecutePiTaskOptions['moltnetAgent'],
+    } as unknown as GondolinDurableTaskOptions['moltnetAgent'],
     template: {
       id: 'vm',
       version: '1',

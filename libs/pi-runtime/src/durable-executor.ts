@@ -43,7 +43,7 @@ import {
 } from '@themoltnet/agent-runtime';
 import { Value } from 'typebox/value';
 
-import { SubagentToolParameters } from './runtime/subagent-tool.js';
+import { SubagentToolParameters } from './runtime/subagent-parameters.js';
 import {
   formatValidationErrors,
   normalizeSubmitArguments,

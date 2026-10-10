@@ -42,7 +42,7 @@ import {
   resolveAttemptBrokeredHttpSecrets,
 } from './runtime/attempt-vm.js';
 import { discoverGuestExecutables } from './runtime/capability-discovery.js';
-import type { ExecutePiTaskOptions } from './runtime/execute-pi-task.js';
+import type { GondolinDurableTaskOptions } from './runtime/durable-task-options.js';
 import { configureDurableModelOptions } from './runtime/model-options-extension.js';
 import {
   createClassifierTool,
@@ -63,7 +63,6 @@ import { prepareTaskWorkspace } from './runtime/task-workspace.js';
 import {
   filterModelVisibleTools,
   materializePiTools,
-  type ResolvedGondolinTemplate,
 } from './runtime-definition.js';
 import {
   createGondolinToolLifecycle,
@@ -143,10 +142,7 @@ function verifyWorkspaceMarker(
 
 /** Mounted workspaces remain available independently of the daemon process. */
 export function createGondolinDurableTaskExecutor(
-  options: ExecutePiTaskOptions & {
-    template: ResolvedGondolinTemplate | null;
-    runtimeKind: string;
-  },
+  options: GondolinDurableTaskOptions,
 ) {
   return async (
     ...args: Parameters<ReturnType<typeof createDurableTaskExecutor>>
