@@ -532,7 +532,7 @@ export class ProviderConfigurationService {
       'Provider model discovery completed',
     );
     return {
-      models,
+      models: models.map(copyProviderModel),
       failures: [...failures],
       probeFailures: [...probeFailures],
     };
