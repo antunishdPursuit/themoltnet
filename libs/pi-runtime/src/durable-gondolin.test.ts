@@ -501,6 +501,36 @@ describe('tool policy', () => {
     );
   });
 
+  it('logs when the execution policy differs from the claimed one', async () => {
+    const s = setup(false);
+    s.allowedTools.mockResolvedValue({
+      enforcement: 'enforce',
+      runtimeKind: 'gondolin_pi_durable',
+      allowedTools: [],
+      allowedShellCommands: [],
+      policySnapshotHash: 'sha256:execution',
+    } as never);
+    const claimed = {
+      ...s.claimed,
+      claimAuthority: { policySnapshotHash: 'sha256:claim' },
+    } as ClaimedTask;
+
+    const output = await createGondolinDurableTaskExecutor(s.options)(
+      claimed,
+      s.reporter,
+    );
+
+    expect(output.status).toBe('completed');
+    expect(s.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'claim_execution_policy_drift',
+        claimPolicySnapshotHash: 'sha256:claim',
+        executionPolicySnapshotHash: 'sha256:execution',
+      }),
+      'tool_policy.snapshot_drift',
+    );
+  });
+
   it('refuses a degraded policy before preparing the workspace', async () => {
     const s = setup(false);
     s.allowedTools.mockRejectedValue(new Error('policy service down'));

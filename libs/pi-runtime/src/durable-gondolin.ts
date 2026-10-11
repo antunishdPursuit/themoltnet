@@ -252,6 +252,26 @@ export function createGondolinDurableTaskExecutor(
               throw new Error(
                 `Durable runtime requires a resolved tool policy (runtime profile ${runtimeProfileId})`,
               );
+            const claimPolicySnapshotHash =
+              claimed.claimAuthority?.policySnapshotHash;
+            if (
+              claimPolicySnapshotHash &&
+              policy.executionPolicySnapshotHash &&
+              claimPolicySnapshotHash !== policy.executionPolicySnapshotHash
+            )
+              // Informational: the gate always uses the execution snapshot.
+              logger.info(
+                {
+                  taskId: claimed.task.id,
+                  attemptN: claimed.attemptN,
+                  decision: 'continue',
+                  reason: 'claim_execution_policy_drift',
+                  claimPolicySnapshotHash,
+                  executionPolicySnapshotHash:
+                    policy.executionPolicySnapshotHash,
+                },
+                'tool_policy.snapshot_drift',
+              );
             const plan = (await options.makeExecutionPlan?.(claimed)) ?? null;
             const resumed = previousEnvironment !== null;
             const workspace = await traceRuntimePhase(

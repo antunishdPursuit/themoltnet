@@ -132,12 +132,8 @@ export {
 } from './tool-policy/gate.js';
 export {
   type AllowedToolsClient,
-  createToolPolicyExtension,
-  decideForEvent,
   resolveSessionToolPolicy,
   type SessionToolPolicy,
-  type ToolPolicyDecisionContext,
-  type ToolPolicyExtensionDeps,
 } from './tool-policy/session-policy.js';
 export { resumeVm } from './vm.js';
 export type {
