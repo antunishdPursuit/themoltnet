@@ -189,6 +189,7 @@ describe('resolvePiAgentDir', () => {
           api: 'openai-completions',
           apiKey: '$MOLTNET_PROVIDER_OLLAMA_CLOUD_API_KEY',
           baseUrl: 'https://ollama.com/v1',
+          compat: { supportsDeveloperRole: false },
           models: [{ id: 'glm-5.2' }],
         },
       },
@@ -226,6 +227,7 @@ describe('resolvePiAgentDir', () => {
           api: 'openai-completions',
           apiKey: '$MOLTNET_PROVIDER_OLLAMA_CLOUD_API_KEY',
           baseUrl: 'https://ollama.com/v1',
+          compat: { supportsDeveloperRole: false },
           models: [
             { id: 'glm-5.2' },
             { id: 'glm-5.2:cloud', contextWindow: 202752, reasoning: true },

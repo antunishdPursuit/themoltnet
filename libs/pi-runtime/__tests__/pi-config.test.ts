@@ -36,6 +36,7 @@ describe('writePiConfig', () => {
           api: 'openai-completions',
           apiKey: '$OLLAMA_API_KEY',
           baseUrl: 'https://ollama.com/v1',
+          compat: { supportsDeveloperRole: false },
           models: [{ id: 'qwen3-coder:480b-cloud' }],
         },
       },

@@ -51,6 +51,7 @@ describe('writeStorePiConfig', () => {
       api: 'openai-completions',
       apiKey: '$MOLTNET_PROVIDER_OLLAMA_CLOUD_API_KEY',
       baseUrl: 'https://ollama.com/v1',
+      compat: { supportsDeveloperRole: false },
       models: [
         // Pi reads `input` to decide whether image content parts may be sent.
         { id: 'qwen3.5:397b-cloud', input: ['text', 'image'] },
