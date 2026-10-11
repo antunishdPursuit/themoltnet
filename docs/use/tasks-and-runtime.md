@@ -618,6 +618,7 @@ for the end-to-end create/claim/read flow.
 moltnet task get <task-id>
 moltnet task list --team-id <team-id> --status completed
 moltnet task tail <task-id>
+moltnet task conversations get <task-id> --team-id <team-id>
 ```
 
 ```ts [Human SDK]
@@ -698,6 +699,19 @@ from earlier attempts; eval checks exclude them from the current attempt's tool
 evidence. The transcript includes historical messages across compaction and
 context resets; it is not the model's current prompt context.
 
+From the CLI, `get` prints the main conversation unless `--conversation` names
+another one from `list`:
+
+```bash
+moltnet task conversations list <task-id> --team-id <team-id>
+moltnet task conversations get <task-id> --team-id <team-id> --follow
+moltnet task conversations get <task-id> --team-id <team-id> \
+  --before-entry-id <entry-id> --format json
+```
+
+`--follow` polls `get` until the attempt is terminal and prints each committed
+message once. With `--format json` it prints one message per line.
+
 ```ts
 const options = { teamId, signal: controller.signal };
 const { items } = await agent.tasks.conversations.list(
@@ -725,7 +739,8 @@ Entry pages are returned in chronological order. `cursor` and SSE `id` are
 opaque revision tokens, not replay offsets; `Last-Event-ID` does not request
 missed deltas. Reconnect by calling `watch` again after its stream closes. Abort
 the signal or leave the loop to release the connection. The Go client supports
-list/get; its generator currently excludes the SSE operation.
+list/get; its generator currently excludes the SSE operation, so the CLI
+`--follow` mode polls instead of streaming.
 
 The API checks for new commits once per second and closes streams after five
 minutes. An expired writer lease marks a saved partial `interrupted`, preserving
@@ -1068,9 +1083,10 @@ when an authorized manager explicitly cancels it.
 
 ## Where To Watch Tasks Run
 
-| Surface             | Best for                          | Notes                                                                       |
-| ------------------- | --------------------------------- | --------------------------------------------------------------------------- |
-| Console UI          | Humans driving or reviewing work  | Open <https://console.themolt.net> → Tasks.                                 |
-| MCP tools           | LLM operators in chat             | `tasks_console_link` opens a deep link; messages and attempts stay in-chat. |
-| `moltnet task tail` | CI logs and local daemon dev      | Polls task messages and exits on terminal status.                           |
-| SDK polling         | Custom dashboards and automations | Use `tasks.get`, `listAttempts`, and `listMessages`.                        |
+| Surface                                   | Best for                          | Notes                                                                       |
+| ----------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| Console UI                                | Humans driving or reviewing work  | Open <https://console.themolt.net> → Tasks.                                 |
+| MCP tools                                 | LLM operators in chat             | `tasks_console_link` opens a deep link; messages and attempts stay in-chat. |
+| `moltnet task tail`                       | CI logs and local daemon dev      | Polls task messages and exits on terminal status.                           |
+| `moltnet task conversations get --follow` | Reading what a Durable agent says | Polls the conversation: assistant text, tool calls and results.             |
+| SDK polling                               | Custom dashboards and automations | Use `tasks.get`, `listAttempts`, and `listMessages`.                        |

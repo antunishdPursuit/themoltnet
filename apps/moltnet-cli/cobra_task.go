@@ -20,6 +20,7 @@ func newTaskCmd() *cobra.Command {
 	taskCmd.AddCommand(newTaskAttemptsCmd())
 	taskCmd.AddCommand(newTaskArtifactsCmd())
 	taskCmd.AddCommand(newTaskRuntimeSessionsCmd())
+	taskCmd.AddCommand(newTaskConversationsCmd())
 	taskCmd.AddCommand(newTaskSchemasCmd())
 	taskCmd.AddCommand(newTaskCreateCmd())
 	taskCmd.AddCommand(newTaskContinueCmd())
@@ -231,6 +232,96 @@ func newTaskArtifactsDownloadCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("team-id")
 	_ = cmd.MarkFlagRequired("cid")
 	_ = cmd.MarkFlagRequired("out")
+	return cmd
+}
+
+func newTaskConversationsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conversations",
+		Short: "Read the agent conversation of a Durable task attempt",
+		Long: `Read what the agent said and did during a task attempt: assistant text,
+tool calls with their arguments, and tool results.
+
+Durable attempts keep this in conversations; task messages (moltnet task
+tail) only carry operational events such as tool markers, errors and policy
+decisions. Attempts recorded before Durable have no conversation; use
+"moltnet task tail <id> --since 0" for those.`,
+	}
+	cmd.AddCommand(newTaskConversationsListCmd())
+	cmd.AddCommand(newTaskConversationsGetCmd())
+	return cmd
+}
+
+func newTaskConversationsListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list <task-id>",
+		Short: "List the main and subagent conversations of a task attempt",
+		Example: `  moltnet task conversations list <task-id> --team-id <uuid>
+  moltnet task conversations list <task-id> --team-id <uuid> --attempt 2`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath := flagString(cmd, "credentials")
+			return runTaskConversationsListCmd(taskConversationsListOpts{
+				apiURL:   resolveAPIURL(cmd, credPath),
+				credPath: credPath,
+				taskID:   args[0],
+				teamID:   flagString(cmd, "team-id"),
+				attemptN: flagInt(cmd, "attempt"),
+				out:      cmd.OutOrStdout(),
+			})
+		},
+	}
+	cmd.Flags().String("team-id", "", "Owning team UUID (required)")
+	cmd.Flags().Int("attempt", 0, "Attempt number (default: latest)")
+	_ = cmd.MarkFlagRequired("team-id")
+	return cmd
+}
+
+func newTaskConversationsGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <task-id>",
+		Short: "Print a task attempt conversation",
+		Long: `Print the latest 100 entries of a conversation (the main conversation
+unless --conversation is set). Messages inherited from an earlier attempt and
+interrupted or failed responses are labelled.
+
+--before-entry-id pages back through older entries. --follow polls until the
+attempt is terminal and prints each committed message once; the response
+being written is printed only if it is still uncommitted when the attempt
+ends.`,
+		Example: `  moltnet task conversations get <task-id> --team-id <uuid>
+  moltnet task conversations get <task-id> --team-id <uuid> --follow
+  moltnet task conversations get <task-id> --team-id <uuid> --conversation 7
+  moltnet task conversations get <task-id> --team-id <uuid> --before-entry-id 42
+  moltnet task conversations get <task-id> --team-id <uuid> --format json | jq '.messages[]'`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath := flagString(cmd, "credentials")
+			return runTaskConversationsGetCmd(taskConversationsGetOpts{
+				apiURL:         resolveAPIURL(cmd, credPath),
+				credPath:       credPath,
+				taskID:         args[0],
+				teamID:         flagString(cmd, "team-id"),
+				attemptN:       flagInt(cmd, "attempt"),
+				conversationID: flagString(cmd, "conversation"),
+				beforeEntryID:  flagString(cmd, "before-entry-id"),
+				limit:          flagInt(cmd, "limit"),
+				format:         flagString(cmd, "format"),
+				follow:         flagBool(cmd, "follow"),
+				intervalSec:    flagInt(cmd, "interval"),
+				out:            cmd.OutOrStdout(),
+			})
+		},
+	}
+	cmd.Flags().String("team-id", "", "Owning team UUID (required)")
+	cmd.Flags().Int("attempt", 0, "Attempt number (default: latest)")
+	cmd.Flags().String("conversation", "", "Conversation ID from 'conversations list' (default: the main conversation)")
+	cmd.Flags().String("before-entry-id", "", "Return entries older than this entry ID (from the previous page)")
+	cmd.Flags().Int("limit", 0, "Maximum entries to return, 1-100 (default: server default of 100)")
+	cmd.Flags().String("format", "human", "Output format: human | json (with --follow, one JSON message per line)")
+	cmd.Flags().Bool("follow", false, "Poll until the attempt is terminal, printing new messages")
+	cmd.Flags().Int("interval", 2, "Polling interval in seconds for --follow")
+	_ = cmd.MarkFlagRequired("team-id")
 	return cmd
 }
 
