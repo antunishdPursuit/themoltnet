@@ -209,9 +209,32 @@ describe('staged complexity review', () => {
     expect(domain.input.outputContract?.schema).toMatchObject({
       type: 'object',
       required: ['paths', 'summary', 'signals'],
+      properties: {
+        paths: {
+          type: 'array',
+          items: { type: 'string', enum: ['apps/a.ts'] },
+          minItems: 1,
+          maxItems: 1,
+        },
+      },
     });
     expect(domain.input.brief).toContain('<untrusted-assigned-paths');
     expect(domain.input.brief).not.toContain('<untrusted-manifest');
+    const multiPathDomain = buildDomainTask(input, evidence, {
+      id: 'both',
+      groupId: 'both',
+      nature: 'application behavior',
+      files: evidence.files,
+    });
+    expect(multiPathDomain.input.outputContract?.schema).toMatchObject({
+      properties: {
+        paths: {
+          items: { type: 'string', enum: ['apps/a.ts', 'apps/a.test.ts'] },
+          minItems: 2,
+          maxItems: 2,
+        },
+      },
+    });
     const result = {
       paths: ['apps/a.ts'],
       summary: 'Small app behavior update',

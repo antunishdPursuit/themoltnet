@@ -258,6 +258,15 @@ export function buildDomainTask(
   evidence: ReviewEvidence,
   work: DomainWork,
 ) {
+  const paths = [...new Set(work.files.map((file) => file.path))];
+  const resultSchema = Type.Object({
+    paths: Type.Array(Type.Union(paths.map((path) => Type.Literal(path))), {
+      minItems: paths.length,
+      maxItems: paths.length,
+    }),
+    summary: DomainResultSchema.properties.summary,
+    signals: DomainResultSchema.properties.signals,
+  });
   return stageTask(
     input,
     'domain:' + work.id,
@@ -284,7 +293,7 @@ export function buildDomainTask(
         ),
       ),
     ].join('\n\n'),
-    DomainResultSchema,
+    resultSchema,
   );
 }
 
