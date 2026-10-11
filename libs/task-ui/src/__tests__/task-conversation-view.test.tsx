@@ -288,6 +288,50 @@ describe('TaskLivePane conversation source', () => {
     expect(screen.getByText('Reading task context.')).toBeInTheDocument();
   });
 
+  it('keeps initial read failures visible instead of displaying the legacy transcript', () => {
+    const retry = vi.fn();
+    renderWithTheme(
+      <TaskLivePane
+        task={taskFixture}
+        messages={messagesFixture}
+        conversation={[{ ...mainThread([]), error: true, onRetry: retry }]}
+      />,
+    );
+    expect(
+      screen.getByText('This conversation could not be loaded.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Reading task context.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry conversation' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('shows retrying before the first snapshot and preserves stale content after later failures', () => {
+    const view = renderWithTheme(
+      <TaskConversationView
+        threads={[{ ...mainThread([]), loading: true, retrying: true }]}
+      />,
+    );
+    expect(
+      screen.getByText('Live updates unavailable. Retrying…'),
+    ).toBeInTheDocument();
+    view.rerender(
+      <MoltThemeProvider mode="light">
+        <TaskConversationView
+          threads={[
+            {
+              ...mainThread([committed(1, assistantText('Last known answer'))]),
+              error: true,
+            },
+          ]}
+        />
+      </MoltThemeProvider>,
+    );
+    expect(screen.getByText('Last known answer')).toBeInTheDocument();
+    expect(
+      screen.getByText('This conversation could not be loaded.'),
+    ).toBeInTheDocument();
+  });
+
   it('shows the conversation and moves operational events to their own tab', () => {
     const messages = [
       taskMessage(0, 'tool_call_start', { tool_name: 'read_file' }),

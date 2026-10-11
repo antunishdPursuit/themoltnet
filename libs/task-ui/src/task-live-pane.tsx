@@ -8,7 +8,7 @@ import {
 } from 'react';
 
 import {
-  hasConversationContent,
+  hasConversationView,
   operationalTaskMessages,
   type TaskConversationThread,
 } from './conversation.js';
@@ -33,6 +33,9 @@ export interface TaskLivePaneProps {
    * transcript.
    */
   conversation?: TaskConversationThread[];
+  conversationLoading?: boolean;
+  conversationError?: string;
+  onRetryConversation?: () => void;
   /** Docs URL surfaced in the empty turn-stream state (run an agent daemon). */
   learnMoreHref?: string;
   /** Deselects or hides the pane in the parent view. */
@@ -48,6 +51,9 @@ export function TaskLivePane({
   attempt,
   messages,
   conversation,
+  conversationLoading,
+  conversationError,
+  onRetryConversation,
   learnMoreHref,
   onClose,
   defaultCollapsed = false,
@@ -60,7 +66,10 @@ export function TaskLivePane({
   const taskTitle = task.title || humanizeToken(task.taskType);
   const isDialog = presentation === 'dialog';
   const idPrefix = useId();
-  const durable = hasConversationContent(conversation);
+  const durable =
+    hasConversationView(conversation) ||
+    conversationLoading ||
+    !!conversationError;
   const events = durable ? operationalTaskMessages(messages) : [];
   const errorCount = events.filter((m) => m.kind === 'error').length;
   const tabs: { id: PaneTab; label: string }[] = [
@@ -241,7 +250,14 @@ export function TaskLivePane({
           >
             {activeTab === 'turns' ? (
               durable ? (
-                <TaskConversationView threads={conversation} live={live} />
+                <TaskConversationView
+                  key={`${task.id}/${attempt?.attemptN ?? 0}`}
+                  threads={conversation ?? []}
+                  live={live}
+                  loading={conversationLoading}
+                  error={conversationError}
+                  onRetry={onRetryConversation}
+                />
               ) : (
                 <TaskTurnStream
                   messages={messages}

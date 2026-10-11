@@ -7,7 +7,7 @@ import {
   useTheme,
   VisuallyHidden,
 } from '@themoltnet/design-system';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import {
   type ConversationBlock,
@@ -28,6 +28,9 @@ export interface TaskConversationViewProps {
   threads: TaskConversationThread[];
   /** When true, follows the latest line (live attempts). */
   live?: boolean;
+  loading?: boolean;
+  error?: string;
+  onRetry?: () => void;
 }
 
 function roleLabel(role: string): string {
@@ -228,7 +231,9 @@ function Thread({
   thread,
   live,
   theme,
+  onBeforeLoadOlder,
 }: {
+  onBeforeLoadOlder?: () => void;
   thread: TaskConversationThread;
   live: boolean;
   theme: Theme;
@@ -240,14 +245,7 @@ function Thread({
   const inherited = items.filter((item) => item.message.inherited);
   const own = items.filter((item) => !item.message.inherited);
 
-  if (thread.error && items.length === 0) {
-    return (
-      <Text variant="caption" color="muted">
-        This conversation could not be loaded.
-      </Text>
-    );
-  }
-  if (thread.loading && items.length === 0) {
+  if (thread.loading && !thread.retrying && items.length === 0) {
     return (
       <Text variant="caption" color="muted">
         Loading conversation…
@@ -257,12 +255,29 @@ function Thread({
 
   return (
     <Stack gap={3}>
+      {thread.error || thread.retrying ? (
+        <div role="status">
+          <Text variant="caption" color="muted">
+            {thread.error
+              ? 'This conversation could not be loaded.'
+              : 'Live updates unavailable. Retrying…'}
+          </Text>
+          {thread.onRetry ? (
+            <Button variant="ghost" size="sm" onClick={thread.onRetry}>
+              Retry conversation
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {thread.onLoadOlder ? (
         <div>
           <Button
             variant="ghost"
             size="sm"
-            onClick={thread.onLoadOlder}
+            onClick={() => {
+              onBeforeLoadOlder?.();
+              thread.onLoadOlder?.();
+            }}
             disabled={thread.loadingOlder}
           >
             {thread.loadingOlder ? 'Loading older messages…' : 'Load older'}
@@ -307,32 +322,97 @@ function liveStatus(thread: TaskConversationThread | undefined): string {
 export function TaskConversationView({
   threads,
   live = false,
+  loading,
+  error,
+  onRetry,
 }: TaskConversationViewProps) {
   const theme = useTheme();
   const endRef = useRef<HTMLDivElement>(null);
   const main = threads.find((thread) => thread.summary.kind === 'main');
   const subagents = threads.filter((thread) => thread !== main);
-  const lastMessage = main?.messages.at(-1);
-  const followKey = `${main?.messages.length ?? 0}:${
-    lastMessage ? JSON.stringify(lastMessage.message).length : 0
-  }`;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
+  const anchor = useRef<{ element: HTMLElement; top: number } | null>(null);
 
-  useEffect(() => {
-    if (live && typeof endRef.current?.scrollIntoView === 'function') {
-      endRef.current.scrollIntoView({ block: 'end' });
+  // The view lives either in the page or in a bounded task pane.
+  function scrollContainer(): HTMLElement | null {
+    let element = rootRef.current?.parentElement ?? null;
+    while (element) {
+      if (/(auto|scroll)/.test(getComputedStyle(element).overflowY))
+        return element;
+      element = element.parentElement;
     }
-  }, [live, followKey]);
+    return null;
+  }
+  useEffect(() => {
+    const container = scrollContainer();
+    const target = container ?? window;
+    const onScroll = () => {
+      const bottom =
+        container?.getBoundingClientRect().bottom ?? window.innerHeight;
+      const end = endRef.current?.getBoundingClientRect();
+      following.current = !!end && end.bottom <= bottom + 40 && end.bottom >= 0;
+    };
+    target.addEventListener('scroll', onScroll, { passive: true });
+    return () => target.removeEventListener('scroll', onScroll);
+  }, []);
+
+  function beforeLoadOlder() {
+    following.current = false;
+    const top = scrollContainer()?.getBoundingClientRect().top ?? 0;
+    const element = Array.from(
+      rootRef.current?.querySelectorAll<HTMLElement>(
+        '[data-conversation-message]',
+      ) ?? [],
+    ).find((element) => element.getBoundingClientRect().bottom > top);
+    if (element)
+      anchor.current = { element, top: element.getBoundingClientRect().top };
+  }
+  useLayoutEffect(() => {
+    if (anchor.current) {
+      const { element, top } = anchor.current;
+      const delta = element.getBoundingClientRect().top - top;
+      const container = scrollContainer();
+      if (delta) {
+        if (container) container.scrollTop += delta;
+        else window.scrollBy(0, delta);
+      }
+      if (!main?.loadingOlder) anchor.current = null;
+    } else if (live && following.current) {
+      endRef.current?.scrollIntoView?.({ block: 'end' });
+    }
+  }, [live, main?.messages, main?.loadingOlder]);
 
   return (
-    <div style={{ padding: theme.spacing[3] }}>
+    <div ref={rootRef} style={{ padding: theme.spacing[3] }}>
       {/* Snapshots replace the transcript about once a second; announcing
           them would flood assistive tech, so only the stream state is live. */}
       <VisuallyHidden role="status">{liveStatus(main)}</VisuallyHidden>
       <Stack gap={4}>
-        {main ? <Thread thread={main} live={live} theme={theme} /> : null}
+        {error ? (
+          <div role="status">
+            <Text color="muted">{error}</Text>
+            {onRetry ? (
+              <Button variant="ghost" size="sm" onClick={onRetry}>
+                Retry conversations
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        {loading ? <Text color="muted">Loading conversations…</Text> : null}
+        {main ? (
+          <Thread
+            thread={main}
+            live={live}
+            theme={theme}
+            onBeforeLoadOlder={beforeLoadOlder}
+          />
+        ) : null}
+        <div ref={endRef} />
         {subagents.map((thread) => (
           <Disclosure
             key={thread.summary.conversationId}
+            onOpenChange={thread.onExpandedChange}
             summary={`Subagent conversation ${thread.summary.conversationId}`}
             hint={`${thread.messages.length} ${
               thread.messages.length === 1 ? 'message' : 'messages'
@@ -342,7 +422,6 @@ export function TaskConversationView({
           </Disclosure>
         ))}
       </Stack>
-      <div ref={endRef} />
     </div>
   );
 }

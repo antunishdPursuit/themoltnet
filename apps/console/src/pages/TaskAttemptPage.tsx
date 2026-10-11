@@ -10,7 +10,7 @@ import {
   CreateTaskDialog,
   type CreateTaskRequest,
   formatRelativeAge,
-  hasConversationContent,
+  hasConversationView,
   operationalTaskMessages,
   TaskActionPanel,
   TaskAttemptDetail,
@@ -197,7 +197,7 @@ export function TaskAttemptPage({
       >
         <Stack gap={5}>
           <TaskAttemptDetail attempt={attempt} />
-          {hasConversationContent(conversations.threads) ? (
+          {hasConversationView(conversations.threads) ? (
             <>
               <Card variant="surface" padding="md">
                 <Stack gap={3}>

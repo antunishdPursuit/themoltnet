@@ -25,6 +25,9 @@ export interface TaskConversationThread {
   /** True until the first snapshot for this conversation arrives. */
   loading?: boolean;
   error?: boolean;
+  retrying?: boolean;
+  onRetry?: () => void;
+  onExpandedChange?: (expanded: boolean) => void;
   /** Present when older entries exist beyond the loaded window. */
   onLoadOlder?: () => void;
   loadingOlder?: boolean;
@@ -168,13 +171,17 @@ export function operationalTaskMessages(
 
 /**
  * Whether the Durable conversation should replace the task-message transcript.
- * Decided by content, not by executor flag: pre-Durable attempts have no
- * conversation and keep rendering their recorded `text_delta` messages.
+ * Loading and failed reads stay visible instead of looking like legacy data.
+ * Attempts with no Durable content keep their recorded `text_delta` messages.
  */
-export function hasConversationContent(
+export function hasConversationView(
   threads: TaskConversationThread[] | undefined,
 ): threads is TaskConversationThread[] {
-  return Boolean(threads?.some((thread) => thread.messages.length > 0));
+  return Boolean(
+    threads?.some(
+      (thread) => thread.messages.length > 0 || thread.loading || thread.error,
+    ),
+  );
 }
 
 /** Orders committed messages by entry, keeping the partial response last. */

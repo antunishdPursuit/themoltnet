@@ -12,7 +12,7 @@ export {
   compareConversationMessages,
   type ConversationBlock,
   type ConversationItem,
-  hasConversationContent,
+  hasConversationView,
   operationalTaskMessages,
   type TaskConversationMessage,
   type TaskConversationSummary,
