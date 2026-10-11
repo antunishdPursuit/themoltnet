@@ -18,26 +18,18 @@ import {
 } from '@earendil-works/pi-durable';
 import {
   appendRuntimeStoreCommit,
-  claimTask,
   type Client,
   createClient,
-  createRuntimeProfile,
-  createTask,
   getRuntimeStoreForAttempt,
   getTaskConversation,
   listTaskConversations,
   mintRuntimeStoreId,
   openRuntimeStore,
-  registerExecutorManifest,
   releaseRuntimeStore,
 } from '@moltnet/api-client';
-import {
-  buildExecutorRegistrationAttestationPayload,
-  computeExecutorManifestCid,
-  signExecutorAttestation,
-} from '@moltnet/crypto-service';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { claimPinnedAttempt, type PinnedClaim } from './durable-claims.js';
 import { createAgent, type TestAgent } from './helpers.js';
 import { createTestHarness, type TestHarness } from './setup.js';
 
@@ -79,100 +71,11 @@ describe('Task conversations API', () => {
 
   const team = () => ({ 'x-moltnet-team-id': owner.personalTeamId });
 
-  /** A claim pinned to a runtime profile carries the lease a store requires. */
-  async function claimPinnedAttempt() {
-    const { data: profile, error: profileError } = await createRuntimeProfile({
-      client,
-      auth: () => owner.accessToken,
-      headers: team(),
-      body: {
-        name: `conversations-${randomUUID()}`,
-        models: {
-          generation: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
-        },
-        sandbox: {
-          hostExec: { autoApprove: false },
-          resources: { cpus: 2, memory: '2G' },
-        },
-      },
-    });
-    expect(profileError).toBeUndefined();
-
-    const { data: task, error: taskError } = await createTask({
-      client,
-      auth: () => owner.accessToken,
-      headers: team(),
-      body: {
-        taskType: 'fulfill_brief',
-        title: 'durable conversation read',
-        diaryId: owner.privateDiaryId,
-        allowedProfiles: [{ profileId: profile!.id }],
-        input: { brief: 'durable conversation read' },
-      },
-    });
-    expect(taskError).toBeUndefined();
-
-    const manifest = {
-      schemaVersion: 'moltnet:executor-manifest:v1',
-      runtime: {
-        kind: profile!.runtimeKind,
-        engine: 'pi',
-        sandbox: 'gondolin',
-        id: 'task-conversations-e2e',
-        version: '1',
-      },
-      profile: { id: profile!.id, definitionCid: profile!.definitionCid },
-      vm: {
-        templateId: 'task-conversations-e2e',
-        templateVersion: '1',
-        templateFingerprint: 'bafyreie2e-template',
-        guestAssetBuildId: 'task-conversations-e2e',
-      },
-      tools: [],
-      extensions: [],
-      executables: [],
-    };
-    const executorFingerprint = computeExecutorManifestCid(manifest);
-    const registration = await registerExecutorManifest({
-      client,
-      auth: () => owner.accessToken,
-      body: {
-        executorManifest: manifest,
-        executorFingerprint,
-        executorSignature: await signExecutorAttestation(
-          buildExecutorRegistrationAttestationPayload({ executorFingerprint }),
-          owner.keyPair.privateKey,
-        ),
-      },
-    });
-    expect(registration.error).toBeUndefined();
-
-    const claim = await claimTask({
-      client,
-      auth: () => owner.accessToken,
-      headers: team(),
-      path: { id: task!.id },
-      body: {
-        leaseTtlSec: 120,
-        profileId: profile!.id,
-        executorFingerprint,
-      },
-    });
-    expect(claim.error).toBeUndefined();
-    const { attemptN, leaseId } = claim.data!.attempt;
-    expect(leaseId).toBeTruthy();
-    return {
-      taskId: task!.id,
-      attemptN,
-      leaseId: leaseId!,
-      executorFingerprint,
-    };
-  }
+  const claimPinned = () =>
+    claimPinnedAttempt(client, owner, 'task-conversations');
 
   /** Pi's MemoryStorage produces the writes; every commit lands through the API. */
-  async function writeConversation(
-    authority: Awaited<ReturnType<typeof claimPinnedAttempt>>,
-  ) {
+  async function writeConversation(authority: PinnedClaim) {
     const opened = await openRuntimeStore({
       client,
       auth: () => owner.accessToken,
@@ -251,7 +154,7 @@ describe('Task conversations API', () => {
   }
 
   it('reads a persisted Durable conversation for the attempt', async () => {
-    const authority = await claimPinnedAttempt();
+    const authority = await claimPinned();
     const { storeId, writer, head } = await writeConversation(authority);
     const path = { id: authority.taskId, n: authority.attemptN };
 
@@ -326,7 +229,7 @@ describe('Task conversations API', () => {
   });
 
   it('returns not found for an unknown conversation', async () => {
-    const authority = await claimPinnedAttempt();
+    const authority = await claimPinned();
     await writeConversation(authority);
 
     const read = await getTaskConversation({
@@ -343,7 +246,7 @@ describe('Task conversations API', () => {
   });
 
   it('hides conversations from agents outside the task team', async () => {
-    const authority = await claimPinnedAttempt();
+    const authority = await claimPinned();
     await writeConversation(authority);
     const path = { id: authority.taskId, n: authority.attemptN };
 
@@ -373,7 +276,7 @@ describe('Task conversations API', () => {
   });
 
   it('requires team context', async () => {
-    const authority = await claimPinnedAttempt();
+    const authority = await claimPinned();
     const listed = await listTaskConversations({
       client,
       auth: () => owner.accessToken,
