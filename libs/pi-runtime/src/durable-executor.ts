@@ -43,6 +43,8 @@ import {
 } from '@themoltnet/agent-runtime';
 import { Value } from 'typebox/value';
 
+import { classifyProviderFailure } from './runtime/provider-error-classification.js';
+import { redactRetryTriageSecrets } from './runtime/retry-triage.js';
 import { SubagentToolParameters } from './runtime/subagent-tool.js';
 import {
   formatValidationErrors,
@@ -641,7 +643,7 @@ export function createDurableTaskExecutor(options: {
         },
         context,
       );
-      await submission.wait(context);
+      const settlement = await submission.wait(context);
       connected.check();
       state = await harness.snapshot(Attempts, key, context);
       const total = totals(await harness.usage(context));
@@ -669,6 +671,22 @@ export function createDurableTaskExecutor(options: {
         : [];
       const maxTurnsExceeded =
         turnLimit !== undefined && (state?.turns ?? 0) >= turnLimit;
+      const providerMessage =
+        settlement.status === 'unanswered' &&
+        settlement.reason === 'model_error'
+          ? typeof settlement.detail === 'string'
+            ? settlement.detail
+            : 'Model generation failed'
+          : null;
+      const providerVerdict = classifyProviderFailure(providerMessage);
+      const providerFailure =
+        providerMessage === null
+          ? null
+          : {
+              code: providerVerdict.code,
+              retryable: providerVerdict.retryable,
+              message: redactRetryTriageSecrets(providerMessage).slice(0, 4000),
+            };
       const result: TaskOutput =
         output && !errors.length
           ? {
@@ -686,19 +704,22 @@ export function createDurableTaskExecutor(options: {
               outputCid: null,
               usage,
               durationMs,
-              error: {
-                code: output
-                  ? 'output_validation_failed'
-                  : maxTurnsExceeded
-                    ? 'max_turns_exceeded'
-                    : 'submit_output_missing',
-                message: output
-                  ? JSON.stringify(errors.slice(0, 3))
-                  : maxTurnsExceeded
-                    ? 'Durable task exceeded maxTurns without valid output'
-                    : 'No valid output was submitted',
-                retryable: false,
-              },
+              error:
+                !output && providerFailure
+                  ? providerFailure
+                  : {
+                      code: output
+                        ? 'output_validation_failed'
+                        : maxTurnsExceeded
+                          ? 'max_turns_exceeded'
+                          : 'submit_output_missing',
+                      message: output
+                        ? JSON.stringify(errors.slice(0, 3))
+                        : maxTurnsExceeded
+                          ? 'Durable task exceeded maxTurns without valid output'
+                          : 'No valid output was submitted',
+                      retryable: false,
+                    },
             };
       await harness.commit(async (tx) => {
         (await tx.doc(Attempts, key, seed)).result = JSON.parse(
