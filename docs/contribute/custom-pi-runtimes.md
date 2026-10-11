@@ -129,13 +129,13 @@ configuration. Pi resolves the selected provider's credentials for
 create a separate provider identity. Keep the coding runtime's primary model a
 chat model.
 
-Set the runtime profile's optional `classifier` to
+Set the runtime profile's optional `models.classification` to
 `{ "provider": "team", "model": "decisions" }`. The same Pi runtime then handles
 standalone `classify` tasks without starting a coding VM and exposes a
 `classify` tool within coding tasks. Include `classify` in an enforced tool
-policy to make it available. Omit the selector or set it to `null` to disable
-this capability. The profile's primary `provider` and `model` continue to select
-the chat model.
+policy to make it available. Omit `models.classification` to disable this
+capability. Configure the chat model independently through `models.generation`,
+also with `provider` and `model` fields.
 
 In the daemon provider configuration, declare the classifier model with
 `{ "id": "decisions", "type": "classifier", "api": "typesafe-system-one" }`. Set
