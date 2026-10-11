@@ -102,6 +102,38 @@ const submitted = () =>
   );
 
 describe('Durable task integration', () => {
+  it.each([
+    ['503 Service unavailable', 'llm_api_error', true],
+    ['401 Unauthorized', 'llm_auth_error', false],
+    ['400 Unsupported parameter: temperature', 'llm_request_rejected', false],
+  ])(
+    'preserves the terminal provider verdict for %s',
+    async (message, code, retryable) => {
+      vi.useFakeTimers();
+      try {
+        const { faux, execute } = setup();
+        faux.setResponses(
+          Array.from({ length: 20 }, () =>
+            fauxAssistantMessage('', {
+              stopReason: 'error',
+              errorMessage: message,
+            }),
+          ),
+        );
+        const pending = execute(task(), reporter());
+        await vi.runAllTimersAsync();
+        const result = await pending;
+        expect(result.error).toMatchObject({ code, retryable, message });
+        const calls = faux.state.callCount;
+        if (retryable) expect(calls).toBeGreaterThan(1);
+        expect(await execute(task(), reporter())).toEqual(result);
+        expect(faux.state.callCount).toBe(calls);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it('includes submission schema and finality guidance in the model prompt', async () => {
     const { faux, execute } = setup();
     let prompt = '';

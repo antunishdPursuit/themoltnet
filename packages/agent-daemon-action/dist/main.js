@@ -24920,9 +24920,9 @@ function computeDelay(attempt, baseDelay, maxDelay, jitter, response) {
 	const retryAfter = response?.headers.get("Retry-After");
 	if (retryAfter) {
 		const seconds = Number(retryAfter);
-		if (!Number.isNaN(seconds)) return Math.min(seconds * 1e3, maxDelay);
+		if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1e3, 2147483647);
 		const date = Date.parse(retryAfter);
-		if (!Number.isNaN(date)) return Math.min(Math.max(date - Date.now(), 0), maxDelay);
+		if (!Number.isNaN(date)) return Math.min(Math.max(date - Date.now(), 0), 2147483647);
 	}
 	const exponential = baseDelay * 2 ** attempt;
 	const jitterMs = jitter ? Math.random() * baseDelay : 0;
@@ -34456,6 +34456,23 @@ function createRuntimeSessionsNamespace(context) {
 		signal: options.signal,
 		headers: requiredTeamHeaders(options)
 	});
+	const retryRequest = (options) => ({
+		...request(options),
+		fetch: createRetryFetch$1({
+			baseFetch: client.getConfig().fetch ?? globalThis.fetch,
+			retryMethods: ["GET", "POST"],
+			retryStatuses: [
+				408,
+				500,
+				502,
+				503,
+				504
+			],
+			maxRetries: 3,
+			baseDelay: 250,
+			maxDelay: 1e3
+		})
+	});
 	return {
 		async getDurableForAttempt(taskId, attemptN, options) {
 			return unwrapResult(await getRuntimeStoreForAttempt({
@@ -34474,7 +34491,7 @@ function createRuntimeSessionsNamespace(context) {
 		},
 		async renew(storeId, body, options) {
 			return unwrapResult(await renewRuntimeStore({
-				...request(options),
+				...retryRequest(options),
 				path: { storeId },
 				body
 			}));
@@ -34496,14 +34513,14 @@ function createRuntimeSessionsNamespace(context) {
 		},
 		async append(storeId, body, options) {
 			return unwrapResult(await appendRuntimeStoreCommit({
-				...request(options),
+				...retryRequest(options),
 				path: { storeId },
 				body
 			}));
 		},
 		async read(storeId, afterSeq, options) {
 			const body = unwrapResult(await client.request({
-				...request(options),
+				...retryRequest(options),
 				method: "GET",
 				parseAs: "stream",
 				security: [{
