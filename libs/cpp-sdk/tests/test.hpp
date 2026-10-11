@@ -35,3 +35,5 @@ void test_client_builds_task_query_and_team_header();
 void test_client_builds_full_task_query_filters();
 void test_client_downloads_task_artifact_content();
 void test_c_api_smoke();
+void test_agent_key_auth();
+void test_c_api_agent_key();

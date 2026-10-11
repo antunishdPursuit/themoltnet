@@ -51,6 +51,13 @@ moltnet_raw_response_t fail_text(const std::string& error) {
 moltnet_client_t* moltnet_client_create(const moltnet_config_t* config,
                                         moltnet_transport_fn transport,
                                         void* user_data) {
+  return moltnet_client_create_with_agent_key(config, nullptr, transport,
+                                               user_data);
+}
+
+moltnet_client_t* moltnet_client_create_with_agent_key(
+    const moltnet_config_t* config, const char* agent_key,
+    moltnet_transport_fn transport, void* user_data) {
   if (transport == nullptr) return nullptr;
 
   auto cpp_transport = [transport, user_data](const moltnet::HttpRequest& request) {
@@ -81,7 +88,9 @@ moltnet_client_t* moltnet_client_create(const moltnet_config_t* config,
   };
 
   try {
-    return new moltnet_client(to_config(config), cpp_transport);
+    auto cpp_config = to_config(config);
+    if (agent_key != nullptr) cpp_config.agent_key = agent_key;
+    return new moltnet_client(std::move(cpp_config), cpp_transport);
   } catch (...) {
     return nullptr;
   }

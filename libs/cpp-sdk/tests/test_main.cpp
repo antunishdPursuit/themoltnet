@@ -12,6 +12,8 @@ int main() {
       {"client full task query filters", test_client_builds_full_task_query_filters},
       {"client task artifact content download", test_client_downloads_task_artifact_content},
       {"c api smoke", test_c_api_smoke},
+      {"agent key auth and team binding", test_agent_key_auth},
+      {"c api agent key constructor", test_c_api_agent_key},
   };
 
   int failed = 0;

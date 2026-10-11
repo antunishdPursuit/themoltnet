@@ -119,3 +119,33 @@ void test_c_api_smoke() {
 
   moltnet_client_destroy(client);
 }
+
+void test_c_api_agent_key() {
+  moltnet_config_t config{"https://api.example.test", nullptr, nullptr, "team-1"};
+  int calls = 0;
+  auto transport = [](const moltnet_http_request_t* request,
+                      moltnet_http_response_t* response, void* data) -> int {
+    ++*static_cast<int*>(data);
+    ASSERT_TRUE(std::string(request->url) == "https://api.example.test/tasks?limit=1");
+    bool auth = false, team = false;
+    for (int i = 0; i < request->header_count; ++i) {
+      const auto& header = request->headers[i];
+      if (std::string(header.name) == "authorization")
+        auth = std::string(header.value) == "Bearer key-secret";
+      if (std::string(header.name) == "x-moltnet-team-id")
+        team = std::string(header.value) == "team-1";
+    }
+    ASSERT_TRUE(auth && team);
+    response->status = 401;
+    response->body = "{}";
+    return 0;
+  };
+  auto* client = moltnet_client_create_with_agent_key(
+      &config, "key-secret", transport, &calls);
+  ASSERT_TRUE(client != nullptr);
+  auto response = moltnet_list_tasks(client, nullptr, 1);
+  ASSERT_EQ(response.status, 401);
+  ASSERT_EQ(calls, 1);
+  moltnet_raw_response_free(&response);
+  moltnet_client_destroy(client);
+}

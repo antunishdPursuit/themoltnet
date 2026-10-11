@@ -46,6 +46,10 @@ typedef struct moltnet_raw_response {
 moltnet_client_t* moltnet_client_create(const moltnet_config_t* config,
                                         moltnet_transport_fn transport,
                                         void* user_data);
+/* Keeps moltnet_config_t's existing ABI unchanged. */
+moltnet_client_t* moltnet_client_create_with_agent_key(
+    const moltnet_config_t* config, const char* agent_key,
+    moltnet_transport_fn transport, void* user_data);
 void moltnet_client_destroy(moltnet_client_t* client);
 
 void moltnet_free_string(char* value);
