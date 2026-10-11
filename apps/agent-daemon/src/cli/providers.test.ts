@@ -70,6 +70,24 @@ async function fixture(
 }
 
 describe('moltnet-agent providers', () => {
+  it('sets an explicit developer role capability', async () => {
+    const test = await fixture();
+    expect(
+      await runProviders(
+        [
+          'set',
+          'local',
+          '--base-url',
+          'http://localhost:11434/v1',
+          '--supports-developer-role',
+          'false',
+        ],
+        test.dependencies,
+      ),
+    ).toBe(0);
+    expect(test.configuration.list().local?.supportsDeveloperRole).toBe(false);
+  });
+
   it('stores explicit reasoning metadata and shows it in JSON output', async () => {
     const test = await fixture();
     expect(

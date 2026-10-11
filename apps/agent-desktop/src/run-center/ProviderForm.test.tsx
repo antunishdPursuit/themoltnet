@@ -51,6 +51,7 @@ describe('Desktop provider creation', () => {
       baseUrl: LOCAL.baseUrl,
       envName: LOCAL.envName,
       models: [],
+      supportsDeveloperRole: false,
     });
     expect(discoverModels).toHaveBeenCalledWith('ollama');
     fireEvent.click(
@@ -62,6 +63,7 @@ describe('Desktop provider creation', () => {
       baseUrl: LOCAL.baseUrl,
       envName: LOCAL.envName,
       models: [{ id: 'vision', input: ['text', 'image'] }],
+      supportsDeveloperRole: false,
     });
   });
 
@@ -171,6 +173,29 @@ describe('Desktop provider creation', () => {
       target: { value: 'custom' },
     });
     expect(screen.getByLabelText('API key (optional)')).toHaveValue('');
+  });
+
+  it('lets a custom endpoint use the developer role even on Ollama port', async () => {
+    const { putProvider } = setup();
+    fireEvent.change(screen.getByLabelText('Provider type'), {
+      target: { value: 'custom' },
+    });
+    fireEvent.change(screen.getByLabelText('Provider ID'), {
+      target: { value: 'proxy' },
+    });
+    fireEvent.change(screen.getByLabelText('Base URL'), {
+      target: { value: 'http://localhost:11434/v1' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Save connection and discover models',
+      }),
+    );
+    await waitFor(() => expect(putProvider).toHaveBeenCalled());
+    expect(putProvider).toHaveBeenCalledWith(
+      'proxy',
+      expect.objectContaining({ supportsDeveloperRole: true }),
+    );
   });
 
   it('prevents the add form from overwriting an existing provider', () => {

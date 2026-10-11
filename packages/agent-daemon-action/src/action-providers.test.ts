@@ -166,6 +166,29 @@ afterEach(() => {
 });
 
 describe('providers input', () => {
+  it('forwards an explicit instruction role setting to the daemon', () => {
+    const result = runProviders({
+      PROVIDERS:
+        'id=local base-url=http://localhost:11434/v1 supports-developer-role=false',
+      FAKE_ID: 'local',
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(argv()).toContain(
+      `providers set local --base-url http://localhost:11434/v1 --api openai-completions --root ${store} --supports-developer-role false --clear-api-key`,
+    );
+  });
+
+  it('rejects an invalid instruction role setting', () => {
+    const result = runProviders({
+      PROVIDERS:
+        'id=local base-url=http://localhost:11434/v1 supports-developer-role=maybe',
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      'supports-developer-role must be true or false',
+    );
+  });
+
   it('is optional and empty by default', () => {
     expect(action.inputs.providers).toMatchObject({ default: '' });
   });
@@ -209,6 +232,7 @@ describe('workflow Pi catalog', () => {
       FAKE_CURRENT: JSON.stringify({
         api: 'openai-completions',
         baseUrl: 'https://ollama.com/v1',
+        supportsDeveloperRole: false,
         models: [
           {
             id: 'gpt-oss:120b',
@@ -269,11 +293,11 @@ describe('workflow Pi catalog', () => {
     expect(
       JSON.parse(readFileSync(resolve(dir, 'models.json'), 'utf8')).providers
         .local,
-    ).toMatchObject({ compat: { supportsDeveloperRole: false } });
+    ).not.toHaveProperty('apiKey');
     expect(
       JSON.parse(readFileSync(resolve(dir, 'models.json'), 'utf8')).providers
         .local,
-    ).not.toHaveProperty('apiKey');
+    ).not.toHaveProperty('compat');
   });
 
   it('preserves the default message role for other OpenAI-compatible providers', () => {

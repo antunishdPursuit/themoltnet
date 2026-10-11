@@ -28,6 +28,7 @@ describe('writeStorePiConfig', () => {
       'ollama-cloud': {
         api: 'openai-completions',
         baseUrl: 'https://ollama.com/v1',
+        supportsDeveloperRole: false,
         envName: 'MOLTNET_PROVIDER_OLLAMA_CLOUD_API_KEY',
         apiKeyRef: 'file:providers/ollama-cloud/api-key',
         models: [

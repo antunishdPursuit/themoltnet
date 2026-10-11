@@ -30,6 +30,7 @@ export function writeStorePiConfig(
             ? { apiKeyEnvRef: `$${provider.envName}` }
             : {}),
           baseUrl: provider.baseUrl,
+          supportsDeveloperRole: provider.supportsDeveloperRole,
           models: provider.models,
         },
       ]),

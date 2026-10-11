@@ -270,6 +270,7 @@ function parseProviderArgs(command: string | undefined, args: string[]) {
           ...common,
           'base-url': { type: 'string' },
           api: { type: 'string' },
+          'supports-developer-role': { type: 'string' },
           model: { type: 'string', multiple: true },
           'model-input': { type: 'string', multiple: true },
           'model-reasoning': { type: 'string', multiple: true },
@@ -312,12 +313,25 @@ function parseProviderArgs(command: string | undefined, args: string[]) {
           '--api-key-stdin and --clear-api-key cannot be used together',
         );
       }
+      const developerRole = values['supports-developer-role'];
+      if (
+        developerRole !== undefined &&
+        developerRole !== 'true' &&
+        developerRole !== 'false'
+      ) {
+        throw new ProviderCliError(
+          'invalid_arguments',
+          '--supports-developer-role expects true or false',
+        );
+      }
       return {
         command,
         root: values.root,
         providerId: positionals[0],
         baseUrl: values['base-url'],
         api: values.api,
+        supportsDeveloperRole:
+          developerRole === undefined ? undefined : developerRole === 'true',
         models: values['clear-models']
           ? []
           : parseModelArgs(
@@ -511,6 +525,7 @@ async function setProvider(
     clearApiKey: boolean;
     baseUrl?: string;
     api?: string;
+    supportsDeveloperRole?: boolean;
     models?: ProviderModelEntry[];
     patchModels?: boolean;
     strictModeIds?: string[];
@@ -545,6 +560,9 @@ async function setProvider(
     {
       ...(parsed.baseUrl ? { baseUrl: parsed.baseUrl } : {}),
       ...(parsed.api ? { api: parsed.api } : {}),
+      ...(parsed.supportsDeveloperRole !== undefined
+        ? { supportsDeveloperRole: parsed.supportsDeveloperRole }
+        : {}),
       ...(models ? { models } : {}),
       ...(apiKey ? { apiKey } : {}),
       ...(parsed.clearApiKey ? { clearApiKey: true } : {}),

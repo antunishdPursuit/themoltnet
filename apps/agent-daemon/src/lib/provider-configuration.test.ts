@@ -79,6 +79,21 @@ function discoveryFetch(routes: {
 }
 
 describe('ProviderConfigurationService', () => {
+  it('stores and preserves an explicit developer role capability', async () => {
+    const { service } = fixture();
+    await service.set('local', {
+      baseUrl: 'http://localhost:11434/v1',
+      supportsDeveloperRole: false,
+    });
+    expect(service.list().local?.supportsDeveloperRole).toBe(false);
+
+    await service.set('local', { models: [{ id: 'llama3.2' }] });
+    expect(service.list().local?.supportsDeveloperRole).toBe(false);
+
+    await service.set('local', { supportsDeveloperRole: true });
+    expect(service.list().local?.supportsDeveloperRole).toBe(true);
+  });
+
   it.each([
     { providerId: 'ollama', baseUrl: 'http://localhost:11434/v1' },
     { providerId: 'ollama-cloud', baseUrl: 'https://ollama.com/v1' },

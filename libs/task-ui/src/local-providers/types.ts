@@ -7,6 +7,7 @@ export interface ProviderActions {
     config: {
       api: string;
       baseUrl: string;
+      supportsDeveloperRole?: boolean;
       envName: string;
       models: AgentServerProvider['models'];
       /** Write-only: the server never echoes it back. */

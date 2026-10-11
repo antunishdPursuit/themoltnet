@@ -246,6 +246,7 @@ moltnet-agent providers — manage local model providers.
 Usage:
   moltnet-agent providers list [--json] [--root <path>]
   moltnet-agent providers set <id> [--base-url <url>] [--api <pi-api-kind>]
+    [--supports-developer-role true|false]
     [--model <id> ... | --clear-models]
     [--model-input <id>=text,image ...]
     [--model-reasoning <id> ...]

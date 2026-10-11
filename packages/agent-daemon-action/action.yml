@@ -108,7 +108,8 @@ inputs:
     description: >
       Model providers to configure in the daemon's provider store, one per
       line, as `key=value` tokens: `id=<id> base-url=<url> key-env=<VAR>`
-      and optionally `api=<pi-api-kind>` (default `openai-completions`).
+      and optionally `api=<pi-api-kind>` (default `openai-completions`)
+      and `supports-developer-role=true|false` (Pi's default is true).
       `key-env` names the environment variable holding the provider's API
       key and must end in `_API_KEY`; omit it for a keyless provider. A key is
       sent only over https, or http to this machine (localhost, 127.x,
@@ -1005,21 +1006,26 @@ runs:
         while IFS= read -r line || [ -n "$line" ]; do
           line="${line%$'\r'}"
           case "$line" in ''|'#'*) continue ;; esac
-          id='' base_url='' key_env='' api='openai-completions'
+          id='' base_url='' key_env='' api='openai-completions' developer_role='' developer_role_set=false
           for token in $line; do
             case "$token" in
               id=*) id="${token#id=}" ;;
               base-url=*) base_url="${token#base-url=}" ;;
               key-env=*) key_env="${token#key-env=}" ;;
               api=*) api="${token#api=}" ;;
+              supports-developer-role=*) developer_role="${token#supports-developer-role=}"; developer_role_set=true ;;
               *)
-                echo "::error::unknown providers token '$token'; use id=, base-url=, key-env=, api=" >&2
+                echo "::error::unknown providers token '$token'; use id=, base-url=, key-env=, api=, supports-developer-role=" >&2
                 exit 1
                 ;;
             esac
           done
           if [ -z "$id" ] || [ -z "$base_url" ]; then
             echo "::error::providers line needs id= and base-url=: $line" >&2
+            exit 1
+          fi
+          if [ "$developer_role_set" = true ] && [ "$developer_role" != true ] && [ "$developer_role" != false ]; then
+            echo "::error::provider '$id' supports-developer-role must be true or false" >&2
             exit 1
           fi
           # Credentials in a URL would be logged and sent everywhere.
@@ -1075,13 +1081,17 @@ runs:
             if [ -n "$current" ]; then
               if [ "$(jq -r '.hasApiKey' <<< "$current")" = true ] ||
                 [ "$(jq -r '.baseUrl | rtrimstr("/")' <<< "$current")" != "${base_url%/}" ] ||
-                [ "$(jq -r '.api' <<< "$current")" != "$api" ]; then
+                [ "$(jq -r '.api' <<< "$current")" != "$api" ] ||
+                { [ -n "$developer_role" ] && [ "$(jq -r 'if has("supportsDeveloperRole") then (.supportsDeveloperRole | tostring) else "" end' <<< "$current")" != "$developer_role" ]; }; then
                 echo "::error::provider '$id' is already configured differently in the persistent store $STORE; the action does not change an operator's provider: remove it there, rename it here, or give the job its own MOLTNET_HOME" >&2
                 exit 1
               fi
             fi
           fi
           args=(providers set "$id" --base-url "$base_url" --api "$api" --root "$STORE")
+          if [ -n "$developer_role" ]; then
+            args+=(--supports-developer-role "$developer_role")
+          fi
           if [ -z "$key" ]; then
             # Clear any key a restored store still references, so discovery
             # never sends a key this input did not name.
@@ -1156,14 +1166,13 @@ runs:
           }));
           const provider = configured[fields.id];
           if (!provider?.models?.length) throw new Error(`Provider ${fields.id} has no discovered models`);
-          const url = new URL(provider.baseUrl);
-          const isOllamaChat = provider.api === 'openai-completions' &&
-            (url.hostname === 'ollama.com' || url.port === '11434');
           providers[fields.id] = {
             api: provider.api,
             baseUrl: provider.baseUrl,
             ...(fields['key-env'] ? { apiKey: `$${fields['key-env']}` } : {}),
-            ...(isOllamaChat ? { compat: { supportsDeveloperRole: false } } : {}),
+            ...(provider.supportsDeveloperRole !== undefined
+              ? { compat: { supportsDeveloperRole: provider.supportsDeveloperRole } }
+              : {}),
             models: provider.models.map(({ supportsStrictMode, ...model }) => ({
               ...model,
               ...(supportsStrictMode !== undefined ? { compat: { supportsStrictMode } } : {}),
