@@ -45,9 +45,9 @@ function computeDelay(attempt, baseDelay, maxDelay, jitter, response) {
 	const retryAfter = response?.headers.get("Retry-After");
 	if (retryAfter) {
 		const seconds = Number(retryAfter);
-		if (!Number.isNaN(seconds)) return Math.min(seconds * 1e3, maxDelay);
+		if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1e3, 2147483647);
 		const date = Date.parse(retryAfter);
-		if (!Number.isNaN(date)) return Math.min(Math.max(date - Date.now(), 0), maxDelay);
+		if (!Number.isNaN(date)) return Math.min(Math.max(date - Date.now(), 0), 2147483647);
 	}
 	const exponential = baseDelay * 2 ** attempt;
 	const jitterMs = jitter ? Math.random() * baseDelay : 0;

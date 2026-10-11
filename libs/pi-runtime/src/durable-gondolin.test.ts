@@ -33,6 +33,7 @@ import {
   definePiBrokeredHttpSecret,
   definePiRuntime,
   definePiTool,
+  PiBrokeredHttpSecretResolutionError,
 } from './runtime-definition.js';
 
 vi.mock('./durable-transport.js', () => ({ acquireDurableTransport: vi.fn() }));
@@ -259,14 +260,30 @@ it('fails before VM resume when declared host capabilities lack identity', async
   expect(s.resumeVm).not.toHaveBeenCalled();
 });
 
-it('fails before VM resume if brokered credential resolution fails', async () => {
-  const s = setup(true);
-  s.resolve.mockRejectedValue(new Error('credential unavailable'));
-  await expect(
-    createGondolinDurableTaskExecutor(s.options)(s.claimed, s.reporter),
-  ).rejects.toThrow();
-  expect(s.resumeVm).not.toHaveBeenCalled();
-});
+it.each([true, false])(
+  'preserves credential failure retryability (%s) before VM resume',
+  async (retryable) => {
+    const s = setup(true);
+    s.resolve.mockRejectedValue(
+      new PiBrokeredHttpSecretResolutionError(
+        'test-http',
+        'credential unavailable',
+        retryable,
+      ),
+    );
+    await expect(
+      createGondolinDurableTaskExecutor(s.options)(s.claimed, s.reporter),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      error: {
+        code: 'credential_resolution_failed',
+        message: 'credential unavailable',
+        retryable,
+      },
+    });
+    expect(s.resumeVm).not.toHaveBeenCalled();
+  },
+);
 
 it('stops services and closes the VM even when credential revocation fails', async () => {
   const s = setup(true);

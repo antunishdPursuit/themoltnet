@@ -63,6 +63,7 @@ import { prepareTaskWorkspace } from './runtime/task-workspace.js';
 import {
   filterModelVisibleTools,
   materializePiTools,
+  PiBrokeredHttpSecretResolutionError,
 } from './runtime-definition.js';
 import {
   createGondolinToolLifecycle,
@@ -148,6 +149,7 @@ export function createGondolinDurableTaskExecutor(
     ...args: Parameters<ReturnType<typeof createDurableTaskExecutor>>
   ) => {
     const [claimedTask, reporter] = args;
+    const startedAt = Date.now();
     if (claimedTask.task.taskType === 'classify')
       return executeProfileClassificationTask(options.classifier, ...args);
     const template = options.template;
@@ -659,6 +661,26 @@ export function createGondolinDurableTaskExecutor(
         };
       },
     });
-    return execute(...args);
+    try {
+      return await execute(...args);
+    } catch (error) {
+      // Keep expected credential failures in the task failure contract. Lease
+      // loss and other interruptions still propagate for same-attempt recovery.
+      if (!(error instanceof PiBrokeredHttpSecretResolutionError)) throw error;
+      return {
+        taskId: claimedTask.task.id,
+        attemptN: claimedTask.attemptN,
+        status: 'failed' as const,
+        output: null,
+        outputCid: null,
+        usage: { inputTokens: 0, outputTokens: 0 },
+        durationMs: Date.now() - startedAt,
+        error: {
+          code: 'credential_resolution_failed',
+          message: error.message,
+          retryable: error.retryable,
+        },
+      };
+    }
   };
 }
