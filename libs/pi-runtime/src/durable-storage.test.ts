@@ -1,13 +1,21 @@
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
-import type { ConversationId, StorageWrite } from '@earendil-works/pi-durable';
+import {
+  type ConversationId,
+  MemoryStorage,
+  type StorageWrite,
+} from '@earendil-works/pi-durable';
 import {
   createExpectAssertions,
   createStorageConformance,
 } from '@earendil-works/pi-durable/testing';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { remoteLog } from '../__tests__/durable-log.js';
-import { ApiDurableStorage } from './durable-storage.js';
+import {
+  ApiDurableStorage,
+  type DurableStoreTransport,
+  type RuntimeCommit,
+} from './durable-storage.js';
 
 describe('API Durable storage conformance', () => {
   for (const test of createStorageConformance({
@@ -119,5 +127,113 @@ describe('remote commit recovery', () => {
     await expect(
       ApiDurableStorage.open(transport, BACKGROUND_CONTEXT),
     ).rejects.toThrow('truncated stream');
+  });
+});
+
+describe('remote log integrity', () => {
+  async function seeded() {
+    const log = remoteLog();
+    const storage = await ApiDurableStorage.open(
+      log.transport,
+      BACKGROUND_CONTEXT,
+    );
+    for (let n = 0; n < 2; n++) {
+      const id = await storage.mintId<ConversationId>();
+      await storage.commit(
+        [{ type: 'conversation', value: { id } }],
+        BACKGROUND_CONTEXT,
+      );
+    }
+    await storage.close(BACKGROUND_CONTEXT);
+    vi.mocked(log.transport.close).mockClear();
+    return log;
+  }
+  const serve = (
+    transport: DurableStoreTransport,
+    headSeq: number,
+    items: RuntimeCommit[],
+  ) => {
+    transport.read = async () => ({ headSeq, items });
+  };
+
+  it('rejects a sequence gap and releases the writer', async () => {
+    const { transport, commits } = await seeded();
+    serve(transport, 2, [commits[1]]);
+    await expect(
+      ApiDurableStorage.open(transport, BACKGROUND_CONTEXT),
+    ).rejects.toThrow('Corrupt runtime commit log');
+    expect(transport.close).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a commit whose writes do not match its digest', async () => {
+    const { transport, commits } = await seeded();
+    serve(transport, 1, [{ ...commits[0], writes: commits[1].writes }]);
+    await expect(
+      ApiDurableStorage.open(transport, BACKGROUND_CONTEXT),
+    ).rejects.toThrow('Corrupt runtime commit log');
+  });
+
+  it('rejects a page that makes no progress toward the head', async () => {
+    const { transport } = await seeded();
+    serve(transport, 2, []);
+    await expect(
+      ApiDurableStorage.open(transport, BACKGROUND_CONTEXT),
+    ).rejects.toThrow('Incomplete runtime commit log');
+  });
+
+  it('rejects commits beyond the advertised head', async () => {
+    const { transport, commits } = await seeded();
+    serve(transport, 1, commits);
+    await expect(
+      ApiDurableStorage.open(transport, BACKGROUND_CONTEXT),
+    ).rejects.toThrow('Incomplete runtime commit log');
+  });
+
+  it('poisons the store when the remote assigns another sequence', async () => {
+    const { transport } = remoteLog();
+    transport.append = async () => ({ seq: 7 });
+    const storage = await ApiDurableStorage.open(transport, BACKGROUND_CONTEXT);
+    const id = await storage.mintId<ConversationId>();
+    const writes: StorageWrite[] = [{ type: 'conversation', value: { id } }];
+    await expect(storage.commit(writes, BACKGROUND_CONTEXT)).rejects.toThrow(
+      'Runtime commit sequence mismatch',
+    );
+    expect(transport.onUncertainCommit).toHaveBeenCalledOnce();
+    await expect(storage.commit(writes, BACKGROUND_CONTEXT)).rejects.toThrow(
+      'reopened',
+    );
+    await storage.close(BACKGROUND_CONTEXT);
+  });
+
+  it('does not adopt a recovered commit whose digest differs', async () => {
+    const { transport, commits } = remoteLog();
+    const append = transport.append;
+    transport.append = async (input, context) => {
+      await append(input, context);
+      commits[0] = { ...commits[0], sha256: '0'.repeat(64) };
+      throw new Error('lost acknowledgment');
+    };
+    const storage = await ApiDurableStorage.open(transport, BACKGROUND_CONTEXT);
+    const id = await storage.mintId<ConversationId>();
+    await expect(
+      storage.commit(
+        [{ type: 'conversation', value: { id } }],
+        BACKGROUND_CONTEXT,
+      ),
+    ).rejects.toThrow('lost acknowledgment');
+    expect(transport.onUncertainCommit).toHaveBeenCalledOnce();
+    await storage.close(BACKGROUND_CONTEXT);
+  });
+
+  it('releases the writer when local teardown fails', async () => {
+    const { transport } = remoteLog();
+    const storage = await ApiDurableStorage.open(transport, BACKGROUND_CONTEXT);
+    vi.spyOn(MemoryStorage.prototype, 'close').mockRejectedValueOnce(
+      new Error('teardown failed'),
+    );
+    await expect(storage.close(BACKGROUND_CONTEXT)).rejects.toThrow(
+      'teardown failed',
+    );
+    expect(transport.close).toHaveBeenCalledOnce();
   });
 });

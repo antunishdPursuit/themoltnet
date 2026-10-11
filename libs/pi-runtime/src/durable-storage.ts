@@ -46,8 +46,8 @@ function digest(writes: readonly StorageWrite[]): string {
 }
 
 /**
- * Experimental log-backed storage. Remote commits are authoritative; the memory
- * index is rebuilt on open. Measure replay time/memory before production use.
+ * Log-backed storage. Remote commits are authoritative; `open` replays the whole
+ * log into the memory index, so open time and memory grow with store history.
  */
 export class ApiDurableStorage extends MemoryStorage {
   private head = 0;
@@ -137,8 +137,12 @@ export class ApiDurableStorage extends MemoryStorage {
   override async close(context: Context): Promise<void> {
     if (this.released) return;
     this.released = true;
-    await super.close(context);
-    await this.transport.close(context);
+    try {
+      await super.close(context);
+    } finally {
+      // Release the writer even when local teardown fails.
+      await this.transport.close(context);
+    }
   }
 
   private assertWritable() {
