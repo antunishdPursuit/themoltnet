@@ -199,6 +199,15 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - name: Detect cache write access
+      id: cache-write-access
+      shell: bash
+      run: |
+        case "${ACTIONS_CACHE_MODE:-write}" in
+          read|none) echo 'writable=false' >> "$GITHUB_OUTPUT" ;;
+          *) echo 'writable=true' >> "$GITHUB_OUTPUT" ;;
+        esac
+
     # Cache the resolved .deb files so warm runs skip the ~90s download.
     # We use the **explicit restore + save** pattern (not the combined
     # `actions/cache@v6`) because the auto post-step the combined form
@@ -317,7 +326,7 @@ runs:
     # hook), so it executes even if a later step fails. We only save
     # on cache miss to avoid re-uploading an unchanged blob.
     - name: Save apt archives cache (gondolin deps)
-      if: runner.os == 'Linux' && steps.restore-apt-cache.outputs.cache-hit != 'true'
+      if: runner.os == 'Linux' && steps.restore-apt-cache.outputs.cache-hit != 'true' && steps.cache-write-access.outputs.writable == 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/agent-daemon-action/apt
@@ -1147,10 +1156,14 @@ runs:
           }));
           const provider = configured[fields.id];
           if (!provider?.models?.length) throw new Error(`Provider ${fields.id} has no discovered models`);
+          const url = new URL(provider.baseUrl);
+          const isOllamaChat = provider.api === 'openai-completions' &&
+            (url.hostname === 'ollama.com' || url.port === '11434');
           providers[fields.id] = {
             api: provider.api,
             baseUrl: provider.baseUrl,
             ...(fields['key-env'] ? { apiKey: `$${fields['key-env']}` } : {}),
+            ...(isOllamaChat ? { compat: { supportsDeveloperRole: false } } : {}),
             models: provider.models.map(({ supportsStrictMode, ...model }) => ({
               ...model,
               ...(supportsStrictMode !== undefined ? { compat: { supportsStrictMode } } : {}),
@@ -1166,7 +1179,7 @@ runs:
         rm -f "$catalog"
 
     - name: Save provider cache
-      if: inputs.providers != '' && steps.store.outputs.existing != 'true' && steps.restore-providers.outputs.cache-hit != 'true' && steps.providers.outputs.cacheable == 'true'
+      if: inputs.providers != '' && steps.store.outputs.existing != 'true' && steps.restore-providers.outputs.cache-hit != 'true' && steps.providers.outputs.cacheable == 'true' && steps.cache-write-access.outputs.writable == 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.store.outputs.path }}/providers.json
@@ -1297,6 +1310,7 @@ runs:
         always()
         && runner.os == 'Linux'
         && steps.restore-gondolin-cache.outputs.cache-hit != 'true'
+        && steps.cache-write-access.outputs.writable == 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/moltnet/gondolin
