@@ -1,4 +1,4 @@
-import { type Client, getTaskConversation } from '@moltnet/api-client';
+import { type Client } from '@moltnet/api-client';
 import { listTaskConversationsOptions } from '@moltnet/api-client/query';
 import {
   compareConversationMessages,
@@ -8,41 +8,43 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { abortableDelay } from '../abortable-delay.js';
 import {
   type ConversationSnapshot,
   isLiveAttemptStatus,
+  isPermanentConversationError,
+  readConversation,
   watchConversationSnapshots,
 } from './conversation-stream.js';
 
 interface ConversationState {
   snapshot?: ConversationSnapshot;
-  /** Committed messages older than the snapshot window, loaded on demand. */
   older: TaskConversationMessage[];
-  /** Cursor for the next older page once `older` is non-empty. */
-  olderCursor: string | null;
+  /** Undefined until history loading starts; null means history is exhausted. */
+  olderCursor?: string | null;
   loadingOlder: boolean;
   error: boolean;
+  retrying: boolean;
 }
-
 const EMPTY: ConversationState = {
   older: [],
-  olderCursor: null,
   loadingOlder: false,
   error: false,
+  retrying: false,
 };
-
 function mergeMessages(
   ...groups: TaskConversationMessage[][]
 ): TaskConversationMessage[] {
   const byId = new Map<string, TaskConversationMessage>();
-  for (const group of groups) {
+  for (const group of groups)
     for (const message of group) byId.set(message.id, message);
-  }
   return [...byId.values()].sort(compareConversationMessages);
 }
-
 const committed = (messages: TaskConversationMessage[]) =>
   messages.filter((message) => message.entryId !== null);
+const statusCode = (error: unknown) =>
+  (error as { status?: number } | null)?.status;
+const absent = (error: unknown) => statusCode(error) === 404;
 
 export interface UseTaskConversationsOptions {
   client: Client;
@@ -52,22 +54,30 @@ export interface UseTaskConversationsOptions {
   attemptStatus: string | undefined;
 }
 
-/**
- * Durable conversations for one attempt. Live attempts follow each
- * conversation's SSE stream (polling if the stream fails); terminal attempts
- * read each conversation once. Returns `undefined` threads when the attempt
- * has no conversation, such as pre-Durable attempts.
- */
+function emptyScope(scope: string) {
+  return {
+    scope,
+    conversations: {} as Record<string, ConversationState>,
+    expanded: [] as string[],
+    terminal: false,
+    revision: 0,
+  };
+}
+
+/** One main stream; expanded subagents share a serial read loop. */
 export function useTaskConversations({
   client,
   teamId,
   taskId,
   attemptN,
   attemptStatus,
-}: UseTaskConversationsOptions): {
-  threads: TaskConversationThread[] | undefined;
-} {
-  const live = isLiveAttemptStatus(attemptStatus);
+}: UseTaskConversationsOptions) {
+  const scope = `${teamId}/${taskId}/${attemptN}`;
+  const [state, setState] = useState(() => emptyScope(scope));
+  // Release the previous attempt, and reject callbacks from its in-flight reads.
+  if (state.scope !== scope) setState(emptyScope(scope));
+  const current = state.scope === scope ? state : emptyScope(scope);
+  const live = isLiveAttemptStatus(attemptStatus) && !current.terminal;
   const enabled = Boolean(teamId && taskId && attemptN);
   const headers = useMemo(
     () => ({ 'x-moltnet-team-id': teamId ?? '' }),
@@ -80,139 +90,286 @@ export function useTaskConversations({
       path: { id: taskId ?? '', n: attemptN ?? 0 },
     }),
     enabled,
-    // Pre-Durable attempts answer 404; that is an answer, not a failure.
-    retry: false,
-    // Subagent conversations appear while the attempt runs.
-    refetchInterval: live ? 5_000 : false,
+    retry: (count, error) =>
+      ![401, 403, 404].includes(statusCode(error) ?? 0) && count < 2,
+    refetchInterval: (query) => {
+      if (!live || [401, 403].includes(statusCode(query.state.error) ?? 0))
+        return false;
+      // A live attempt can acquire its first store later. Other discovery
+      // failures back off instead of competing with the transcript reader.
+      return query.state.error && !absent(query.state.error)
+        ? Math.min(
+            5_000 * 2 ** Math.min(query.state.errorUpdateCount, 3),
+            30_000,
+          )
+        : 5_000;
+    },
   });
-  const summaries = useMemo(
-    () => listQuery.data?.items ?? [],
-    [listQuery.data],
-  );
-  const idsKey = summaries.map((s) => s.conversationId).join(',');
-  // Keyed by attempt and conversation: conversation ids are small integers
-  // shared across tasks, so a late result for a previous selection lands in
-  // its own key instead of the current attempt's.
-  const scope = `${teamId}/${taskId}/${attemptN}`;
-  const [states, setStates] = useState<Record<string, ConversationState>>({});
-
+  const { refetch } = listQuery;
+  useEffect(() => {
+    // Polling stops at completion only after one final discovery. Also handles
+    // fast attempts whose main conversation did not exist at the first read.
+    if (enabled && !live) void refetch({ cancelRefetch: true });
+  }, [enabled, live, refetch, scope]);
+  const summaries = listQuery.data?.items ?? [];
+  const mainId = summaries.find(
+    (summary) => summary.kind === 'main',
+  )?.conversationId;
+  const expandedKey = summaries
+    .filter(
+      (summary) =>
+        summary.kind === 'subagent' &&
+        current.expanded.includes(summary.conversationId),
+    )
+    .map((summary) => summary.conversationId)
+    .join(',');
   const update = useCallback(
-    (id: string, change: (state: ConversationState) => ConversationState) =>
-      setStates((prev) => ({ ...prev, [id]: change(prev[id] ?? EMPTY) })),
-    [],
+    (id: string, change: (value: ConversationState) => ConversationState) => {
+      setState((previous) =>
+        previous.scope === scope
+          ? {
+              ...previous,
+              conversations: {
+                ...previous.conversations,
+                [id]: change(previous.conversations[id] ?? EMPTY),
+              },
+            }
+          : previous,
+      );
+    },
+    [scope],
   );
-
-  const applySnapshot = useCallback(
-    (id: string, snapshot: ConversationSnapshot) =>
-      update(id, (state) => ({
-        ...state,
-        // Once history is loaded, keep the entries the sliding 100-entry
-        // window drops so older pages stay contiguous with the snapshot.
-        older:
-          state.older.length && state.snapshot
-            ? mergeMessages(state.older, committed(state.snapshot.messages))
-            : state.older,
+  const apply = useCallback(
+    (id: string, snapshot: ConversationSnapshot) => {
+      update(id, (value) => ({
+        ...value,
         snapshot,
         error: false,
-      })),
-    [update],
+        retrying: false,
+        older:
+          value.olderCursor !== undefined && value.snapshot
+            ? mergeMessages(value.older, committed(value.snapshot.messages))
+            : value.older,
+      }));
+      if (!isLiveAttemptStatus(snapshot.attemptStatus))
+        setState((previous) =>
+          previous.scope === scope ? { ...previous, terminal: true } : previous,
+        );
+    },
+    [scope, update],
   );
+  const retry = useCallback(() => {
+    void refetch();
+    setState((previous) =>
+      previous.scope === scope
+        ? { ...previous, revision: previous.revision + 1 }
+        : previous,
+    );
+  }, [refetch, scope]);
 
   useEffect(() => {
-    if (!teamId || !taskId || !attemptN || !idsKey) return;
+    if (!teamId || !taskId || !attemptN || !mainId) return;
     const controller = new AbortController();
-    for (const conversationId of idsKey.split(',')) {
-      const base = {
-        client,
-        teamId,
-        taskId,
-        attemptN,
-        conversationId,
-      };
-      const key = `${scope}#${conversationId}`;
-      const apply = (snapshot: ConversationSnapshot) => {
-        if (!controller.signal.aborted) applySnapshot(key, snapshot);
-      };
-      const failed = () => {
-        if (!controller.signal.aborted)
-          update(key, (state) => ({ ...state, error: true }));
-      };
-      if (live) {
-        void watchConversationSnapshots({
-          ...base,
-          signal: controller.signal,
-          onSnapshot: apply,
-        }).catch(failed);
-      } else {
-        void getTaskConversation({
+    const onSnapshot = (snapshot: ConversationSnapshot) => {
+      if (!controller.signal.aborted) apply(mainId, snapshot);
+    };
+    const request = {
+      client,
+      headers,
+      path: { id: taskId, n: attemptN, conversationId: mainId },
+      signal: controller.signal,
+    };
+    const pending = live
+      ? watchConversationSnapshots({
           client,
-          headers,
-          path: { id: taskId, n: attemptN, conversationId },
+          teamId,
+          taskId,
+          attemptN,
+          conversationId: mainId,
           signal: controller.signal,
-        }).then(({ data }) => {
-          if (data) apply(data);
-          else failed();
-        }, failed);
-      }
-    }
+          onSnapshot,
+          onConnection: (connection) => {
+            if (!controller.signal.aborted)
+              update(mainId, (value) => ({
+                ...value,
+                retrying: connection === 'retrying',
+                error: false,
+              }));
+          },
+        })
+      : readConversation(request).then(onSnapshot);
+    void pending.catch(() => {
+      if (!controller.signal.aborted)
+        update(mainId, (value) => ({ ...value, error: true, retrying: false }));
+    });
     return () => controller.abort();
   }, [
-    applySnapshot,
+    apply,
     attemptN,
     client,
+    current.revision,
+    enabled,
     headers,
-    idsKey,
     live,
-    scope,
+    mainId,
     taskId,
     teamId,
     update,
   ]);
 
+  useEffect(() => {
+    if (!taskId || !attemptN || !expandedKey) return;
+    const controller = new AbortController();
+    const unavailable = new Set<string>();
+    const path = { id: taskId, n: attemptN };
+    async function followExpanded() {
+      let failures = 0;
+      do {
+        let failed = false;
+        for (const conversationId of expandedKey.split(',')) {
+          if (controller.signal.aborted) return;
+          if (unavailable.has(conversationId)) continue;
+          try {
+            const snapshot = await readConversation({
+              client,
+              headers,
+              path: { ...path, conversationId },
+              signal: controller.signal,
+            });
+            if (!controller.signal.aborted) apply(conversationId, snapshot);
+          } catch (error) {
+            if (controller.signal.aborted) return;
+            failed = true;
+            if (isPermanentConversationError(error))
+              unavailable.add(conversationId);
+            update(conversationId, (value) => ({ ...value, error: true }));
+          }
+        }
+        if (!live || unavailable.size === expandedKey.split(',').length) return;
+        failures = failed ? failures + 1 : 0;
+        await abortableDelay(
+          Math.min(2_000 * 2 ** Math.min(failures, 4), 30_000),
+          controller.signal,
+        );
+      } while (!controller.signal.aborted);
+    }
+    void followExpanded().catch(() => {
+      /* Cancellation ends the read loop. */
+    });
+    return () => controller.abort();
+  }, [
+    apply,
+    attemptN,
+    client,
+    current.revision,
+    enabled,
+    expandedKey,
+    headers,
+    live,
+    taskId,
+    update,
+  ]);
+
+  // History requests share the scope lifetime too, so switching tasks cannot
+  // resurrect their old state or leave an unnecessary object read running.
+  const historyRequests = useMemo(() => new Set<AbortController>(), [scope]);
+  useEffect(
+    () => () => {
+      for (const controller of historyRequests) controller.abort();
+      historyRequests.clear();
+    },
+    [historyRequests],
+  );
   const loadOlder = useCallback(
     async (conversationId: string, cursor: string) => {
       if (!taskId || !attemptN) return;
-      const key = `${scope}#${conversationId}`;
-      update(key, (state) => ({ ...state, loadingOlder: true }));
-      const { data } = await getTaskConversation({
-        client,
-        headers,
-        path: { id: taskId, n: attemptN, conversationId },
-        query: { beforeEntryId: cursor },
-      }).catch(() => ({ data: undefined }));
-      update(key, (state) =>
-        data
-          ? {
-              ...state,
-              older: mergeMessages(committed(data.messages), state.older),
-              olderCursor: data.nextBeforeEntryId,
-              loadingOlder: false,
-            }
-          : { ...state, loadingOlder: false },
-      );
+      const historyController = new AbortController();
+      historyRequests.add(historyController);
+      update(conversationId, (value) => ({
+        ...value,
+        loadingOlder: true,
+        olderCursor: cursor,
+        older: mergeMessages(
+          value.older,
+          committed(value.snapshot?.messages ?? []),
+        ),
+      }));
+      try {
+        const data = await readConversation({
+          client,
+          headers,
+          path: { id: taskId, n: attemptN, conversationId },
+          query: { beforeEntryId: cursor },
+          signal: historyController.signal,
+        });
+        if (!historyController.signal.aborted)
+          update(conversationId, (value) => ({
+            ...value,
+            older: mergeMessages(committed(data.messages), value.older),
+            olderCursor: data.nextBeforeEntryId,
+            loadingOlder: false,
+            error: false,
+          }));
+      } catch {
+        if (!historyController.signal.aborted)
+          update(conversationId, (value) => ({
+            ...value,
+            loadingOlder: false,
+            error: true,
+          }));
+      } finally {
+        historyRequests.delete(historyController);
+      }
     },
-    [attemptN, client, headers, scope, taskId, update],
+    [attemptN, client, headers, historyRequests, taskId, update],
   );
 
-  const threads = useMemo(() => {
-    if (!listQuery.data) return undefined;
-    return summaries.map((summary): TaskConversationThread => {
-      const state = states[`${scope}#${summary.conversationId}`] ?? EMPTY;
-      const cursor = state.older.length
-        ? state.olderCursor
-        : (state.snapshot?.nextBeforeEntryId ?? null);
-      return {
-        summary,
-        messages: mergeMessages(state.older, state.snapshot?.messages ?? []),
-        loading: !state.snapshot && !state.error,
-        error: state.error,
-        onLoadOlder: cursor
-          ? () => void loadOlder(summary.conversationId, cursor)
-          : undefined,
-        loadingOlder: state.loadingOlder,
-      };
-    });
-  }, [listQuery.data, loadOlder, scope, states, summaries]);
-
-  return { threads };
+  const threads = listQuery.data
+    ? summaries.map((summary): TaskConversationThread => {
+        const value = current.conversations[summary.conversationId] ?? EMPTY;
+        const cursor =
+          value.olderCursor === undefined
+            ? value.snapshot?.nextBeforeEntryId
+            : value.olderCursor;
+        return {
+          summary,
+          messages: mergeMessages(value.older, value.snapshot?.messages ?? []),
+          loading: !value.snapshot && !value.error,
+          error: value.error,
+          retrying: value.retrying,
+          onRetry: retry,
+          onExpandedChange: (expanded) =>
+            setState((previous) =>
+              previous.scope === scope
+                ? {
+                    ...previous,
+                    expanded: expanded
+                      ? [
+                          ...new Set([
+                            ...previous.expanded,
+                            summary.conversationId,
+                          ]),
+                        ]
+                      : previous.expanded.filter(
+                          (id) => id !== summary.conversationId,
+                        ),
+                  }
+                : previous,
+            ),
+          onLoadOlder: cursor
+            ? () => void loadOlder(summary.conversationId, cursor)
+            : undefined,
+          loadingOlder: value.loadingOlder,
+        };
+      })
+    : undefined;
+  return {
+    threads,
+    loading: enabled && listQuery.isPending,
+    error:
+      listQuery.error && !absent(listQuery.error)
+        ? 'Conversations could not be loaded.'
+        : undefined,
+    retry,
+  };
 }

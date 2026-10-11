@@ -621,6 +621,9 @@ export function TasksPage() {
                       attempt={latestAttempt}
                       messages={selectedMessagesQuery.data ?? []}
                       conversation={selectedConversations.threads}
+                      conversationLoading={selectedConversations.loading}
+                      conversationError={selectedConversations.error}
+                      onRetryConversation={selectedConversations.retry}
                       learnMoreHref={AGENT_DAEMON_DOCS_HREF}
                       presentation="dialog"
                     />

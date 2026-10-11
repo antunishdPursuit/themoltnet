@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTaskConversations } from '../src/tasks/useTaskConversations.js';
@@ -7,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getTaskConversation: vi.fn(),
   useQuery: vi.fn(),
   watch: vi.fn(),
+  refetch: vi.fn(),
 }));
 
 vi.mock('@moltnet/api-client', () => ({
@@ -23,6 +25,12 @@ vi.mock('../src/tasks/conversation-stream.js', () => ({
   isLiveAttemptStatus: (status?: string) =>
     status === 'claimed' || status === 'running',
   watchConversationSnapshots: mocks.watch,
+  readConversation: async (options: unknown) => {
+    const response = await mocks.getTaskConversation(options);
+    if (!response.data) throw new Error('read failed');
+    return response.data;
+  },
+  isPermanentConversationError: () => false,
 }));
 
 const client = { kind: 'console-client' } as never;
@@ -57,6 +65,7 @@ describe('useTaskConversations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.useQuery.mockReturnValue({
+      refetch: mocks.refetch,
       data: {
         items: [
           { conversationId: '1', parentConversationId: null, kind: 'main' },
@@ -157,7 +166,11 @@ describe('useTaskConversations', () => {
   });
 
   it('reports no conversation for attempts without one', () => {
-    mocks.useQuery.mockReturnValue({ data: undefined, error: { status: 404 } });
+    mocks.useQuery.mockReturnValue({
+      refetch: mocks.refetch,
+      data: undefined,
+      error: { status: 404 },
+    });
 
     const { result } = renderHook(() =>
       useTaskConversations({ ...base, attemptStatus: 'completed' }),
@@ -166,5 +179,136 @@ describe('useTaskConversations', () => {
     expect(result.current.threads).toBeUndefined();
     expect(mocks.watch).not.toHaveBeenCalled();
     expect(mocks.getTaskConversation).not.toHaveBeenCalled();
+  });
+  it('preserves a message leaving the live window while the first history read is pending', async () => {
+    let resolve!: (value: unknown) => void;
+    mocks.getTaskConversation.mockReturnValue(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTaskConversations({ ...base, attemptStatus: 'running' }),
+    );
+    const { onSnapshot } = mocks.watch.mock.calls[0][0];
+    act(() => onSnapshot(snapshot('boundary', '5')));
+    act(() => result.current.threads![0].onLoadOlder!());
+    act(() =>
+      onSnapshot({
+        ...snapshot('advanced', '6'),
+        messages: [
+          { ...snapshot('advanced').messages[0], id: '6/0', entryId: '6' },
+        ],
+      }),
+    );
+    await act(async () =>
+      resolve({
+        data: {
+          ...snapshot('older'),
+          messages: [
+            { ...snapshot('older').messages[0], id: '2/0', entryId: '2' },
+          ],
+        },
+      }),
+    );
+    expect(
+      result.current.threads![0].messages.map((message) => message.id),
+    ).toEqual(['2/0', '5/0', '6/0']);
+    expect(result.current.threads![0].onLoadOlder).toBeUndefined();
+  });
+
+  it('refreshes discovery when the stream reports completion even if the attempt prop stays running', async () => {
+    const { result } = renderHook(() =>
+      useTaskConversations({ ...base, attemptStatus: 'running' }),
+    );
+    act(() =>
+      mocks.watch.mock.calls[0][0].onSnapshot({
+        ...snapshot('done'),
+        attemptStatus: 'completed',
+      }),
+    );
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(mocks.watch.mock.calls[0][0].signal.aborted).toBe(true);
+    expect(result.current.threads![0].messages).toHaveLength(1);
+  });
+
+  it('reads subagents only after expansion and aborts their pending read on collapse', async () => {
+    mocks.useQuery.mockReturnValue({
+      refetch: mocks.refetch,
+      data: {
+        items: [
+          { conversationId: '1', kind: 'main', parentConversationId: null },
+          { conversationId: '2', kind: 'subagent', parentConversationId: '1' },
+          { conversationId: '3', kind: 'subagent', parentConversationId: '1' },
+        ],
+      },
+    });
+    mocks.getTaskConversation.mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() =>
+      useTaskConversations({ ...base, attemptStatus: 'running' }),
+    );
+    expect(mocks.watch).toHaveBeenCalledTimes(1);
+    expect(mocks.getTaskConversation).not.toHaveBeenCalled();
+    act(() => {
+      result.current.threads![1].onExpandedChange!(true);
+      result.current.threads![2].onExpandedChange!(true);
+    });
+    expect(mocks.getTaskConversation).toHaveBeenCalledTimes(1);
+    const { signal } = mocks.getTaskConversation.mock.calls[0][0];
+    act(() => {
+      result.current.threads![1].onExpandedChange!(false);
+      result.current.threads![2].onExpandedChange!(false);
+    });
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('drops previous-attempt state and ignores its pending callbacks', () => {
+    const { result, rerender } = renderHook(
+      (attemptN: number) =>
+        useTaskConversations({ ...base, attemptN, attemptStatus: 'running' }),
+      { initialProps: 1 },
+    );
+    const old = mocks.watch.mock.calls[0][0];
+    act(() => old.onSnapshot(snapshot('old')));
+    rerender(2);
+    act(() => old.onSnapshot(snapshot('late old')));
+    expect(old.signal.aborted).toBe(true);
+    expect(result.current.threads![0].messages).toEqual([]);
+  });
+
+  it('distinguishes discovery errors from absence and provides retry', () => {
+    mocks.useQuery.mockReturnValue({
+      refetch: mocks.refetch,
+      error: { status: 503 },
+    });
+    const { result } = renderHook(() =>
+      useTaskConversations({ ...base, attemptStatus: 'running' }),
+    );
+    expect(result.current.error).toBe('Conversations could not be loaded.');
+    act(() => result.current.retry());
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
+  });
+  it('advances an empty history page and keeps history requests usable in StrictMode', async () => {
+    mocks.getTaskConversation.mockResolvedValue({
+      data: { ...snapshot('empty', '2'), messages: [] },
+    });
+    const { result } = renderHook(
+      () => useTaskConversations({ ...base, attemptStatus: 'running' }),
+      { wrapper: StrictMode },
+    );
+    act(() =>
+      mocks.watch.mock.calls.at(-1)![0].onSnapshot(snapshot('latest', '5')),
+    );
+    act(() => result.current.threads![0].onLoadOlder!());
+    await waitFor(() =>
+      expect(result.current.threads![0].loadingOlder).toBe(false),
+    );
+    expect(mocks.getTaskConversation.mock.calls[0][0].signal.aborted).toBe(
+      false,
+    );
+    act(() => result.current.threads![0].onLoadOlder!());
+    expect(mocks.getTaskConversation.mock.calls[1][0].query).toEqual({
+      beforeEntryId: '2',
+    });
   });
 });

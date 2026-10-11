@@ -197,7 +197,9 @@ export function TaskAttemptPage({
       >
         <Stack gap={5}>
           <TaskAttemptDetail attempt={attempt} />
-          {hasConversationView(conversations.threads) ? (
+          {hasConversationView(conversations.threads) ||
+          conversations.loading ||
+          conversations.error ? (
             <>
               <Card variant="surface" padding="md">
                 <Stack gap={3}>
@@ -205,7 +207,11 @@ export function TaskAttemptPage({
                     Conversation
                   </Text>
                   <TaskConversationView
-                    threads={conversations.threads}
+                    key={`${id}/${attemptN}`}
+                    threads={conversations.threads ?? []}
+                    loading={conversations.loading}
+                    error={conversations.error}
+                    onRetry={conversations.retry}
                     live={isLiveAttemptStatus(attempt.status)}
                   />
                 </Stack>
