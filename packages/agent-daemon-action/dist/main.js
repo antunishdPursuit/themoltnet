@@ -17633,15 +17633,19 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 	* Parse a `Content-Type` header.
 	*/
 	function parse(header, options) {
+		const stopChar = options?.comma === true ? COMMA : 65536;
 		const len = header.length;
-		let index = skipOWS(header, 0, len);
+		let index = skipOWS(header, options?.start ?? 0, len);
 		const valueStart = index;
-		index = skipValue(header, index, len);
+		index = skipValue(header, index, len, stopChar);
 		const valueEnd = trailingOWS(header, valueStart, index);
-		return {
-			type: header.slice(valueStart, valueEnd).toLowerCase(),
-			parameters: options?.parameters === false ? new NullObject() : parseParameters(header, index, len)
+		const type = header.slice(valueStart, valueEnd).toLowerCase();
+		if (options?.parameters === false) return {
+			type,
+			index,
+			parameters: new NullObject()
 		};
+		return parseParameters(header, type, index, len, stopChar);
 	}
 	var SP = 32;
 	var HTAB = 9;
@@ -17649,16 +17653,19 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 	var EQ = 61;
 	var DQUOTE = 34;
 	var BSLASH = 92;
+	var COMMA = 44;
 	/**
 	* Parses the parameters of a `Content-Type` header starting at the given index.
 	*/
-	function parseParameters(header, index, len) {
+	function parseParameters(header, type, index, len, stopChar) {
 		const parameters = new NullObject();
 		parameter: while (index < len) {
+			if (header.charCodeAt(index) === stopChar) break;
 			index = skipOWS(header, index + 1, len);
 			const keyStart = index;
 			while (index < len) {
 				const code = header.charCodeAt(index);
+				if (code === stopChar) break parameter;
 				if (code === SEMI) continue parameter;
 				if (code === EQ) {
 					const keyEnd = trailingOWS(header, keyStart, index);
@@ -17670,7 +17677,7 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 						while (index < len) {
 							const code = header.charCodeAt(index++);
 							if (code === DQUOTE) {
-								index = skipValue(header, index, len);
+								index = skipValue(header, index, len, stopChar);
 								if (parameters[key] === void 0) parameters[key] = value;
 								break;
 							}
@@ -17683,7 +17690,7 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 						continue parameter;
 					}
 					const valueStart = index;
-					index = skipValue(header, index, len);
+					index = skipValue(header, index, len, stopChar);
 					if (parameters[key] === void 0) {
 						const valueEnd = trailingOWS(header, valueStart, index);
 						parameters[key] = header.slice(valueStart, valueEnd);
@@ -17693,14 +17700,19 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 				index++;
 			}
 		}
-		return parameters;
+		return {
+			type,
+			index,
+			parameters
+		};
 	}
 	/**
-	* Skip over characters until a semicolon.
+	* Skip over characters until a semicolon or other exit character.
 	*/
-	function skipValue(str, index, len) {
+	function skipValue(str, index, len, stopChar) {
 		while (index < len) {
-			if (str.charCodeAt(index) === SEMI) break;
+			const code = str.charCodeAt(index);
+			if (code === SEMI || code === stopChar) break;
 			index++;
 		}
 		return index;
