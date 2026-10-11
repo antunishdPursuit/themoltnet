@@ -1,0 +1,120 @@
+[
+  [
+    {
+      "type": "conversation",
+      "value": {
+        "id": 2
+      }
+    }
+  ],
+  [
+    {
+      "type": "entry",
+      "value": {
+        "conversationId": 2,
+        "id": 4,
+        "kind": "pi.user",
+        "model": [
+          {
+            "content": "List the workspace.",
+            "role": "user",
+            "timestamp": 1
+          }
+        ]
+      }
+    },
+    {
+      "content": {
+        "kind": "base",
+        "value": {
+          "conversationId": 2
+        },
+        "version": 1
+      },
+      "record": {
+        "id": 3,
+        "key": "__TASK_ID__/1",
+        "kind": "moltnet.attempt",
+        "scope": {
+          "kind": "session"
+        }
+      },
+      "type": "document.create"
+    }
+  ],
+  [
+    {
+      "type": "entry",
+      "value": {
+        "conversationId": 2,
+        "id": 5,
+        "kind": "pi.assistant",
+        "model": [
+          {
+            "content": [
+              {
+                "text": "Listing files.",
+                "type": "text"
+              },
+              {
+                "arguments": {
+                  "command": "ls"
+                },
+                "id": "call-1",
+                "name": "bash",
+                "type": "toolCall"
+              }
+            ],
+            "role": "assistant",
+            "timestamp": 2
+          }
+        ]
+      }
+    },
+    {
+      "type": "entry",
+      "value": {
+        "conversationId": 2,
+        "id": 6,
+        "kind": "pi.tool",
+        "model": [
+          {
+            "content": [
+              {
+                "text": "README.md",
+                "type": "text"
+              }
+            ],
+            "isError": false,
+            "role": "toolResult",
+            "timestamp": 3,
+            "toolCallId": "call-1",
+            "toolName": "bash"
+          }
+        ]
+      }
+    }
+  ],
+  [
+    {
+      "type": "entry",
+      "value": {
+        "conversationId": 2,
+        "id": 7,
+        "kind": "pi.assistant",
+        "model": [
+          {
+            "content": [
+              {
+                "text": "The workspace holds README.md.",
+                "type": "text"
+              }
+            ],
+            "role": "assistant",
+            "timestamp": 4
+          }
+        ]
+      }
+    }
+  ]
+]
