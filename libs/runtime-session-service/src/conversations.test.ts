@@ -343,3 +343,157 @@ it('keeps simultaneous readers and different principals isolated', async () => {
   await other.close();
   await f.service.close();
 });
+
+it.each([
+  ['self-parent', [{ id: 1, parent: { conversationId: 1, at: 1 } }]],
+  [
+    'cycle',
+    [
+      { id: 1, parent: { conversationId: 100, at: 1 } },
+      { id: 100, parent: { conversationId: 1, at: 1 } },
+    ],
+  ],
+  ['missing parent', [{ id: 1, parent: { conversationId: 100, at: 1 } }]],
+  ['malformed parent', [{ id: 1, parent: { conversationId: '1', at: 1 } }]],
+  ['null parent', [{ id: 1, parent: null }]],
+] as const)(
+  'rejects %s before native ancestry traversal',
+  async (_name, values) => {
+    const f = await fixture();
+    f.commits[0].writes = values.map((value) => ({
+      type: 'conversation',
+      value,
+    })) as unknown as StorageWrite[];
+    // Test open(), not snapshot(): removing the guard fails this assertion rather
+    // than hanging the test runner in Pi's synchronous ancestry walk.
+    await expect(f.service.open(input)).rejects.toThrow(
+      'Invalid conversation ancestry',
+    );
+    await f.service.close();
+    await f.session.close(context);
+  },
+);
+
+it('reads a valid 1024-conversation chain including forward references in one commit', async () => {
+  const f = await fixture();
+  const ids = [
+    Number(f.root),
+    ...Array.from({ length: 1023 }, (_, i) => i + 100),
+  ];
+  f.commits[0].writes = ids.map((id, index) => ({
+    type: 'conversation',
+    value: {
+      id,
+      ...(index < ids.length - 1
+        ? { parent: { conversationId: ids[index + 1], at: 1 } }
+        : {}),
+    },
+  })) as StorageWrite[];
+  const reader = await f.service.open(input);
+  expect((await reader.snapshot(f.root)).messages[0].message.content).toBe(
+    'hello',
+  );
+  await f.service.close();
+  await f.session.close(context);
+});
+
+it('bounds ancestry depth by rejecting more than 1024 conversations before replay', async () => {
+  const f = await fixture();
+  f.commits[0].writes = Array.from({ length: 1025 }, (_, index) => ({
+    type: 'conversation',
+    value: {
+      id: index + 1,
+      ...(index ? { parent: { conversationId: index, at: 1 } } : {}),
+    },
+  })) as StorageWrite[];
+  await expect(f.service.open(input)).rejects.toThrow('Too many conversations');
+  await f.service.close();
+  await f.session.close(context);
+});
+
+// Charge each tiny fixture commit as 32 MiB to exercise the actual production
+// quotas without allocating hundreds of MiB of unrelated message text in CI.
+function chargeLargeCommits() {
+  return vi.spyOn(Buffer, 'byteLength').mockReturnValue(32 * 1024 * 1024);
+}
+
+it('admits exactly 64 MiB and releases the budget after a reader exceeds it', async () => {
+  const f = await fixture();
+  const size = chargeLargeCommits();
+  try {
+    const reader = await f.service.open(input); // Two commits, exactly 64 MiB.
+    expect(await reader.snapshot(f.root)).toBeDefined();
+    f.commits.push({ seq: 3, writes: [] });
+    await expect(reader.refresh()).rejects.toThrow('supported size');
+    await reader.close();
+    f.setCap(2);
+    const recovered = await f.service.open(input);
+    const peer = await f.service.open(input); // Both fill the 128 MiB pool.
+    expect(await recovered.snapshot(f.root)).toEqual(
+      await peer.snapshot(f.root),
+    );
+  } finally {
+    size.mockRestore();
+    await f.service.close();
+    await f.session.close(context);
+  }
+});
+
+it('bounds overlapping replay at 128 MiB, frees failed admissions and evicts idle readers', async () => {
+  const f = await fixture();
+  const size = chargeLargeCommits();
+  try {
+    const results = await Promise.allSettled([
+      f.service.open(input),
+      f.service.open(input),
+      f.service.open(input),
+    ]);
+    const readers = results.flatMap((result) =>
+      result.status === 'fulfilled' ? [result.value] : [],
+    );
+    expect(readers.length).toBeGreaterThan(0);
+    expect(readers.length).toBeLessThan(3);
+    for (const result of results) {
+      if (result.status === 'rejected')
+        expect(result.reason).toMatchObject({ statusCode: 503 });
+    }
+    // Contenders can fail before another failed admission finishes disposing.
+    // Once settled, released bytes must permit filling both 64 MiB slots.
+    while (readers.length < 2) readers.push(await f.service.open(input));
+    const expected = await readers[1].snapshot(f.root);
+    await readers[0].close(); // Now evictable, but still charged to the pool.
+    const next = await f.service.open({ ...input, subjectId: 'another-agent' });
+    expect(await next.snapshot(f.root)).toEqual(expected);
+    expect(await readers[1].snapshot(f.root)).toEqual(expected);
+    await expect(f.service.open(input)).rejects.toThrow('capacity');
+  } finally {
+    size.mockRestore();
+    await f.service.close();
+    await f.session.close(context);
+  }
+});
+
+it('reclaims partially replayed bytes after a backing read fails', async () => {
+  const f = await fixture();
+  const size = chargeLargeCommits();
+  try {
+    const healthy = await f.service.open(input);
+    f.read.mockImplementationOnce(async () => ({
+      headSeq: 2,
+      count: 2,
+      items: (async function* () {
+        yield f.commits[0];
+        throw new Error('backing read failed');
+      })(),
+    }));
+    await expect(f.service.open(input)).rejects.toThrow('backing read failed');
+    const recovered = await f.service.open(input);
+    expect(await recovered.snapshot(f.root)).toEqual(
+      await healthy.snapshot(f.root),
+    );
+  } finally {
+    size.mockRestore();
+    await f.service.close();
+    await f.session.close(context);
+  }
+});

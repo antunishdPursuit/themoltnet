@@ -75,9 +75,59 @@ export function createConversationService(deps: {
     let status = 'unknown';
     let writerActive = false;
     const created = new Map<number, number>();
+    const parents = new Map<number, number | undefined>();
     let conversations: ConversationRecord[] = [];
     let closed = false;
 
+    // Persisted commits are untrusted JSON. Pi's ancestry walks assume a valid
+    // graph and are synchronous, so cancellation cannot stop a cycle there.
+    function validateConversations(writes: Record<string, unknown>[]) {
+      let changed = false;
+      for (const write of writes) {
+        if (write.type !== 'conversation') continue;
+        const value = record(write.value);
+        const id = value.id;
+        const parent = record(value.parent);
+        if (
+          typeof id !== 'number' ||
+          !Number.isSafeInteger(id) ||
+          id < 1 ||
+          parents.has(id) ||
+          (value.parent !== undefined &&
+            (typeof parent.conversationId !== 'number' ||
+              !Number.isSafeInteger(parent.conversationId) ||
+              parent.conversationId < 1 ||
+              typeof parent.at !== 'number' ||
+              !Number.isSafeInteger(parent.at) ||
+              parent.at < 0))
+        )
+          throw createProblem(
+            'service-unavailable',
+            'Invalid conversation ancestry',
+          );
+        parents.set(id, parent.conversationId as number | undefined);
+        changed = true;
+        // Also bounds the maximum depth of every native ancestry traversal.
+        if (parents.size > MAX_CONVERSATIONS)
+          throw createProblem('service-unavailable', 'Too many conversations');
+      }
+      if (!changed) return;
+      const checked = new Set<number>();
+      for (const id of parents.keys()) {
+        const path = new Set<number>();
+        let current: number | undefined = id;
+        while (current !== undefined && !checked.has(current)) {
+          if (path.has(current) || !parents.has(current))
+            throw createProblem(
+              'service-unavailable',
+              'Invalid conversation ancestry',
+            );
+          path.add(current);
+          current = parents.get(current);
+        }
+        for (const ancestor of path) checked.add(ancestor);
+      }
+    }
     async function doc(address: DocumentAddress) {
       const entry = await storage.findDocument(address, 'current', context);
       return entry
@@ -142,6 +192,7 @@ export function createConversationService(deps: {
           }
           bytes += size;
           totalBytes += size;
+          validateConversations(commit.writes);
           storage
             .prepareCommit(
               commit.writes as unknown as StorageWrite[],
