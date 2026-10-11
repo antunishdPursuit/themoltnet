@@ -36,19 +36,32 @@
       "e2e": {
         "cache": true,
         "configurations": {
-          "shard-1": {
+          "runtime": {
             "args": [
-              "--shard=1/3"
+              "--exclude=src/agent-server.e2e.test.ts",
+              "--exclude=src/agent-key.e2e.test.ts",
+              "--exclude=src/provider-store-daemon.e2e.test.ts",
+              "--exclude=src/live-ollama.e2e.test.ts",
+              "--exclude=src/live-ollama-evals-partition-0.e2e.test.ts",
+              "--exclude=src/live-ollama-evals-partition-1.e2e.test.ts"
             ]
           },
-          "shard-2": {
+          "control": {
             "args": [
-              "--shard=2/3"
+              "src/agent-server.e2e.test.ts",
+              "src/agent-key.e2e.test.ts",
+              "src/provider-store-daemon.e2e.test.ts"
             ]
           },
-          "shard-3": {
+          "live-evals-0": {
             "args": [
-              "--shard=3/3"
+              "src/live-ollama.e2e.test.ts",
+              "src/live-ollama-evals-partition-0.e2e.test.ts"
+            ]
+          },
+          "live-evals-1": {
+            "args": [
+              "src/live-ollama-evals-partition-1.e2e.test.ts"
             ]
           }
         },
