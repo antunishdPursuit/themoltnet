@@ -78,7 +78,8 @@ jobs:
         if: steps.prepare.outputs.skip != 'true'
         uses: ./packages/agent-daemon-action
         with:
-          providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY
+          providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
+          daemon-version: workspace
           task-spec-path: ${{ github.workspace }}/security-task.json
           profile: legreffier-security-review-v2
           max-attempts: '2'
@@ -95,7 +96,8 @@ jobs:
         if: steps.prepare.outputs.skip != 'true'
         uses: ./packages/agent-daemon-action
         with:
-          providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY
+          providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
+          daemon-version: workspace
           task-spec-path: ${{ github.workspace }}/security-task.json
           profile: legreffier-security-review-v2
           max-attempts: '2'

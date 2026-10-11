@@ -174,6 +174,8 @@ export interface ProviderEntry {
   /** Pi provider API kind, e.g. `openai-completions`. */
   api: string;
   baseUrl: string;
+  /** Explicit Pi compatibility for the provider's chat endpoint. */
+  supportsDeveloperRole?: boolean;
   /** Canonical env var name referenced by generated models.json. */
   envName: string;
   /** Models offered by this provider (fed by discovery later, #2064). */
@@ -623,6 +625,15 @@ export class AgentServerStore {
     for (const [id, provider] of Object.entries(state)) {
       assertProviderId(id);
       assertProviderEnvName(id, provider.envName);
+      if (
+        provider.supportsDeveloperRole !== undefined &&
+        typeof provider.supportsDeveloperRole !== 'boolean'
+      ) {
+        throw new AgentServerStoreError(
+          'invalid_state',
+          `provider "${id}" has an invalid supportsDeveloperRole value`,
+        );
+      }
       for (const model of provider.models ?? []) {
         // A pre-capability store held bare strings. Refuse it loudly: read
         // normalization would silently hand Pi `{ id: undefined }` instead.

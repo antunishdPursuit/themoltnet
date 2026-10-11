@@ -702,6 +702,9 @@
               "type": "object"
             },
             "type": "array"
+          },
+          "supportsDeveloperRole": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2745,6 +2748,9 @@
                       "type": "object"
                     },
                     "type": "array"
+                  },
+                  "supportsDeveloperRole": {
+                    "type": "boolean"
                   }
                 },
                 "required": [

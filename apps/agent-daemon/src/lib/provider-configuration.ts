@@ -42,6 +42,7 @@ const MODALITY_PROBE_CONCURRENCY = 5;
 export interface ProviderView {
   api: string;
   baseUrl: string;
+  supportsDeveloperRole?: boolean;
   envName: string;
   models: ProviderModelEntry[];
   hasApiKey: boolean;
@@ -50,6 +51,7 @@ export interface ProviderView {
 export interface ProviderSetInput {
   api?: string;
   baseUrl?: string;
+  supportsDeveloperRole?: boolean;
   envName?: string;
   models?: ProviderModelEntry[];
   apiKey?: string;
@@ -223,6 +225,14 @@ export class ProviderConfigurationService {
         const entry: ProviderEntry = {
           api: input.api ?? previous?.api ?? DEFAULT_PROVIDER_API,
           baseUrl,
+          ...(input.supportsDeveloperRole !== undefined ||
+          previous?.supportsDeveloperRole !== undefined
+            ? {
+                supportsDeveloperRole:
+                  input.supportsDeveloperRole ??
+                  previous?.supportsDeveloperRole,
+              }
+            : {}),
           envName: assertProviderEnvName(
             providerId,
             input.envName ?? previous?.envName ?? providerEnvName(providerId),
@@ -741,6 +751,9 @@ export function providerView(provider: ProviderEntry): ProviderView {
   return {
     api: provider.api,
     baseUrl: provider.baseUrl,
+    ...(provider.supportsDeveloperRole !== undefined
+      ? { supportsDeveloperRole: provider.supportsDeveloperRole }
+      : {}),
     envName: provider.envName,
     models: provider.models.map(copyProviderModel),
     hasApiKey: Boolean(provider.apiKeyRef),

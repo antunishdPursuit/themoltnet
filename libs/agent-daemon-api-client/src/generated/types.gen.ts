@@ -134,6 +134,7 @@ export type AgentServerProvider = {
       [key: string]: string;
     };
   }>;
+  supportsDeveloperRole?: boolean;
 };
 
 export type AgentServerRun = AgentServerRunRecord & {
@@ -884,6 +885,7 @@ export type PutAgentServerProviderData = {
         [key: string]: string;
       };
     }>;
+    supportsDeveloperRole?: boolean;
   };
   path: {
     providerId: string;

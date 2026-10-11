@@ -78,6 +78,7 @@ export const AgentServerProviderSchema = Type.Object(
   {
     api: Type.String(),
     baseUrl: Type.String({ format: 'uri' }),
+    supportsDeveloperRole: Type.Optional(Type.Boolean()),
     envName: Type.String(),
     models: ProviderModelList,
     hasApiKey: Type.Boolean(),
@@ -428,6 +429,7 @@ export const ReconcileAgentResultSchema = Type.Union(
 export const PutProviderSchema = Type.Object({
   api: Type.String(),
   baseUrl: Type.String({ format: 'uri' }),
+  supportsDeveloperRole: Type.Optional(Type.Boolean()),
   envName: Type.String(),
   models: ProviderModelList,
   apiKey: Type.Optional(Type.String()),

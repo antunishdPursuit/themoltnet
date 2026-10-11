@@ -1513,6 +1513,9 @@ function registerProviderRoutes(
       const entry = await options.providers.set(providerId, {
         api: requireString(body, 'api'),
         baseUrl: requireString(body, 'baseUrl'),
+        ...(typeof body.supportsDeveloperRole === 'boolean'
+          ? { supportsDeveloperRole: body.supportsDeveloperRole }
+          : {}),
         envName: requireString(body, 'envName'),
         models: modelArray(body, 'models'),
         ...(optionalString(body, 'apiKey')

@@ -11,16 +11,23 @@ import { useState } from 'react';
 
 import type { AgentServerProvider, ProviderActions } from './types.js';
 
-const PRESETS = [
+const PRESETS: Array<{
+  id: string;
+  label: string;
+  baseUrl: string;
+  supportsDeveloperRole?: boolean;
+}> = [
   {
     id: 'ollama',
     label: 'Ollama (local)',
     baseUrl: 'http://localhost:11434/v1',
+    supportsDeveloperRole: false,
   },
   {
     id: 'ollama-cloud',
     label: 'Ollama Cloud',
     baseUrl: 'https://ollama.com/v1',
+    supportsDeveloperRole: false,
   },
   { id: 'custom', label: 'Custom (OpenAI-compatible)', baseUrl: '' },
 ];
@@ -44,6 +51,12 @@ export function ProviderForm({
   const [id, setId] = useState(existingId ?? 'ollama');
   const [baseUrl, setBaseUrl] = useState(
     existing?.baseUrl ?? PRESETS[0].baseUrl,
+  );
+  const [supportsDeveloperRole, setSupportsDeveloperRole] = useState(
+    existing?.supportsDeveloperRole ??
+      PRESETS.find((entry) => entry.id === (existingId ?? 'ollama'))
+        ?.supportsDeveloperRole ??
+      true,
   );
   const [apiKey, setApiKey] = useState('');
   const [editingKey, setEditingKey] = useState(false);
@@ -82,6 +95,7 @@ export function ProviderForm({
                 existing?.envName ??
                 `MOLTNET_PROVIDER_${providerId.replaceAll('-', '_').toUpperCase()}_API_KEY`,
               models: saved?.models ?? [],
+              supportsDeveloperRole,
               ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
             });
       setSaved(provider);
@@ -119,6 +133,7 @@ export function ProviderForm({
         baseUrl: saved.baseUrl,
         envName: saved.envName,
         models: models.filter((model) => selected.has(model.id)),
+        supportsDeveloperRole,
       });
       onChanged();
       onDone();
@@ -162,6 +177,7 @@ export function ProviderForm({
             setPreset(next.id);
             setId(next.id === 'custom' ? '' : next.id);
             setBaseUrl(next.baseUrl);
+            setSupportsDeveloperRole(next.supportsDeveloperRole ?? true);
             setApiKey('');
             setError(null);
           }}
@@ -216,6 +232,17 @@ export function ProviderForm({
           />
         </>
       )}
+      <Select
+        label="Instruction message role"
+        value={supportsDeveloperRole ? 'developer' : 'system'}
+        disabled={busy}
+        onChange={(event) =>
+          setSupportsDeveloperRole(event.target.value === 'developer')
+        }
+      >
+        <option value="system">System</option>
+        <option value="developer">Developer</option>
+      </Select>
       {(!saved && preset !== 'ollama') || editingKey ? (
         <Input
           label={

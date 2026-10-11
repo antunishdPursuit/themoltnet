@@ -41,6 +41,8 @@ export interface WritePiProviderInput {
   models: readonly PiModelSpec[];
   /** Optional Pi environment placeholder, e.g. `$OLLAMA_API_KEY`. */
   apiKeyEnvRef?: string;
+  /** Whether this provider accepts the developer message role. */
+  supportsDeveloperRole?: boolean;
 }
 
 interface WritePiConfigBase {
@@ -68,6 +70,8 @@ export interface WriteSingleProviderPiConfigInput extends WritePiConfigBase {
   apiKeyEnvRef?: string;
   /** Explicit provider claim that strict JSON-schema function tools work. */
   supportsStrictMode?: boolean;
+  /** Whether this provider accepts the developer message role. */
+  supportsDeveloperRole?: boolean;
   providers?: never;
 }
 
@@ -119,6 +123,13 @@ export function writePiConfig(input: WritePiConfigInput): void {
             api: provider.api,
             ...(provider.apiKeyEnvRef ? { apiKey: provider.apiKeyEnvRef } : {}),
             baseUrl: provider.baseUrl,
+            ...(provider.supportsDeveloperRole !== undefined
+              ? {
+                  compat: {
+                    supportsDeveloperRole: provider.supportsDeveloperRole,
+                  },
+                }
+              : {}),
             models: provider.models.map(toPiModel),
           },
         ]),
@@ -128,6 +139,13 @@ export function writePiConfig(input: WritePiConfigInput): void {
           api: 'openai-completions',
           apiKey: input.apiKeyEnvRef ?? '$OLLAMA_API_KEY',
           baseUrl: input.baseUrl ?? 'https://ollama.com/v1',
+          ...(input.supportsDeveloperRole !== undefined
+            ? {
+                compat: {
+                  supportsDeveloperRole: input.supportsDeveloperRole,
+                },
+              }
+            : {}),
           models: [
             toPiModel({
               id: input.model,

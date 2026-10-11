@@ -14,11 +14,57 @@ it('declares strict tool support for an opted-in single-provider model', () => {
       provider: 'ollama-cloud',
       model: 'glm-5.2:cloud',
       supportsStrictMode: true,
+      supportsDeveloperRole: false,
     });
 
     const config = JSON.parse(readFileSync(join(piDir, 'models.json'), 'utf8'));
+    expect(config.providers['ollama-cloud'].compat).toEqual({
+      supportsDeveloperRole: false,
+    });
     expect(config.providers['ollama-cloud'].models[0].compat).toEqual({
       supportsStrictMode: true,
+    });
+  } finally {
+    rmSync(piDir, { recursive: true, force: true });
+  }
+});
+
+it('uses explicit provider message-role compatibility', () => {
+  const piDir = mkdtempSync(join(tmpdir(), 'pi-provider-compat-'));
+  try {
+    writePiConfig({
+      piDir,
+      providers: {
+        cloud: {
+          api: 'openai-completions',
+          baseUrl: 'https://ollama.com/v1',
+          supportsDeveloperRole: false,
+          models: [{ id: 'mistral-large-4', reasoning: true }],
+        },
+        local: {
+          api: 'openai-completions',
+          baseUrl: 'http://127.0.0.1:11434/v1',
+          supportsDeveloperRole: false,
+          models: [{ id: 'gpt-oss:20b', reasoning: true }],
+        },
+        other: {
+          api: 'openai-completions',
+          baseUrl: 'https://provider.example/v1',
+          supportsDeveloperRole: true,
+          models: [{ id: 'reasoning-model', reasoning: true }],
+        },
+      },
+    });
+
+    const config = JSON.parse(readFileSync(join(piDir, 'models.json'), 'utf8'));
+    expect(config.providers.cloud.compat).toEqual({
+      supportsDeveloperRole: false,
+    });
+    expect(config.providers.local.compat).toEqual({
+      supportsDeveloperRole: false,
+    });
+    expect(config.providers.other.compat).toEqual({
+      supportsDeveloperRole: true,
     });
   } finally {
     rmSync(piDir, { recursive: true, force: true });

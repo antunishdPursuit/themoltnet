@@ -17633,15 +17633,19 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 	* Parse a `Content-Type` header.
 	*/
 	function parse(header, options) {
+		const stopChar = options?.comma === true ? COMMA : 65536;
 		const len = header.length;
-		let index = skipOWS(header, 0, len);
+		let index = skipOWS(header, options?.start ?? 0, len);
 		const valueStart = index;
-		index = skipValue(header, index, len);
+		index = skipValue(header, index, len, stopChar);
 		const valueEnd = trailingOWS(header, valueStart, index);
-		return {
-			type: header.slice(valueStart, valueEnd).toLowerCase(),
-			parameters: options?.parameters === false ? new NullObject() : parseParameters(header, index, len)
+		const type = header.slice(valueStart, valueEnd).toLowerCase();
+		if (options?.parameters === false) return {
+			type,
+			index,
+			parameters: new NullObject()
 		};
+		return parseParameters(header, type, index, len, stopChar);
 	}
 	var SP = 32;
 	var HTAB = 9;
@@ -17649,16 +17653,19 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 	var EQ = 61;
 	var DQUOTE = 34;
 	var BSLASH = 92;
+	var COMMA = 44;
 	/**
 	* Parses the parameters of a `Content-Type` header starting at the given index.
 	*/
-	function parseParameters(header, index, len) {
+	function parseParameters(header, type, index, len, stopChar) {
 		const parameters = new NullObject();
 		parameter: while (index < len) {
+			if (header.charCodeAt(index) === stopChar) break;
 			index = skipOWS(header, index + 1, len);
 			const keyStart = index;
 			while (index < len) {
 				const code = header.charCodeAt(index);
+				if (code === stopChar) break parameter;
 				if (code === SEMI) continue parameter;
 				if (code === EQ) {
 					const keyEnd = trailingOWS(header, keyStart, index);
@@ -17670,7 +17677,7 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 						while (index < len) {
 							const code = header.charCodeAt(index++);
 							if (code === DQUOTE) {
-								index = skipValue(header, index, len);
+								index = skipValue(header, index, len, stopChar);
 								if (parameters[key] === void 0) parameters[key] = value;
 								break;
 							}
@@ -17683,7 +17690,7 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 						continue parameter;
 					}
 					const valueStart = index;
-					index = skipValue(header, index, len);
+					index = skipValue(header, index, len, stopChar);
 					if (parameters[key] === void 0) {
 						const valueEnd = trailingOWS(header, valueStart, index);
 						parameters[key] = header.slice(valueStart, valueEnd);
@@ -17693,14 +17700,19 @@ var import_dist = (/* @__PURE__ */ __commonJSMin(((exports) => {
 				index++;
 			}
 		}
-		return parameters;
+		return {
+			type,
+			index,
+			parameters
+		};
 	}
 	/**
-	* Skip over characters until a semicolon.
+	* Skip over characters until a semicolon or other exit character.
 	*/
-	function skipValue(str, index, len) {
+	function skipValue(str, index, len, stopChar) {
 		while (index < len) {
-			if (str.charCodeAt(index) === SEMI) break;
+			const code = str.charCodeAt(index);
+			if (code === SEMI || code === stopChar) break;
 			index++;
 		}
 		return index;
@@ -32909,7 +32921,7 @@ var RUNTIME_PROFILE_CONTEXT_CATALOGUE = {
 		},
 		"judgment-diary-v1": {
 			binding: "prompt_prefix",
-			content: "# Judgment diary discipline\n\n- For an `assess_brief`, `judge_pack`, or `pr_review` task, create a diary entry with the `moltnet_create_entry` custom tool before submitting the structured judgment. Capture the rationale and evidence that support the verdict. Do not claim a content signature unless you created the entry with `signed: true` under a runtime that declares the `agent-signing` host capability.\n- Add the `judgment` tag and the active task type tag (`assess_brief`, `judge_pack`, or `pr_review`). For `judge_pack`, also add `rubric:<rubricId>` from the task facts.\n- Do not use a shell `moltnet entry` command: task provenance is injected only by the custom tool.",
+			content: "# Judgment diary discipline\n\n- For an `assess_brief` or `judge_pack` task, create a diary entry with the `moltnet_create_entry` custom tool before submitting the structured judgment. Capture the rationale and evidence that support the verdict. Do not claim a content signature unless you created the entry with `signed: true` under a runtime that declares the `agent-signing` host capability.\n- Add the `judgment` tag and the active task type tag (`assess_brief` or `judge_pack`). For `judge_pack`, also add `rubric:<rubricId>` from the task facts.\n- Do not use a shell `moltnet entry` command: task provenance is injected only by the custom tool.",
 			slug: "judgment-diary-v1"
 		},
 		"proactive-memory-v1": {
@@ -35873,71 +35885,6 @@ async function onCreateJudgeEvalAttempt(input, _ctx) {
 	}];
 }
 //#endregion
-//#region ../../libs/tasks/src/task-types/pr-review.ts
-var PR_REVIEW_TYPE = "pr_review";
-var PrReviewInput = _Object_({
-	subject: _Object_({
-		title: String$1({ minLength: 1 }),
-		summary: String$1({ minLength: 1 }),
-		resourceUrls: Optional(_Array_(String$1({ minLength: 1 }))),
-		inspectionHints: Optional(_Array_(String$1({ minLength: 1 })))
-	}, {
-		$id: "PrReviewSubject",
-		additionalProperties: false
-	}),
-	taskPrompt: Optional(String$1({ minLength: 1 })),
-	successCriteria: SuccessCriteria,
-	context: Optional(TaskContext)
-}, {
-	$id: "PrReviewInput",
-	additionalProperties: false
-});
-var PrReviewOutput = _Object_({
-	scores: _Array_(_Object_({
-		criterionId: String$1({ minLength: 1 }),
-		score: Union([Literal(0), Literal(1)]),
-		rationale: String$1({ minLength: 1 })
-	}, {
-		$id: "PrReviewScore",
-		additionalProperties: false
-	}), { minItems: 1 }),
-	composite: Number$1({
-		minimum: 0,
-		maximum: 1
-	}),
-	verdict: String$1({ minLength: 1 })
-}, {
-	$id: "PrReviewOutput",
-	additionalProperties: false
-});
-function requireBooleanRubric(rubric) {
-	for (const criterion of rubric.criteria) if (criterion.scoring !== "boolean") return `pr_review requires boolean scoring for every rubric criterion; criterion "${criterion.id}" uses "${criterion.scoring}"`;
-	return null;
-}
-function validatePrReviewInput(input) {
-	const sc = input.successCriteria;
-	if (!sc) return "successCriteria is required for judgment tasks";
-	if (!sc.rubric) return "successCriteria.rubric is required for judgment tasks";
-	return validateRubricWeights(sc.rubric) ?? requireBooleanRubric(sc.rubric);
-}
-function validatePrReviewOutput(output, input) {
-	if (!input) return null;
-	const scores = output.scores;
-	const rubric = input.successCriteria.rubric;
-	if (!rubric) return null;
-	if (scores.length !== rubric.criteria.length) return `scores length ${scores.length} does not match rubric criteria length ${rubric.criteria.length}`;
-	let composite = 0;
-	for (let i = 0; i < rubric.criteria.length; i++) {
-		const criterion = rubric.criteria[i];
-		const score = scores[i];
-		if (score.criterionId !== criterion.id) return `scores[${i}] has criterionId "${score.criterionId}" but rubric expects "${criterion.id}" in that position`;
-		composite += criterion.weight * score.score;
-	}
-	const claimed = output.composite;
-	if (Math.abs(claimed - composite) > 1e-6) return `composite ${claimed} does not match weighted sum ${composite.toFixed(6)}`;
-	return null;
-}
-//#endregion
 //#region ../../libs/tasks/src/task-types/render-pack.ts
 /**
 * `render_pack` — turn a context pack into a signed rendered artefact.
@@ -36227,18 +36174,6 @@ var BUILT_IN_TASK_TYPES = {
 		requiresReferences: true,
 		validateInput: validateJudgmentInput,
 		validateInputAsync: validateAssessBriefInputAsync
-	},
-	[PR_REVIEW_TYPE]: {
-		name: PR_REVIEW_TYPE,
-		inputSchema: PrReviewInput,
-		outputSchema: PrReviewOutput,
-		outputKind: "judgment",
-		workspaceMode: "dedicated_worktree",
-		workspaceScope: "attempt",
-		sessionScope: "none",
-		requiresReferences: false,
-		validateInput: validatePrReviewInput,
-		validateOutput: validatePrReviewOutput
 	},
 	[CURATE_PACK_TYPE]: {
 		name: CURATE_PACK_TYPE,
@@ -37473,16 +37408,6 @@ function buildJudgeEvalAttemptForRunEval(target, options) {
 		successCriteria: buildRubricSuccessCriteria(options)
 	});
 }
-/**
-* Build a `pr_review` task. Requires `subject` + `successCriteria`. Note the
-* rubric criteria must use `boolean` scoring for this task type.
-*
-* @param input - PR-review input; `subject` + `successCriteria` mandatory.
-* @returns A typed {@link TaskBuilder}.
-*/
-function buildPrReview(input) {
-	return buildTask("pr_review", input);
-}
 //#endregion
 //#region ../../libs/sdk/src/tasks/reader.ts
 /** JSON with object keys sorted, so stored and local schemas compare by value. */
@@ -37835,7 +37760,6 @@ function createTasksNamespace(context) {
 		buildJudgePack,
 		buildJudgeEvalAttempt,
 		buildJudgeEvalAttemptForRunEval,
-		buildPrReview,
 		async readResult(taskOrId, options) {
 			const task = typeof taskOrId === "string" ? rememberTask(unwrapResult(await getTask({
 				client,
