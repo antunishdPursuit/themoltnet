@@ -198,6 +198,7 @@ export function createGondolinDurableTaskExecutor(
       models,
       model: { provider: options.provider, modelId: options.model },
       maxTurns: options.maxTurns,
+      maxBashTimeouts: options.maxBashTimeouts,
       subagentContracts: options.subagentContractRegistry,
       maxSubmitReminders: options.maxSubmitMissingReprompts,
       agent: { thinkingLevel: options.thinkingLevel ?? undefined },

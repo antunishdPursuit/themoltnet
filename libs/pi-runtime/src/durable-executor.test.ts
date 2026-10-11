@@ -10,6 +10,7 @@ import {
   defineExtension,
   defineTool,
   type Extension,
+  type ToolRegistration,
 } from '@earendil-works/pi-durable';
 import {
   type ClaimedTask,
@@ -59,15 +60,24 @@ function setup(
   subagents = false,
   maxTurns?: number,
   subagentExtensions?: readonly Extension[],
+  overrides: {
+    maxBashTimeouts?: number;
+    tools?: readonly ToolRegistration[];
+  } = {},
 ) {
+  const allowed = new Set([
+    'subagent',
+    ...(overrides.tools ?? []).map((tool) => tool.name),
+  ]);
   const remote = remoteLog();
   const faux = fauxProvider({ tokensPerSecond: 0 });
   const models = createModels();
   models.setProvider(faux.provider);
   const prepare = vi.fn(async () => ({
     authorizeTool: vi.fn(async (name: string) =>
-      name === 'subagent' ? undefined : 'blocked',
+      allowed.has(name) ? undefined : 'blocked',
     ),
+    ...(overrides.tools ? { tools: overrides.tools } : {}),
     ...(subagents ? { subagentTools: [] } : {}),
     subagentExtensions,
     close: vi.fn(),
@@ -75,6 +85,7 @@ function setup(
   const execute = createDurableTaskExecutor({
     models,
     maxTurns,
+    maxBashTimeouts: overrides.maxBashTimeouts,
     subagentContracts: createSubagentContractRegistry([
       {
         name: 'verdict',
@@ -95,6 +106,25 @@ function setup(
   });
   return { ...remote, faux, execute, prepare };
 }
+/** A `bash` stand-in that fails the way the Durable bash tool does. */
+function failingBash(message: string) {
+  const execute = vi.fn(async (): Promise<never> => {
+    throw new Error(message);
+  });
+  return {
+    execute,
+    tool: defineTool({
+      name: 'bash',
+      description: 'Run a command',
+      parameters: Type.Object({ command: Type.String() }),
+      execute,
+    }),
+  };
+}
+const bashCall = (command: string) =>
+  fauxAssistantMessage(fauxToolCall('bash', { command }), {
+    stopReason: 'toolUse',
+  });
 const submitted = () =>
   fauxAssistantMessage(
     fauxToolCall('submit_freeform_output', { summary: 'Done' }),
@@ -167,6 +197,74 @@ describe('Durable task integration', () => {
     expect(result.error?.code).toBe('max_turns_exceeded');
     expect(faux.state.callCount).toBe(2);
     expect(await execute(task(), reporter())).toEqual(result);
+  });
+
+  it('ends the attempt once bash timeouts reach the cap', async () => {
+    const bash = failingBash('Command timed out after 5 seconds');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 2,
+      tools: [bash.tool],
+    });
+    faux.setResponses([
+      bashCall('sleep 60'),
+      bashCall('sleep 61'),
+      submitted(),
+    ]);
+    const events = reporter();
+
+    const result = await execute(task(), events);
+
+    expect(bash.execute).toHaveBeenCalledTimes(2);
+    expect(faux.state.callCount).toBe(2);
+    expect(result.status).toBe('failed');
+    expect(result.error).toEqual({
+      code: 'max_bash_timeouts_exceeded',
+      message: 'Aborted after 2 bash timeouts in this attempt (cap 2).',
+      retryable: false,
+    });
+    expect(recorded(events)).toContainEqual({
+      kind: 'error',
+      payload: {
+        phase: 'task_result',
+        code: 'max_bash_timeouts_exceeded',
+        message: 'Aborted after 2 bash timeouts in this attempt (cap 2).',
+      },
+    });
+    expect(await execute(task(), reporter())).toEqual(result);
+  });
+
+  it('counts only bash timeouts toward the cap', async () => {
+    const bash = failingBash('Command exited with code 1');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 1,
+      tools: [bash.tool],
+    });
+    faux.setResponses([bashCall('false'), bashCall('false'), submitted()]);
+
+    const result = await execute(task(), reporter());
+
+    expect(bash.execute).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('completed');
+  });
+
+  it('disables the bash-timeout cap at zero', async () => {
+    const bash = failingBash('Command timed out after 5 seconds');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 0,
+      tools: [bash.tool],
+    });
+    faux.setResponses([
+      bashCall('sleep 60'),
+      bashCall('sleep 61'),
+      bashCall('sleep 62'),
+      bashCall('sleep 63'),
+      submitted(),
+    ]);
+
+    const result = await execute(task(), reporter());
+
+    expect(bash.execute).toHaveBeenCalledTimes(4);
+    expect(result.status).toBe('completed');
   });
 
   it('enforces the generation limit inside delegated tool loops', async () => {

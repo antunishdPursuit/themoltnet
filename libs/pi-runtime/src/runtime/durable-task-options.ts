@@ -44,6 +44,8 @@ export interface GondolinDurableTaskOptions extends PiModelOptions {
   onVmDiagnostic?: (diagnostic: VmDiagnostic) => void;
   resumeVm?: typeof resumeVm;
   maxTurns?: number;
+  /** Bash timeouts allowed per attempt; see `createDurableTaskExecutor`. */
+  maxBashTimeouts?: number;
   maxSubmitMissingReprompts?: number;
   hostExecAutoApprove?: HostExecAutoApproveConfig;
   makeExecutionPlan?: PiTaskExecutionPlanFactory;

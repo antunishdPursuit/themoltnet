@@ -19,6 +19,7 @@ import {
   hook,
   type JsonObject,
   type Storage,
+  type ToolExecutionResult,
   type ToolRegistration,
   ToolTask,
   type UsageState,
@@ -74,8 +75,24 @@ const Attempts = defineDocFamily({
     environment: null as JsonObject | null,
     turns: 0,
     reminders: 0,
+    bashTimeouts: 0,
   }),
 });
+
+// The Durable `bash` tool throws this text on timeout, and the Harness keeps a
+// thrown message as the result's `tool_error` diagnostic.
+const BASH_TIMEOUT = /^Command timed out after /;
+
+function isBashTimeout(result: ToolExecutionResult): boolean {
+  return (
+    result.isError === true &&
+    (result.diagnostics ?? []).some(
+      (diagnostic) =>
+        diagnostic.code === 'tool_error' &&
+        BASH_TIMEOUT.test(diagnostic.message),
+    )
+  );
+}
 
 async function abortGeneration(
   harness: Harness,
@@ -121,6 +138,13 @@ export function createDurableTaskExecutor(options: {
   model: { provider: string; modelId: string };
   agent?: Omit<AgentChange, 'model'>;
   maxTurns?: number;
+  /**
+   * Bash timeouts allowed per attempt, counted across resumes and delegated
+   * conversations. The next model request after the cap is reached ends the
+   * attempt with `max_bash_timeouts_exceeded`. Defaults to 3, like the legacy
+   * executor; 0 or less disables the cap.
+   */
+  maxBashTimeouts?: number;
   subagentContracts?: SubagentContractRegistry;
   maxSubmitReminders?: number;
   open(
@@ -157,6 +181,11 @@ export function createDurableTaskExecutor(options: {
       options.maxTurns !== undefined && options.maxTurns > 0
         ? options.maxTurns
         : undefined;
+    const maxBashTimeouts = options.maxBashTimeouts ?? 3;
+    const bashTimeoutLimit = maxBashTimeouts > 0 ? maxBashTimeouts : undefined;
+    // Attempts persisted before the cap existed carry no counter.
+    const bashTimeoutsOf = (state?: { bashTimeouts?: number } | null) =>
+      state?.bashTimeouts ?? 0;
     const key = `${task.id}/${attemptN}`;
     const base = { taskId: task.id, attemptN };
     const contract = getSubmitOutputContract(task.taskType, task.input);
@@ -281,6 +310,17 @@ export function createDurableTaskExecutor(options: {
                 tool_name: call.name,
                 is_error: result.isError === true,
               });
+              if (
+                bashTimeoutLimit !== undefined &&
+                call.name === 'bash' &&
+                isBashTimeout(result)
+              ) {
+                // Count durably so a resumed attempt keeps its budget.
+                await harness!.commit(async (tx) => {
+                  const state = await tx.doc(Attempts, key, seed);
+                  state.bashTimeouts = bashTimeoutsOf(state) + 1;
+                }, context);
+              }
               return undefined;
             },
           }),
@@ -300,7 +340,10 @@ export function createDurableTaskExecutor(options: {
               let exhausted = false;
               await harness!.commit(async (tx) => {
                 const state = await tx.doc(Attempts, key, seed);
-                exhausted = turnLimit !== undefined && state.turns >= turnLimit;
+                exhausted =
+                  (turnLimit !== undefined && state.turns >= turnLimit) ||
+                  (bashTimeoutLimit !== undefined &&
+                    bashTimeoutsOf(state) >= bashTimeoutLimit);
                 if (!exhausted) state.turns += 1;
               }, context);
               if (exhausted) {
@@ -669,6 +712,28 @@ export function createDurableTaskExecutor(options: {
         : [];
       const maxTurnsExceeded =
         turnLimit !== undefined && (state?.turns ?? 0) >= turnLimit;
+      const bashTimeouts = bashTimeoutsOf(state);
+      const maxBashTimeoutsExceeded =
+        bashTimeoutLimit !== undefined && bashTimeouts >= bashTimeoutLimit;
+      const failure = output
+        ? {
+            code: 'output_validation_failed',
+            message: JSON.stringify(errors.slice(0, 3)),
+          }
+        : maxBashTimeoutsExceeded
+          ? {
+              code: 'max_bash_timeouts_exceeded',
+              message: `Aborted after ${bashTimeouts} bash timeouts in this attempt (cap ${bashTimeoutLimit}).`,
+            }
+          : maxTurnsExceeded
+            ? {
+                code: 'max_turns_exceeded',
+                message: 'Durable task exceeded maxTurns without valid output',
+              }
+            : {
+                code: 'submit_output_missing',
+                message: 'No valid output was submitted',
+              };
       const result: TaskOutput =
         output && !errors.length
           ? {
@@ -686,19 +751,7 @@ export function createDurableTaskExecutor(options: {
               outputCid: null,
               usage,
               durationMs,
-              error: {
-                code: output
-                  ? 'output_validation_failed'
-                  : maxTurnsExceeded
-                    ? 'max_turns_exceeded'
-                    : 'submit_output_missing',
-                message: output
-                  ? JSON.stringify(errors.slice(0, 3))
-                  : maxTurnsExceeded
-                    ? 'Durable task exceeded maxTurns without valid output'
-                    : 'No valid output was submitted',
-                retryable: false,
-              },
+              error: { ...failure, retryable: false },
             };
       await harness.commit(async (tx) => {
         (await tx.doc(Attempts, key, seed)).result = JSON.parse(

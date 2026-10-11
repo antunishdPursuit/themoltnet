@@ -861,6 +861,7 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
           makeExecutionPlan: (task) => executionPlans.getOrCreate(task),
           toolPolicyLogger: taskLogger,
           maxTurns: profile.maxTurns,
+          maxBashTimeouts: profile.maxBashTimeouts,
         });
         try {
           active = {

@@ -500,6 +500,7 @@ export async function runOnce(
           executionPlans.getOrCreate(claimedTask),
         toolPolicyLogger: rootLogger,
         maxTurns: profile.maxTurns,
+        maxBashTimeouts: profile.maxBashTimeouts,
       });
     const executeTask: TaskExecutor = async (claimedTask, reporter) => {
       const taskModel = runtimeProfileModel(
