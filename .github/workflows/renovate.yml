@@ -72,3 +72,5 @@ jobs:
           RENOVATE_ONBOARDING: 'false'
           RENOVATE_REQUIRE_CONFIG: required
           RENOVATE_PLATFORM_COMMIT: enabled
+          # Permit only the workspace formatter declared in renovate.json.
+          RENOVATE_ALLOWED_COMMANDS: '["^node tools/renovate/format-pnpm-workspace\\.mjs$"]'

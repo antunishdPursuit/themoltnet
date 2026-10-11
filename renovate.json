@@ -50,6 +50,14 @@
       "minimumReleaseAge": "3 days"
     },
     {
+      "description": "Format pnpm workspace changes before committing npm updates",
+      "matchManagers": ["npm"],
+      "postUpgradeTasks": {
+        "commands": ["node tools/renovate/format-pnpm-workspace.mjs"],
+        "fileFilters": ["pnpm-workspace.yaml"]
+      }
+    },
+    {
       "description": "Keep Nx core and plugins on the same version",
       "groupName": "Nx workspace",
       "matchManagers": ["npm"],
