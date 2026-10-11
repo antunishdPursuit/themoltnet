@@ -144,9 +144,13 @@ const completedAttempt: GateTaskAttempt = {
 };
 
 describe('checkGates', () => {
-  it.each([false, true])(
-    'reads committed Durable tool evidence, including failed submits (%s)',
-    async (isError) => {
+  it.each([
+    [false, 1],
+    [true, 1],
+    [false, 2],
+  ] as const)(
+    'counts committed Durable evidence without operational mirrors (error=%s, count=%s)',
+    async (isError, count) => {
       const entries = [
         {
           id: 1,
@@ -171,6 +175,7 @@ describe('checkGates', () => {
           ],
         },
       ];
+      if (count === 2) entries.push({ ...entries[1], id: 3 });
       const refs = entries.map((entry) => ({
         kind: 'info',
         payload: {
@@ -182,7 +187,7 @@ describe('checkGates', () => {
         },
       }));
       const agent = fakeAgent(
-        [...messages({ submitResults: [] }), ...refs, refs[1]],
+        [...messages(), ...refs, refs[1]],
         completedAttempt,
       );
       const read = vi.fn().mockResolvedValue({
@@ -204,7 +209,13 @@ describe('checkGates', () => {
       expect(read).toHaveBeenCalledExactlyOnceWith('store', 3, {
         teamId: 'team-1',
       });
-      expect(result.passed).toBe(!isError);
+      expect(result.passed).toBe(!isError && count === 1);
+      if (count === 2)
+        expect(result.failures).toContainEqual({
+          gate: 'submit_clean',
+          detail:
+            'submit_run_eval_output had 2 successful call(s), expected exactly 1',
+        });
       if (isError)
         expect(result.failures).toContainEqual({
           gate: 'submit_clean',
@@ -252,6 +263,16 @@ describe('checkGates', () => {
                         },
                       ],
                     },
+                    ...(storeId === 'store-a' && seq === 1
+                      ? [
+                          {
+                            role: 'toolResult',
+                            toolName: 'submit_run_eval_output',
+                            isError: false,
+                            content: [],
+                          },
+                        ]
+                      : []),
                   ],
                 },
               },

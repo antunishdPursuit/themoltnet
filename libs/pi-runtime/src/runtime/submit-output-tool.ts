@@ -23,6 +23,7 @@ export function submitOutputGuidance(
       `Agent submission schema:\n\`\`\`json\n${contract.parametersSchemaJson}\n\`\`\``,
     promptGuidelines: [
       `Call \`${contract.toolName}\` with the exact ${taskType} agent submission shape shown above.`,
+      'Alternatively, return a JSON-only final message (optionally fenced) matching the same schema.',
       'If the submit tool returns a validation error, fix every listed field and call the same tool again.',
       'The first valid submission is final and immediately ends the session.',
     ],
@@ -42,6 +43,18 @@ export function formatValidationErrors(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Accept only a complete object, optionally fenced; never extract JSON from prose. */
+export function parseFinalMessageSubmission(
+  text: string,
+): Record<string, unknown> | undefined {
+  const trimmed = text.trim();
+  const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```$/i.exec(trimmed);
+  const body = (fenced ? fenced[1] : trimmed).trim();
+  if (!body.startsWith('{') || !body.endsWith('}')) return undefined;
+  const parsed = parseCompleteJsonValue(body);
+  return parsed && isRecord(parsed.value) ? parsed.value : undefined;
 }
 
 /**

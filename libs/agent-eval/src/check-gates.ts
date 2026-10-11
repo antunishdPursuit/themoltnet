@@ -243,7 +243,7 @@ async function durableToolEvents(
   agent: GateAgent,
   messages: GateTaskMessage[],
   teamId: string | undefined,
-): Promise<GateTaskMessage[]> {
+): Promise<GateTaskMessage[] | null> {
   const events: GateTaskMessage[] = [];
   const commits = new Map<string, Record<string, unknown>[]>();
   const seen = new Set<string>();
@@ -268,7 +268,7 @@ async function durableToolEvents(
       entryId: ref.entryId,
     });
   }
-  if (refs.length === 0) return events;
+  if (refs.length === 0) return null;
   if (!agent.runtimeSessions || !teamId)
     throw new Error(
       'Durable gate evidence requires a runtime store reader and team',
@@ -391,11 +391,17 @@ export async function checkGates(
     schemaName,
     responseField,
   } = TASK_TYPE_OUTPUT[expected.taskType ?? 'run_eval'];
-  const messages = await listAllMessages(agent, taskId, attemptN);
+  let messages = await listAllMessages(agent, taskId, attemptN);
   try {
-    messages.push(
-      ...(await durableToolEvents(agent, messages, expected.teamId)),
-    );
+    const evidence = await durableToolEvents(agent, messages, expected.teamId);
+    if (evidence !== null) {
+      // Operational tool progress mirrors the committed results. Count the
+      // authoritative history once, preserving distinct repeated tool calls.
+      messages = messages.filter(
+        ({ kind }) => kind !== 'tool_call_start' && kind !== 'tool_call_end',
+      );
+      messages.push(...evidence);
+    }
   } catch (error) {
     failures.push({
       gate: 'runtime_evidence',
