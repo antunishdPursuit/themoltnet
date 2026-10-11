@@ -16,7 +16,7 @@ import {
   createSubagentContractRegistry,
   type TaskReporter,
 } from '@themoltnet/agent-runtime';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 
 import { remoteLog } from '../__tests__/durable-log.js';
 import { createDurableTaskExecutor } from './durable-executor.js';
@@ -38,15 +38,18 @@ function task(
     traceHeaders: {},
   } as ClaimedTask;
 }
-function reporter(): TaskReporter {
+function reporter(): TaskReporter & { record: Mock<TaskReporter['record']> } {
   return {
     open: vi.fn(),
-    record: vi.fn(),
+    record: vi.fn<TaskReporter['record']>(),
     finalize: vi.fn(),
     close: vi.fn(),
     cancelReason: null,
     cancelSignal: new AbortController().signal,
   };
+}
+function recorded(events: ReturnType<typeof reporter>) {
+  return events.record.mock.calls.map(([message]) => message);
 }
 function setup(
   subagents = false,
@@ -402,7 +405,8 @@ it('installs native extension tools and checks their calls against the current p
     }),
     submitted(),
   ]);
-  expect((await execute(task(), reporter())).status).toBe('completed');
+  const events = reporter();
+  expect((await execute(task(), events)).status).toBe('completed');
   expect(allowed).toHaveBeenCalledOnce();
   expect(blocked).not.toHaveBeenCalled();
   expect(authorizeTool).toHaveBeenCalledWith(
@@ -410,4 +414,84 @@ it('installs native extension tools and checks their calls against the current p
     {},
     expect.anything(),
   );
+  expect(
+    recorded(events).filter(({ kind }) => kind.startsWith('tool_')),
+  ).toEqual([
+    { kind: 'tool_call_start', payload: { tool_name: 'allowed_native' } },
+    {
+      kind: 'tool_call_end',
+      payload: {
+        tool_name: 'allowed_native',
+        is_error: false,
+      },
+    },
+    { kind: 'tool_call_start', payload: { tool_name: 'blocked_native' } },
+    {
+      kind: 'tool_call_end',
+      payload: {
+        tool_name: 'blocked_native',
+        is_error: true,
+      },
+    },
+    {
+      kind: 'tool_call_start',
+      payload: { tool_name: 'submit_freeform_output' },
+    },
+    {
+      kind: 'tool_call_end',
+      payload: {
+        tool_name: 'submit_freeform_output',
+        is_error: false,
+      },
+    },
+  ]);
+});
+
+describe('live task messages', () => {
+  it('records turn boundaries without duplicating conversation content', async () => {
+    const { faux, execute } = setup();
+    faux.setResponses([fauxAssistantMessage('Looking around'), submitted()]);
+    const events = reporter();
+    expect((await execute(task(), events)).status).toBe('completed');
+    expect(
+      recorded(events).filter(({ kind }) => !kind.startsWith('tool_')),
+    ).toEqual([
+      { kind: 'turn_end', payload: { stop_reason: 'stop' } },
+      { kind: 'turn_end', payload: { stop_reason: 'toolUse' } },
+    ]);
+  });
+
+  it('records why a finished attempt failed', async () => {
+    const { faux, execute } = setup(false, 1);
+    faux.setResponses([fauxAssistantMessage('Finished')]);
+    const events = reporter();
+    const result = await execute(task(), events);
+    expect(result.error?.code).toBe('max_turns_exceeded');
+    expect(recorded(events).at(-1)).toEqual({
+      kind: 'error',
+      payload: {
+        phase: 'task_result',
+        code: 'max_turns_exceeded',
+        message: 'Durable task exceeded maxTurns without valid output',
+      },
+    });
+  });
+
+  it('keeps executing when the reporter cannot record', async () => {
+    const { faux, execute } = setup();
+    faux.setResponses([submitted()]);
+    const events = reporter();
+    events.record.mockRejectedValue(new Error('buffer closed'));
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
+    try {
+      expect((await execute(task(), events)).status).toBe('completed');
+      expect(stderr).toHaveBeenCalledWith(
+        expect.stringContaining('kind="tool_call_start": buffer closed'),
+      );
+    } finally {
+      stderr.mockRestore();
+    }
+  });
 });

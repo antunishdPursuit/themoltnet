@@ -37,6 +37,7 @@ import {
   type SubagentContractRegistry,
   TaskExecutionInterrupted,
   type TaskExecutor,
+  type TaskReporter,
   validateAgentTaskOutput,
   validateAgentTaskSubmission,
 } from '@themoltnet/agent-runtime';
@@ -162,9 +163,25 @@ export function createDurableTaskExecutor(options: {
       | Awaited<ReturnType<Awaited<ReturnType<typeof options.open>>['prepare']>>
       | undefined;
     let onAbort: (() => void) | undefined;
+    let reporterOpen = false;
+    // Live task messages are telemetry: Durable storage stays the source of
+    // truth, so a reporter failure never fails or interrupts the attempt.
+    const emit = async (
+      kind: Parameters<TaskReporter['record']>[0]['kind'],
+      payload: Record<string, unknown>,
+    ) => {
+      try {
+        await reporter.record({ kind, payload });
+      } catch (error) {
+        process.stderr.write(
+          `durable executor: reporter.record() failed for task ${task.id} attempt ${attemptN} kind="${kind}": ${error instanceof Error ? error.message : String(error)}\n`,
+        );
+      }
+    };
     try {
       connection = await options.open(claimed, reporter.cancelSignal);
       await reporter.open(base);
+      reporterOpen = true;
       const connected = connection;
       const context = withAbortSignal(connected.signal, BACKGROUND_CONTEXT);
       const registry = createRegistry();
@@ -236,16 +253,42 @@ export function createDurableTaskExecutor(options: {
           hook(ToolTask, {
             async beforeTool(call, _api, ctx) {
               connected.check();
-              if (call.name === contract.toolName) return;
-              const block = await prepared!.authorizeTool(
-                call.name,
-                call.arguments as JsonObject,
-                withAbortSignal(connected.signal, ctx),
-              );
-              return block ? { block } : undefined;
+              const block =
+                call.name === contract.toolName
+                  ? undefined
+                  : await prepared!.authorizeTool(
+                      call.name,
+                      call.arguments as JsonObject,
+                      withAbortSignal(connected.signal, ctx),
+                    );
+              await emit('tool_call_start', { tool_name: call.name });
+              if (!block) return undefined;
+              // A blocked call settles without afterTool, so close it here.
+              await emit('tool_call_end', {
+                tool_name: call.name,
+                is_error: true,
+              });
+              return { block };
+            },
+            async afterTool(call, result) {
+              await emit('tool_call_end', {
+                tool_name: call.name,
+                is_error: result.isError === true,
+              });
+              return undefined;
             },
           }),
           hook(GenerationTask, {
+            async afterResponse(message) {
+              // Replies and tool content are read from the Durable conversation;
+              // task messages carry only operational progress and diagnostics.
+              if (message.stopReason === 'error')
+                await emit('error', {
+                  phase: 'session_prompt',
+                  message: message.errorMessage ?? 'Model request failed',
+                });
+              await emit('turn_end', { stop_reason: message.stopReason });
+            },
             async beforeRequest(_request, api, ctx) {
               connected.check();
               let exhausted = false;
@@ -659,6 +702,12 @@ export function createDurableTaskExecutor(options: {
         ) as JsonObject;
       }, context);
       terminalRecorded = true;
+      if (result.error)
+        await emit('error', {
+          phase: 'task_result',
+          code: result.error.code,
+          message: result.error.message,
+        });
       await reporter.finalize(usage);
       return result;
     } catch (error) {
@@ -670,6 +719,11 @@ export function createDurableTaskExecutor(options: {
           'Durable execution interrupted; attempt remains resumable',
           { cause: error },
         );
+      if (reporterOpen)
+        await emit('error', {
+          phase: 'durable_execution',
+          message: error instanceof Error ? error.message : String(error),
+        });
       throw error;
     } finally {
       if (onAbort) connection?.signal.removeEventListener('abort', onAbort);
