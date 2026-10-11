@@ -102,6 +102,11 @@ vi.mock('../src/config.js', () => ({
   getConfig: () => ({ docsUrl: 'https://docs.example.com' }),
 }));
 
+// Conversation reads have their own suite; this one counts lane/table queries.
+vi.mock('../src/tasks/useTaskConversations.js', () => ({
+  useTaskConversations: () => ({ threads: undefined }),
+}));
+
 vi.mock('../src/diaries/hooks.js', () => ({
   useDiarySummaries: () => ({ data: [{ id: 'd1', name: 'diary-1' }] }),
 }));

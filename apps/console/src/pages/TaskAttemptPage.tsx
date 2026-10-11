@@ -10,8 +10,11 @@ import {
   CreateTaskDialog,
   type CreateTaskRequest,
   formatRelativeAge,
+  hasConversationContent,
+  operationalTaskMessages,
   TaskActionPanel,
   TaskAttemptDetail,
+  TaskConversationView,
   TaskMessagesTimeline,
 } from '@moltnet/task-ui';
 import { useQuery } from '@tanstack/react-query';
@@ -31,6 +34,8 @@ import { getApiClient } from '../api.js';
 import { getConfig } from '../config.js';
 import { useDiarySummaries } from '../diaries/hooks.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { isLiveAttemptStatus } from '../tasks/conversation-stream.js';
+import { useTaskConversations } from '../tasks/useTaskConversations.js';
 import { useTeam } from '../team/useTeam.js';
 
 const SUCCESS_CRITERIA_DOCS_HREF = `${getConfig().docsUrl}/use/tasks-and-runtime#structured-output-and-self-verification`;
@@ -87,6 +92,15 @@ export function TaskAttemptPage({
   const attempt = attemptsQuery.data?.find(
     (item) => item.attemptN === attemptN,
   );
+
+  const conversations = useTaskConversations({
+    client: getApiClient(),
+    teamId: selectedTeam?.id,
+    taskId: id,
+    attemptN,
+    attemptStatus: attempt?.status,
+  });
+  const events = operationalTaskMessages(messagesQuery.data ?? []);
 
   const [, navigate] = useLocation();
   const [showContinue, setShowContinue] = useState(false);
@@ -183,18 +197,50 @@ export function TaskAttemptPage({
       >
         <Stack gap={5}>
           <TaskAttemptDetail attempt={attempt} />
-          <Card variant="surface" padding="md">
-            <Stack gap={3}>
-              <Text variant="h3" style={{ margin: 0 }}>
-                Messages
-              </Text>
-              {messagesQuery.error ? (
-                <Text color="muted">Failed to load messages.</Text>
-              ) : (
-                <TaskMessagesTimeline messages={messagesQuery.data ?? []} />
-              )}
-            </Stack>
-          </Card>
+          {hasConversationContent(conversations.threads) ? (
+            <>
+              <Card variant="surface" padding="md">
+                <Stack gap={3}>
+                  <Text variant="h3" style={{ margin: 0 }}>
+                    Conversation
+                  </Text>
+                  <TaskConversationView
+                    threads={conversations.threads}
+                    live={isLiveAttemptStatus(attempt.status)}
+                  />
+                </Stack>
+              </Card>
+              <Card variant="surface" padding="md">
+                <Stack gap={3}>
+                  <Text variant="h3" style={{ margin: 0 }}>
+                    Events
+                  </Text>
+                  {messagesQuery.error ? (
+                    <Text color="muted">Failed to load events.</Text>
+                  ) : events.length ? (
+                    <TaskMessagesTimeline messages={events} joinText={false} />
+                  ) : (
+                    <Text color="muted">
+                      No errors, policy decisions or notices for this attempt.
+                    </Text>
+                  )}
+                </Stack>
+              </Card>
+            </>
+          ) : (
+            <Card variant="surface" padding="md">
+              <Stack gap={3}>
+                <Text variant="h3" style={{ margin: 0 }}>
+                  Messages
+                </Text>
+                {messagesQuery.error ? (
+                  <Text color="muted">Failed to load messages.</Text>
+                ) : (
+                  <TaskMessagesTimeline messages={messagesQuery.data ?? []} />
+                )}
+              </Stack>
+            </Card>
+          )}
         </Stack>
 
         <TaskActionPanel task={task} selectedAttempt={attempt} />
