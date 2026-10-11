@@ -1090,6 +1090,12 @@ importers:
         specifier: workspace:*
         version: link:../../libs/sdk
     devDependencies:
+      '@earendil-works/chord':
+        specifier: 'catalog:'
+        version: 1.0.0
+      '@earendil-works/pi-durable':
+        specifier: 'catalog:'
+        version: 1.0.0(zod@4.4.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
