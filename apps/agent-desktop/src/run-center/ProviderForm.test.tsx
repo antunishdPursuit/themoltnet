@@ -12,7 +12,10 @@ const LOCAL: AgentServerProvider = {
   hasApiKey: false,
   models: [],
 };
-function setup(providers: Record<string, AgentServerProvider> = {}) {
+function setup(
+  providers: Record<string, AgentServerProvider> = {},
+  existingId?: string,
+) {
   const putProvider = vi.fn().mockResolvedValue(LOCAL);
   const discoverModels = vi
     .fn()
@@ -29,6 +32,7 @@ function setup(providers: Record<string, AgentServerProvider> = {}) {
       <ProviderForm
         providers={providers}
         actions={actions}
+        existingId={existingId}
         onChanged={onChanged}
         onDone={onDone}
       />
@@ -195,6 +199,30 @@ describe('Desktop provider creation', () => {
     expect(putProvider).toHaveBeenCalledWith(
       'proxy',
       expect.objectContaining({ supportsDeveloperRole: true }),
+    );
+  });
+
+  it('defaults a legacy Ollama provider to the system role when saved', async () => {
+    const { putProvider } = setup({ ollama: LOCAL }, 'ollama');
+    expect(screen.getByLabelText('Instruction message role')).toHaveValue(
+      'system',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
+    await screen.findByRole('checkbox', { name: 'vision' });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Save models for Ollama/ }),
+    );
+    await waitFor(() => expect(putProvider).toHaveBeenCalled());
+    expect(putProvider).toHaveBeenCalledWith(
+      'ollama',
+      expect.objectContaining({ supportsDeveloperRole: false }),
+    );
+  });
+
+  it('preserves an explicit developer role on an existing Ollama provider', () => {
+    setup({ ollama: { ...LOCAL, supportsDeveloperRole: true } }, 'ollama');
+    expect(screen.getByLabelText('Instruction message role')).toHaveValue(
+      'developer',
     );
   });
 

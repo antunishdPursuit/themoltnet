@@ -54,7 +54,9 @@ export function ProviderForm({
   );
   const [supportsDeveloperRole, setSupportsDeveloperRole] = useState(
     existing?.supportsDeveloperRole ??
-      (existing ? true : (PRESETS[0].supportsDeveloperRole ?? true)),
+      PRESETS.find((entry) => entry.id === (existingId ?? 'ollama'))
+        ?.supportsDeveloperRole ??
+      true,
   );
   const [apiKey, setApiKey] = useState('');
   const [editingKey, setEditingKey] = useState(false);
