@@ -98,3 +98,93 @@ it('fences the writer when a read body fails after headers', async () => {
     await writer.transport.close(BACKGROUND_CONTEXT);
   }
 });
+
+it('aborts model work at expiry even with a renewal request still in flight', async () => {
+  vi.useFakeTimers();
+  let finish!: () => void;
+  const stores = {
+    open: async () => ({
+      storeId: 'store',
+      writerToken: 'writer',
+      writerExpiresAt: new Date(Date.now() + 6_000).toISOString(),
+    }),
+    renew: vi.fn(
+      () =>
+        new Promise<{ writerExpiresAt: string }>((resolve) => {
+          finish = () =>
+            resolve({
+              writerExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+            });
+        }),
+    ),
+    release: vi.fn(async () => {}),
+  };
+  const writer = await acquireDurableTransport({
+    stores: stores as unknown as RuntimeSessionsNamespace,
+    claimed,
+    signal: new AbortController().signal,
+  });
+  await vi.advanceTimersByTimeAsync(5_000);
+  expect(writer.signal.aborted).toBe(false);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(writer.signal.aborted).toBe(true);
+  finish();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(() => writer.check()).toThrow(TaskExecutionInterrupted);
+  await writer.transport.close(BACKGROUND_CONTEXT);
+});
+
+it('reschedules expiry after a confirmed renewal', async () => {
+  vi.useFakeTimers();
+  const writer = await acquireDurableTransport({
+    stores: {
+      open: async () => ({
+        storeId: 'store',
+        writerToken: 'writer',
+        writerExpiresAt: new Date(Date.now() + 6_000).toISOString(),
+      }),
+      renew: async () => ({
+        writerExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+      }),
+      release: async () => {},
+    } as unknown as RuntimeSessionsNamespace,
+    claimed,
+    signal: new AbortController().signal,
+  });
+  await vi.advanceTimersByTimeAsync(6_000);
+  expect(writer.signal.aborted).toBe(false);
+  writer.check();
+  await writer.transport.close(BACKGROUND_CONTEXT);
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(writer.signal.aborted).toBe(false);
+});
+
+it('does not rearm expiry when closing during a successful renewal', async () => {
+  vi.useFakeTimers();
+  let finish!: () => void;
+  const writer = await acquireDurableTransport({
+    stores: {
+      open: async () => ({
+        storeId: 'store',
+        writerToken: 'writer',
+        writerExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+      }),
+      renew: () =>
+        new Promise<{ writerExpiresAt: string }>((resolve) => {
+          finish = () =>
+            resolve({
+              writerExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+            });
+        }),
+      release: async () => {},
+    } as unknown as RuntimeSessionsNamespace,
+    claimed,
+    signal: new AbortController().signal,
+  });
+  await vi.advanceTimersByTimeAsync(5_000);
+  const closing = writer.transport.close(BACKGROUND_CONTEXT);
+  finish();
+  await closing;
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(writer.signal.aborted).toBe(false);
+});

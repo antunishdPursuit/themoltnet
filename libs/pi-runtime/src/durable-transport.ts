@@ -10,7 +10,7 @@ import type {
   RuntimeCommit,
 } from './durable-storage.js';
 
-/** One process owns this writer. Any renewal failure stops model/tool work. */
+/** One process owns this writer. Exhausted retries or expiry stop model/tool work. */
 export async function acquireDurableTransport(input: {
   stores: RuntimeSessionsNamespace;
   claimed: ClaimedTask;
@@ -33,11 +33,12 @@ export async function acquireDurableTransport(input: {
   const teamId = claimed.task.teamId;
   const lost = new AbortController();
   const signal = AbortSignal.any([input.signal, lost.signal]);
+  let deadline = Number.POSITIVE_INFINITY;
   const request = (context?: Context) => ({
     teamId,
     signal: AbortSignal.any([
       signal,
-      AbortSignal.timeout(10_000),
+      AbortSignal.timeout(Math.max(0, Math.min(10_000, deadline - Date.now()))),
       ...(context?.abortSignal ? [context.abortSignal] : []),
     ]),
   });
@@ -50,7 +51,7 @@ export async function acquireDurableTransport(input: {
       );
     });
   const writer = { ...authority, writerToken: handle.writerToken };
-  let deadline = Date.parse(handle.writerExpiresAt);
+  deadline = Date.parse(handle.writerExpiresAt);
   let closed = false;
   let renewal: Promise<void> | undefined;
   const fail = (error: unknown) => {
@@ -66,12 +67,27 @@ export async function acquireDurableTransport(input: {
     signal.throwIfAborted();
     if (closed) throw new Error('Durable writer closed');
   };
+  // Fence model/tool work even when no storage operation calls check(). Renewal
+  // and its backoff must never let execution outlive the last confirmed lease.
+  let expiry: ReturnType<typeof setTimeout>;
+  const scheduleExpiry = () => {
+    clearTimeout(expiry);
+    expiry = setTimeout(
+      () => fail(new Error('Writer lease expired')),
+      Math.max(0, deadline - Date.now()),
+    );
+    expiry.unref();
+  };
+  scheduleExpiry();
   const timer = setInterval(() => {
     if (closed || signal.aborted || renewal) return;
     renewal = (async () => {
       check();
       const renewed = await stores.renew(handle.storeId, writer, request());
+      if (closed) return;
+      check();
       deadline = Date.parse(renewed.writerExpiresAt);
+      scheduleExpiry();
     })()
       .catch(fail)
       .finally(() => {
@@ -128,6 +144,7 @@ export async function acquireDurableTransport(input: {
       if (closed) return;
       closed = true;
       clearInterval(timer);
+      clearTimeout(expiry);
       await renewal;
       // Closing must work after caller cancellation; expiry fences failed releases.
       await stores

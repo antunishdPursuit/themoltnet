@@ -15,6 +15,7 @@ import {
   uploadRuntimeSession,
   type UploadRuntimeSessionData,
 } from '@moltnet/api-client';
+import { createRetryFetch } from '@moltnet/api-client/retry';
 import { RuntimeStoreCommit } from '@moltnet/runtime-profiles';
 import { Value } from 'typebox/value';
 
@@ -42,6 +43,21 @@ export function createRuntimeSessionsNamespace(
     auth,
     signal: options.signal,
     headers: teamHeaders(options),
+  });
+
+  // These operations are safe to replay: append uses a stable commit ID and
+  // renewal retains the same writer token. The caller's signal bounds the whole
+  // operation, including the SDK's existing 429/auth retries underneath this.
+  const retryRequest = (options: RuntimeSessionRequestOptions) => ({
+    ...request(options),
+    fetch: createRetryFetch({
+      baseFetch: client.getConfig().fetch ?? globalThis.fetch,
+      retryMethods: ['GET', 'POST'],
+      retryStatuses: [408, 500, 502, 503, 504],
+      maxRetries: 3,
+      baseDelay: 250,
+      maxDelay: 1_000,
+    }),
   });
 
   return {
@@ -72,7 +88,7 @@ export function createRuntimeSessionsNamespace(
     ) {
       return unwrapResult(
         await renewRuntimeStore({
-          ...request(options),
+          ...retryRequest(options),
           path: { storeId },
           body,
         }),
@@ -110,7 +126,7 @@ export function createRuntimeSessionsNamespace(
     ) {
       return unwrapResult(
         await appendRuntimeStoreCommit({
-          ...request(options),
+          ...retryRequest(options),
           path: { storeId },
           body,
         }),
@@ -123,7 +139,7 @@ export function createRuntimeSessionsNamespace(
     ) {
       const body = unwrapResult(
         await client.request({
-          ...request(options),
+          ...retryRequest(options),
           method: 'GET',
           parseAs: 'stream',
           security: [{ scheme: 'bearer', type: 'http' }],
