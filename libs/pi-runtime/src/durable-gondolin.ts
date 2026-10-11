@@ -59,8 +59,10 @@ import {
   guardGondolinToolDefinitions,
   toGuestPath,
 } from './tool-operations.js';
-import { decideToolCall } from './tool-policy/gate.js';
-import { resolveSessionToolPolicy } from './tool-policy/session-policy.js';
+import {
+  authorizeDurableToolCall,
+  resolveSessionToolPolicy,
+} from './tool-policy/session-policy.js';
 import { resumeVm } from './vm.js';
 
 /** Mounted workspaces remain available independently of the daemon process. */
@@ -491,27 +493,22 @@ export function createGondolinDurableTaskExecutor(
                   : {}),
                 async authorizeTool(name, arguments_) {
                   lease.check();
-                  const decision = decideToolCall({
-                    ...policy,
-                    toolName: name,
-                    command:
-                      typeof arguments_.command === 'string'
-                        ? arguments_.command
-                        : undefined,
+                  return authorizeDurableToolCall({
+                    policy,
                     analyze: (command) => analyzer.analyze(command),
-                  });
-                  logger.info(
-                    {
-                      tool: name,
-                      reasonCode: decision.reasonCode,
+                    logger,
+                    context: {
                       taskId: claimed.task.id,
                       attemptN: claimed.attemptN,
                     },
-                    'durable.tool_policy',
-                  );
-                  return 'allow' in decision && !decision.allow
-                    ? decision.reason
-                    : undefined;
+                    toolName: name,
+                    args: arguments_,
+                    onDecision: (record) =>
+                      args[1].record({
+                        kind: 'tool_policy_decision',
+                        payload: { ...record },
+                      }),
+                  });
                 },
                 close,
               };

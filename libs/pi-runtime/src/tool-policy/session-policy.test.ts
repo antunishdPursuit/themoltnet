@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type AllowedToolsClient,
+  authorizeDurableToolCall,
   createToolPolicyExtension,
   resolveSessionToolPolicy,
   type SessionToolPolicy,
@@ -734,6 +735,100 @@ describe('createToolPolicyExtension', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ degraded: true }),
       'tool_policy.blocked',
+    );
+  });
+});
+
+describe('authorizeDurableToolCall', () => {
+  const analyzer = analyzerStub({ 'deploy production': ['deploy'] });
+  const authorize = (
+    enforcement: 'watch' | 'enforce',
+    toolName: string,
+    args: Record<string, unknown>,
+    onDecision = vi.fn(async () => {}),
+  ) =>
+    authorizeDurableToolCall({
+      policy: {
+        enforcement,
+        allowedTools: new Set(['read']),
+        allowedShellCommands: [],
+        degraded: false,
+        executionPolicySnapshotHash: 'sha256:feedface',
+        executionRuntimeProfileRevision: 9,
+      },
+      analyze: (command) => analyzer.analyze(command),
+      logger,
+      context: { taskId: 'task-1', attemptN: 2 },
+      toolName,
+      args,
+      onDecision,
+    });
+
+  it('reports a refusal to the task record before blocking', async () => {
+    const onDecision = vi.fn(async () => {});
+    const block = await authorize(
+      'enforce',
+      'bash',
+      { command: 'deploy production' },
+      onDecision,
+    );
+
+    expect(block).toEqual(expect.any(String));
+    expect(onDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: 'blocked',
+        tool_name: 'bash',
+        reason_code: 'tool_not_permitted',
+        enforcement: 'enforce',
+        unauthorized_executables: ['deploy'],
+        shell_fingerprints: [expect.objectContaining({ executable: 'deploy' })],
+        degraded: false,
+        policy_snapshot_hash: 'sha256:feedface',
+        runtime_profile_revision: 9,
+      }),
+    );
+    expect(JSON.stringify(onDecision.mock.calls)).not.toContain('production');
+  });
+
+  it('reports a watch-mode refusal as would_block and lets it run', async () => {
+    const onDecision = vi.fn(async () => {});
+    expect(
+      await authorize(
+        'watch',
+        'bash',
+        { command: 'deploy production' },
+        onDecision,
+      ),
+    ).toBeUndefined();
+    expect(onDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: 'would_block',
+        enforcement: 'watch',
+      }),
+    );
+  });
+
+  it('does not report allowed calls', async () => {
+    const onDecision = vi.fn(async () => {});
+    expect(
+      await authorize('enforce', 'read', { path: 'README.md' }, onDecision),
+    ).toBeUndefined();
+    expect(onDecision).not.toHaveBeenCalled();
+  });
+
+  it('keeps the verdict when the task record cannot be written', async () => {
+    const block = await authorize(
+      'enforce',
+      'bash',
+      { command: 'deploy production' },
+      vi.fn(async () => {
+        throw new Error('reporter down');
+      }),
+    );
+    expect(block).toEqual(expect.any(String));
+    expect(logger.warn).toHaveBeenCalledWith(
+      { err: 'reporter down' },
+      'tool_policy.decision_report_failed',
     );
   });
 });

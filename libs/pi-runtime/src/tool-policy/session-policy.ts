@@ -405,37 +405,110 @@ function reportDecision(
   if (!deps.onDecision) {
     return;
   }
-  const missing = 'missing' in gateDecision ? gateDecision.missing : undefined;
-  const shell =
-    'missingShellCommands' in gateDecision
-      ? gateDecision.missingShellCommands
-      : undefined;
   try {
-    deps.onDecision({
-      decision,
-      tool_name: event.toolName,
-      ...(event.toolCallId ? { tool_call_id: event.toolCallId } : {}),
-      reason_code: gateDecision.reasonCode,
-      enforcement: deps.policy.enforcement,
-      ...(missing?.length ? { unauthorized_executables: missing } : {}),
-      ...(shell?.length ? { shell_fingerprints: shell } : {}),
-      degraded: deps.policy.degraded === true,
-      ...(deps.policy.executionPolicySnapshotHash
-        ? { policy_snapshot_hash: deps.policy.executionPolicySnapshotHash }
-        : {}),
-      ...(deps.policy.executionRuntimeProfileRevision !== undefined
-        ? {
-            runtime_profile_revision:
-              deps.policy.executionRuntimeProfileRevision,
-          }
-        : {}),
-    });
+    deps.onDecision(
+      toolPolicyDecisionRecord(deps.policy, decision, event, gateDecision),
+    );
   } catch (error) {
     deps.logger.warn(
       { err: error instanceof Error ? error.message : String(error) },
       'tool_policy.decision_report_failed',
     );
   }
+}
+
+function toolPolicyDecisionRecord(
+  policy: SessionToolPolicy,
+  decision: 'blocked' | 'would_block',
+  event: { toolName: string; toolCallId?: string },
+  gateDecision: GateDecision,
+): ToolPolicyDecisionRecord {
+  const missing = 'missing' in gateDecision ? gateDecision.missing : undefined;
+  const shell =
+    'missingShellCommands' in gateDecision
+      ? gateDecision.missingShellCommands
+      : undefined;
+  return {
+    decision,
+    tool_name: event.toolName,
+    ...(event.toolCallId ? { tool_call_id: event.toolCallId } : {}),
+    reason_code: gateDecision.reasonCode,
+    enforcement: policy.enforcement,
+    ...(missing?.length ? { unauthorized_executables: missing } : {}),
+    ...(shell?.length ? { shell_fingerprints: shell } : {}),
+    degraded: policy.degraded === true,
+    ...(policy.executionPolicySnapshotHash
+      ? { policy_snapshot_hash: policy.executionPolicySnapshotHash }
+      : {}),
+    ...(policy.executionRuntimeProfileRevision !== undefined
+      ? { runtime_profile_revision: policy.executionRuntimeProfileRevision }
+      : {}),
+  };
+}
+
+/**
+ * Decide one Durable tool call. Returns the block reason, or `undefined` when
+ * the call may run. Durable authorizes from an async hook, so a refusal is
+ * reported before the verdict returns instead of through a drained sink; a
+ * reporting failure is logged and never changes the verdict.
+ */
+export async function authorizeDurableToolCall(input: {
+  policy: SessionToolPolicy;
+  analyze: ShellCommandAnalyzer['analyze'];
+  logger: ToolPolicyLogger;
+  context: { taskId: string; attemptN: number };
+  toolName: string;
+  args: Record<string, unknown>;
+  onDecision(record: ToolPolicyDecisionRecord): Promise<void>;
+}): Promise<string | undefined> {
+  const { policy } = input;
+  const decision = decideToolCall({
+    enforcement: policy.enforcement,
+    allowedTools: policy.allowedTools,
+    allowedShellCommands: policy.allowedShellCommands,
+    toolName: input.toolName,
+    command:
+      typeof input.args.command === 'string' ? input.args.command : undefined,
+    analyze: input.analyze,
+  });
+  input.logger.info(
+    {
+      tool: input.toolName,
+      reasonCode: decision.reasonCode,
+      ...input.context,
+    },
+    'durable.tool_policy',
+  );
+  const outcome =
+    'audit' in decision
+      ? 'would_block'
+      : 'allow' in decision && !decision.allow
+        ? 'blocked'
+        : 'allowed';
+  recordToolPolicyDecisionMetric({
+    decision: outcome,
+    reason: decision.reasonCode,
+    enforcement: policy.enforcement,
+    degraded: policy.degraded === true,
+  });
+  if (outcome !== 'allowed') {
+    try {
+      await input.onDecision(
+        toolPolicyDecisionRecord(
+          policy,
+          outcome,
+          { toolName: input.toolName },
+          decision,
+        ),
+      );
+    } catch (error) {
+      input.logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        'tool_policy.decision_report_failed',
+      );
+    }
+  }
+  return 'allow' in decision && !decision.allow ? decision.reason : undefined;
 }
 
 function decisionContext(
