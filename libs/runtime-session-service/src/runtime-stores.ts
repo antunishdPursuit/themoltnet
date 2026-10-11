@@ -265,10 +265,6 @@ export function createRuntimeStoreService(deps: {
       input: Writer & AppendRuntimeStoreCommit,
     ): Promise<{ seq: number }> {
       await team(input);
-      // Admission checks precede object I/O; authority is checked again on publication.
-      await deps.transactionRunner.runInTransaction(() => writer(input), {
-        name: 'runtime.store.admit',
-      });
       const bytes = Buffer.from(
         JSON.stringify({ format: FORMAT, writes: input.writes }),
       );
@@ -278,6 +274,33 @@ export function createRuntimeStoreService(deps: {
           'Runtime commit exceeds size limit',
         );
       const sha256 = createHash('sha256').update(bytes).digest('hex');
+      const admit = async () => {
+        const store = await writer(input);
+        const previous = await repo.findCommit(store.id, input.commitId);
+        if (previous) {
+          if (
+            previous.sha256 !== sha256 ||
+            previous.seq !== input.expectedSeq + 1 ||
+            previous.taskId !== input.taskId ||
+            previous.attemptN !== input.attemptN
+          )
+            throw createProblem(
+              'conflict',
+              'Commit ID was already used for another payload',
+            );
+          return { store, receipt: { seq: previous.seq } };
+        }
+        if (store.headSeq !== input.expectedSeq)
+          throw createProblem('conflict', 'Runtime store head changed');
+        if (store.headSeq >= 2147483647)
+          throw createProblem('conflict', 'Commit sequence exhausted');
+        return { store, receipt: undefined };
+      };
+      // A lost acknowledgment must not require uploading an already published blob.
+      const admitted = await deps.transactionRunner.runInTransaction(admit, {
+        name: 'runtime.store.admit',
+      });
+      if (admitted.receipt) return admitted.receipt;
       const objectKey = `runtime-stores/${input.teamId}/${input.storeId}/${input.commitId}/${sha256}.json`;
       // Never delete on an ambiguous publication error: it may already be referenced.
       await deps.storage.putObject({
@@ -288,25 +311,9 @@ export function createRuntimeStoreService(deps: {
       });
       return deps.transactionRunner.runInTransaction(
         async () => {
-          const store = await writer(input);
-          const previous = await repo.findCommit(store.id, input.commitId);
-          if (previous) {
-            if (
-              previous.sha256 !== sha256 ||
-              previous.seq !== input.expectedSeq + 1 ||
-              previous.taskId !== input.taskId ||
-              previous.attemptN !== input.attemptN
-            )
-              throw createProblem(
-                'conflict',
-                'Commit ID was already used for another payload',
-              );
-            return { seq: previous.seq };
-          }
-          if (store.headSeq !== input.expectedSeq)
-            throw createProblem('conflict', 'Runtime store head changed');
-          if (store.headSeq >= 2147483647)
-            throw createProblem('conflict', 'Commit sequence exhausted');
+          // Uploads run outside the transaction; recheck authority and racing retries.
+          const { store, receipt } = await admit();
+          if (receipt) return receipt;
           const seq = store.headSeq + 1;
           await repo.append({
             storeId: store.id,

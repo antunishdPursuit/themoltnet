@@ -217,6 +217,7 @@ describe('runtime store publication', () => {
     expect(await f.service.append(commit)).toEqual({ seq: 1 });
     expect(await f.service.append(commit)).toEqual({ seq: 1 });
     expect(f.commits).toHaveLength(1);
+    expect(f.storage.putObject).toHaveBeenCalledTimes(1);
     expect(f.appendMessages).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(f.appendMessages.mock.calls)).not.toContain(
       'large private content',
@@ -230,7 +231,56 @@ describe('runtime store publication', () => {
     await expect(f.service.append({ ...commit, writes: [] })).rejects.toThrow(
       'Commit ID',
     );
+    expect(f.storage.putObject).toHaveBeenCalledTimes(1);
+    // Even a published receipt must not bypass writer fencing.
+    f.advance(30_001);
+    await expect(f.service.append(commit)).rejects.toThrow('stale');
+    expect(f.storage.putObject).toHaveBeenCalledTimes(1);
   });
+  it('returns a receipt published during upload without publishing it again', async () => {
+    const f = setup();
+    const handle = await f.service.open(authority);
+    const input = {
+      ...authority,
+      ...handle,
+      commitId: 'racing',
+      expectedSeq: 0,
+      writes,
+    };
+    const upload = f.storage.putObject.getMockImplementation()!;
+    f.storage.putObject.mockImplementation(async (object) => {
+      await upload(object);
+      // Simulate another identical request publishing before this upload returns.
+      const sha256 = object.key.split('/').at(-1)!.replace('.json', '');
+      f.commits.push({
+        seq: 1,
+        commitId: input.commitId,
+        sha256,
+        taskId: input.taskId,
+        attemptN: input.attemptN,
+      });
+      f.row.headSeq = 1;
+    });
+    await expect(f.service.append(input)).resolves.toEqual({ seq: 1 });
+    expect(f.repository.append).not.toHaveBeenCalled();
+    expect(f.appendMessages).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale expected head before uploading a new object', async () => {
+    const f = setup();
+    const handle = await f.service.open(authority);
+    await expect(
+      f.service.append({
+        ...authority,
+        ...handle,
+        commitId: 'bad-head',
+        expectedSeq: 1,
+        writes,
+      }),
+    ).rejects.toThrow('head changed');
+    expect(f.storage.putObject).not.toHaveBeenCalled();
+  });
+
   it('fences a stale writer after expiry and reacquisition', async () => {
     const f = setup();
     const first = await f.service.open(authority);
