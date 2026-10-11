@@ -214,6 +214,74 @@ describe('checkGates', () => {
     },
   );
 
+  it('shares bounded pages across out-of-order references and isolates stores', async () => {
+    const refs = ['store-a', 'store-b'].flatMap((storeId) =>
+      Array.from({ length: 99 }, (_, index) => ({
+        kind: 'info',
+        payload: {
+          event: 'runtime_entry',
+          format: 'pi-durable.v1',
+          storeId,
+          commitSeq: 99 - index,
+          entryId: 99 - index,
+        },
+      })),
+    );
+    const agent = fakeAgent([...messages(), ...refs], completedAttempt);
+    const read = vi.fn(async (storeId: string, afterSeq: number) => ({
+      items: (async function* () {
+        for (
+          let seq = afterSeq + 1;
+          seq <= Math.min(afterSeq + 50, 101);
+          seq++
+        ) {
+          yield {
+            seq,
+            writes: [
+              {
+                type: 'entry',
+                value: {
+                  id: seq,
+                  model: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        {
+                          type: 'toolCall',
+                          name: seq <= 99 ? storeId : 'unreferenced-tool',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+        }
+      })(),
+    }));
+    agent.runtimeSessions = { read };
+
+    const result = await checkGates(
+      agent,
+      't1',
+      1,
+      {
+        requireToolCalls: ['store-a', 'store-b'],
+        forbidToolCalls: ['unreferenced-tool'],
+      },
+      EXPECTED_WITH_TEAM,
+    );
+
+    expect(result.passed).toBe(true);
+    expect(read.mock.calls).toEqual([
+      ['store-a', 0, { teamId: 'team-1' }],
+      ['store-a', 50, { teamId: 'team-1' }],
+      ['store-b', 0, { teamId: 'team-1' }],
+      ['store-b', 50, { teamId: 'team-1' }],
+    ]);
+  });
+
   it('fails closed when referenced Durable evidence is unavailable', async () => {
     const agent = fakeAgent(
       [

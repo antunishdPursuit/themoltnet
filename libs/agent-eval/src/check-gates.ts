@@ -247,19 +247,39 @@ async function durableToolEvents(
   const events: GateTaskMessage[] = [];
   const commits = new Map<string, Record<string, unknown>[]>();
   const seen = new Set<string>();
+  const refs: Array<{ storeId: string; commitSeq: number; entryId: number }> =
+    [];
   for (const { payload: ref } of messages) {
     if (ref.event !== 'runtime_entry' || ref.format !== 'pi-durable.v1')
       continue;
-    if (!agent.runtimeSessions || !teamId)
-      throw new Error(
-        'Durable gate evidence requires a runtime store reader and team',
-      );
     if (
       typeof ref.storeId !== 'string' ||
       typeof ref.commitSeq !== 'number' ||
-      typeof ref.entryId !== 'number'
+      !Number.isSafeInteger(ref.commitSeq) ||
+      ref.commitSeq < 1 ||
+      typeof ref.entryId !== 'number' ||
+      !Number.isSafeInteger(ref.entryId) ||
+      ref.entryId < 1
     )
       throw new Error('Invalid Durable entry reference');
+    refs.push({
+      storeId: ref.storeId,
+      commitSeq: ref.commitSeq,
+      entryId: ref.entryId,
+    });
+  }
+  if (refs.length === 0) return events;
+  if (!agent.runtimeSessions || !teamId)
+    throw new Error(
+      'Durable gate evidence requires a runtime store reader and team',
+    );
+  // Start each store at its oldest reference. Keep only referenced commits
+  // from each bounded page, so adjacent references share one API read.
+  refs.sort(
+    (a, b) => a.storeId.localeCompare(b.storeId) || a.commitSeq - b.commitSeq,
+  );
+  const wanted = new Set(refs.map((ref) => `${ref.storeId}:${ref.commitSeq}`));
+  for (const ref of refs) {
     const identity = `${ref.storeId}:${ref.entryId}`;
     if (seen.has(identity)) continue;
     seen.add(identity);
@@ -272,13 +292,11 @@ async function durableToolEvents(
         { teamId },
       );
       for await (const commit of page.items) {
-        if (commit.seq === ref.commitSeq) {
-          writes = commit.writes;
-          break;
-        }
+        const commitKey = `${ref.storeId}:${commit.seq}`;
+        if (wanted.has(commitKey)) commits.set(commitKey, commit.writes);
       }
+      writes = commits.get(key);
       if (!writes) throw new Error('Durable evidence commit is unavailable');
-      commits.set(key, writes);
     }
     const entry = writes.find(
       (write) =>
