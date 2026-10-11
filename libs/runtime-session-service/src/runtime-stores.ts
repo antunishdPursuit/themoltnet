@@ -35,6 +35,28 @@ export function createRuntimeStoreService(deps: {
 }) {
   const repo = deps.repository;
   const now = deps.now ?? Date.now;
+  // Cache provenance, never authorization. Commit history is append-only, so a
+  // captured head identifies its contributors even if another writer advances.
+  const contributors = new Map<
+    string,
+    { headSeq: number; taskIds: string[] }
+  >();
+  async function commitTaskIds(store: RuntimeStore) {
+    const cached = contributors.get(store.id);
+    if (cached?.headSeq === store.headSeq) return cached.taskIds;
+    const taskIds = await repo.listCommitTaskIds(store.id);
+    // The query can include newer commits: this is a conservative superset for
+    // the captured head. Never label it with a head observed after the query.
+    contributors.delete(store.id);
+    // Bound both entry count and retained IDs; large histories remain readable.
+    if (taskIds.length <= 1024) {
+      contributors.set(store.id, { headSeq: store.headSeq, taskIds });
+      const oldest = contributors.keys().next().value;
+      if (contributors.size > 128 && oldest !== undefined)
+        contributors.delete(oldest);
+    }
+    return taskIds;
+  }
   async function team(input: Subject) {
     if (
       !(await deps.permissionChecker.canAccessTeam(
@@ -365,7 +387,7 @@ export function createRuntimeStoreService(deps: {
         Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
       );
       await reader(input, input.storeId, [
-        ...(await repo.listCommitTaskIds(input.storeId)),
+        ...(await commitTaskIds(store)),
         ...rows.map((row) => row.taskId),
       ]);
       async function* items(): AsyncGenerator<RuntimeStoreCommit> {

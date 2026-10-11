@@ -413,3 +413,72 @@ it('cancels a stalled object body without reading subsequent commits', async () 
   expect(body.destroyed).toBe(true);
   expect(f.storage.getObject).toHaveBeenCalledTimes(1);
 });
+
+it('caches contributors by captured head but rechecks permissions and bindings on every read', async () => {
+  const f = setup();
+  f.row.headSeq = 10;
+  f.repository.listCommitTaskIds.mockResolvedValue(['ancestor']);
+  const input = { ...authority, storeId: 'store', afterSeq: 10 };
+  await f.service.read(input);
+  f.permissionChecker.canViewTasks.mockResolvedValue(
+    new Map([
+      ['task', true],
+      ['ancestor', false],
+    ]),
+  );
+  await expect(f.service.read(input)).rejects.toThrow();
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(1);
+  expect(f.repository.listAttempts).toHaveBeenCalledTimes(2);
+  expect(f.permissionChecker.canViewTasks).toHaveBeenCalledTimes(2);
+  f.permissionChecker.canViewTasks.mockImplementation(
+    async (ids) => new Map(ids.map((id) => [id, true])),
+  );
+  f.row.headSeq = 11;
+  f.repository.listCommitTaskIds.mockResolvedValue(['ancestor', 'new-task']);
+  await f.service.read(input);
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+  expect(f.permissionChecker.canViewTasks).toHaveBeenLastCalledWith(
+    ['task', 'ancestor', 'new-task'],
+    authority.subjectId,
+    authority.subjectNs,
+  );
+});
+
+it('does not label contributor discovery with a revision published during the query', async () => {
+  const f = setup();
+  f.row.headSeq = 1;
+  f.repository.listCommitTaskIds.mockImplementationOnce(async () => {
+    f.row.headSeq = 2;
+    return ['task'];
+  });
+  await f.service.read({ ...authority, storeId: 'store' });
+  f.repository.listCommitTaskIds.mockResolvedValue(['task', 'new-task']);
+  await f.service.read({ ...authority, storeId: 'store' });
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+  expect(f.permissionChecker.canViewTasks).toHaveBeenLastCalledWith(
+    ['task', 'new-task'],
+    authority.subjectId,
+    authority.subjectNs,
+  );
+});
+
+it('bounds contributor cache entries across stores', async () => {
+  const f = setup();
+  for (let i = 0; i < 129; i++)
+    await f.service.read({ ...authority, storeId: `store-${i}` });
+  f.repository.listCommitTaskIds.mockClear();
+  await f.service.read({ ...authority, storeId: 'store-128' });
+  expect(f.repository.listCommitTaskIds).not.toHaveBeenCalled();
+  await f.service.read({ ...authority, storeId: 'store-0' });
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledOnce();
+});
+
+it('does not retain oversized contributor lists', async () => {
+  const f = setup();
+  f.repository.listCommitTaskIds.mockResolvedValue(
+    Array.from({ length: 1025 }, (_, i) => `task-${i}`),
+  );
+  await f.service.read({ ...authority, storeId: 'store' });
+  await f.service.read({ ...authority, storeId: 'store' });
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+});
