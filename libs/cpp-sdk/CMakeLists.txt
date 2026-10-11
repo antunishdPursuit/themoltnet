@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(moltnet_cpp_sdk VERSION 0.1.0 LANGUAGES CXX)
+project(moltnet_cpp_sdk VERSION 0.2.0 LANGUAGES CXX)
 
 option(MOLTNET_CPP_BUILD_EXAMPLES "Build MoltNet C++ SDK examples" ON)
 option(MOLTNET_CPP_BUILD_TESTS "Build MoltNet C++ SDK tests" ON)

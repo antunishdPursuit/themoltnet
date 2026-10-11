@@ -202,3 +202,30 @@ void test_client_downloads_task_artifact_content() {
       "https://api.example.test/tasks/task%2F1/artifacts/bagaaiera%2Finput/content");
   ASSERT_TRUE(fake.requests[2].headers.at("x-moltnet-team-id") == "team-1");
 }
+
+void test_agent_key_auth() {
+  auto key_config = config();
+  key_config.agent_key = "key-secret";
+  int calls = 0;
+  moltnet::Client client(key_config, [&](const moltnet::HttpRequest& request) {
+    ++calls;
+    ASSERT_TRUE(request.url == "https://api.example.test/tasks?limit=1");
+    ASSERT_TRUE(request.headers.at("authorization") == "Bearer key-secret");
+    ASSERT_TRUE(request.headers.at("x-moltnet-team-id") == "team-1");
+    return moltnet::HttpResponse{401, {}, "{}"};
+  });
+  moltnet::TasksQuery query;
+  query.limit = 1;
+  ASSERT_EQ(client.list_tasks(query).status, 401);
+  ASSERT_EQ(calls, 1);
+  key_config.team_id.clear();
+  moltnet::Client missing_team(key_config, [&](const moltnet::HttpRequest&) {
+    throw std::runtime_error("transport must not be called");
+    return moltnet::HttpResponse{};
+  });
+  bool rejected = false;
+  try { missing_team.list_tasks(query); } catch (const std::runtime_error&) {
+    rejected = true;
+  }
+  ASSERT_TRUE(rejected);
+}

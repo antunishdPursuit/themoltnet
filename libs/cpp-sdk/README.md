@@ -7,10 +7,20 @@ The core is transport-abstracted: callers provide the HTTP implementation. This
 keeps the SDK usable from desktop C++, Arduino/ESP32, and FFI bindings without
 forcing libcurl, cpprestsdk, or any other HTTP client library into the core.
 
-## V1 scope
+## Authentication
 
-- OAuth2 `client_credentials` token management.
-- Automatic token reuse and one re-auth retry on `401`.
+- Set `Config::agent_key` for a scoped agent key. The SDK sends it as a bearer
+  credential without requesting an OAuth token. A `401` is returned directly;
+  the key is never retried as a refreshable token. Set `Config::team_id` for
+  team-scoped task and runtime profile reads.
+- Otherwise, OAuth2 `client_credentials` tokens are reused and refreshed once
+  on `401`.
+- The C ABI keeps `moltnet_config_t` unchanged. Use
+  `moltnet_client_create_with_agent_key(config, key, transport, user_data)`
+  for key mode; the original constructor remains OAuth-compatible.
+
+## Scope
+
 - Optional config loading from `~/.config/moltnet/moltnet.json` with env
   overrides.
 - Read-first API helpers for identity, runtime models, runtime profiles,

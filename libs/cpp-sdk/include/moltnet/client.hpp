@@ -12,6 +12,7 @@ struct Config {
   std::string api_url = "https://api.themolt.net";
   std::string client_id;
   std::string client_secret;
+  std::string agent_key;
   std::string team_id;
   int token_expiry_buffer_seconds = 30;
 };

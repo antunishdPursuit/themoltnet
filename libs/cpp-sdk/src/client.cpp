@@ -178,6 +178,7 @@ void Client::invalidate_token() {
 }
 
 std::string Client::get_token() {
+  if (!config_.agent_key.empty()) return config_.agent_key;
   if (!access_token_.empty() && now_ms() < token_expires_at_ms_) {
     return access_token_;
   }
@@ -234,7 +235,7 @@ RawResponse Client::request_json(const std::string& method,
   };
 
   auto response = perform();
-  if (response.status == 401) {
+  if (response.status == 401 && config_.agent_key.empty()) {
     invalidate_token();
     response = perform();
   }
