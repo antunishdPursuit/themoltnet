@@ -5,42 +5,24 @@
  * storage writes, then reads it back through the task conversation API.
  */
 
-import { randomUUID } from 'node:crypto';
-
-import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
 import {
-  createSession,
-  defineDocFamily,
-  type Id,
-  MemoryStorage,
-  type Seq,
-  type StorageWrite,
-} from '@earendil-works/pi-durable';
-import {
-  appendRuntimeStoreCommit,
   type Client,
   createClient,
   getRuntimeStoreForAttempt,
   getTaskConversation,
   listTaskConversations,
-  mintRuntimeStoreId,
-  openRuntimeStore,
   releaseRuntimeStore,
 } from '@moltnet/api-client';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Node E2E fixture setup.
+import {
+  assistantMessage,
+  openDurableSeed,
+} from '@moltnet/bootstrap/testing/durable';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { claimPinnedAttempt, type PinnedClaim } from './durable-claims.js';
 import { createAgent, type TestAgent } from './helpers.js';
 import { createTestHarness, type TestHarness } from './setup.js';
-
-const context = BACKGROUND_CONTEXT;
-const Attempts = defineDocFamily({
-  kind: 'moltnet.attempt',
-  version: 1,
-  scope: 'session',
-  family: true,
-  initial: (conversationId: number) => ({ conversationId }),
-});
 
 describe('Task conversations API', () => {
   let harness: TestHarness;
@@ -74,83 +56,25 @@ describe('Task conversations API', () => {
   const claimPinned = () =>
     claimPinnedAttempt(client, owner, 'task-conversations');
 
-  /** Pi's MemoryStorage produces the writes; every commit lands through the API. */
   async function writeConversation(authority: PinnedClaim) {
-    const opened = await openRuntimeStore({
-      client,
-      auth: () => owner.accessToken,
-      headers: team(),
-      body: authority,
-    });
-    expect(opened.error).toBeUndefined();
-    const { storeId, writerToken } = opened.data!;
-    let head = opened.data!.headSeq;
-    const writer = { ...authority, writerToken };
-
-    class RemoteStorage extends MemoryStorage {
-      override async mintId<I extends Id<string>>(): Promise<I> {
-        const minted = await mintRuntimeStoreId({
-          client,
-          auth: () => owner.accessToken,
-          headers: team(),
-          path: { storeId },
-          body: writer,
-        });
-        expect(minted.error).toBeUndefined();
-        return minted.data!.id as I;
-      }
-      override async commit(
-        writes: readonly StorageWrite[],
-        ctx: typeof context,
-      ): Promise<Seq> {
-        const appended = await appendRuntimeStoreCommit({
-          client,
-          auth: () => owner.accessToken,
-          headers: team(),
-          path: { storeId },
-          body: {
-            ...writer,
-            commitId: randomUUID(),
-            expectedSeq: head,
-            writes: JSON.parse(JSON.stringify(writes)) as Record<
-              string,
-              unknown
-            >[],
-          },
-        });
-        expect(appended.error).toBeUndefined();
-        head = appended.data!.seq;
-        return super.commit(writes, ctx);
-      }
-    }
-
-    const session = createSession(new RemoteStorage());
-    const root = (
-      await session.commit(
-        (tx) => tx.createConversation({ ownership: { kind: 'ownerless' } }),
-        context,
-      )
-    ).id;
-    await session.commit(async (tx) => {
-      await tx.doc(Attempts, `${authority.taskId}/${authority.attemptN}`, root);
-      await tx.appendEntry(root, {
-        kind: 'pi.user',
-        model: [
-          { role: 'user', content: 'Summarize the brief.', timestamp: 1 },
-        ],
-      });
-      await tx.appendEntry(root, {
-        kind: 'pi.assistant',
-        model: [
-          {
-            role: 'assistant',
-            content: [{ type: 'text', text: 'The brief is summarized.' }],
-            timestamp: 2,
-          } as never,
-        ],
-      });
-    }, context);
-    return { storeId, writer, head };
+    const seed = await openDurableSeed(
+      { client, auth: () => owner.accessToken, headers: team() },
+      authority,
+      [
+        {
+          kind: 'pi.user',
+          model: [
+            { role: 'user', content: 'Summarize the brief.', timestamp: 1 },
+          ],
+        },
+        {
+          kind: 'pi.assistant',
+          model: [assistantMessage('The brief is summarized.', 2)],
+        },
+      ],
+    );
+    await seed.close();
+    return { storeId: seed.storeId, writer: seed.writer, head: seed.headSeq };
   }
 
   it('reads a persisted Durable conversation for the attempt', async () => {

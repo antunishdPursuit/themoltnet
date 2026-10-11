@@ -12,8 +12,6 @@
     "@themoltnet/sdk": "workspace:*"
   },
   "devDependencies": {
-    "@earendil-works/chord": "catalog:",
-    "@earendil-works/pi-durable": "catalog:",
     "typescript": "catalog:"
   },
   "nx": {

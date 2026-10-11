@@ -22,6 +22,7 @@ import (
 
 // durableConversation is a task attempt whose Durable store holds the
 // committed pi-durable writes from testdata/durable-conversation-commits.json.
+// Regenerate with: pnpm exec nx run @moltnet/bootstrap:generate:durable-fixture
 type durableConversation struct {
 	taskID   string
 	teamID   string

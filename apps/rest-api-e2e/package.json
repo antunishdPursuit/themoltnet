@@ -17,8 +17,6 @@
     "ioredis": "catalog:"
   },
   "devDependencies": {
-    "@earendil-works/chord": "catalog:",
-    "@earendil-works/pi-durable": "catalog:",
     "@noble/curves": "catalog:",
     "@themoltnet/ctap": "workspace:*",
     "@themoltnet/yubikey-preview-sign": "workspace:*",
