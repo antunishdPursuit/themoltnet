@@ -117,6 +117,14 @@ jobs:
             exit 1
           fi
 
+      - name: Upload rebuilt daemon action bundle on mismatch
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: agent-daemon-action-bundle-linux
+          path: packages/agent-daemon-action/dist/main.js
+          retention-days: 1
+
       # A library's `import.meta.url === argv[1]` self-run check is true once
       # the library is inlined into a bundle, so the bundle runs its command
       # once from the library and again from the action entry (#2633).
