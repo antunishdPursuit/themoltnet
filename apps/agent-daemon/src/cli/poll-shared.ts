@@ -517,8 +517,18 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
     if (reaperRunning) return;
     reaperRunning = true;
     try {
+      const sweptRoots = new Set<string>();
       for (const profile of profiles) {
         const selected = requireRuntime(runtimes, profile.id);
+        const input = {
+          mainWorktree: resolveMainWorktree(selected.sandbox.rootDir),
+          sessionRootDir: selected.stateDirs.piSessionsDir,
+          scratchRootDir: join(selected.stateDirs.rootDir, 'task-workspaces'),
+          teamId,
+        };
+        const rootsKey = JSON.stringify(input);
+        if (sweptRoots.has(rootsKey)) continue;
+        sweptRoots.add(rootsKey);
         const result = await reapRuntimeSlotResources(
           {
             onIssue: (issue) => {
@@ -530,15 +540,7 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             runtimeSlotStore: slotRegistry,
             taskReader: ctx.agent.tasks,
           },
-          {
-            agentName: identity.agent,
-            mainWorktree: resolveMainWorktree(selected.sandbox.rootDir),
-            runtimeInstanceId,
-            runtimeProfileId: profile.id,
-            sessionRootDir: selected.stateDirs.piSessionsDir,
-            scratchRootDir: join(selected.stateDirs.rootDir, 'task-workspaces'),
-            teamId,
-          },
+          input,
         );
         if (
           result.removedSessions > 0 ||

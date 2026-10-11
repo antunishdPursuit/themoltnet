@@ -15,7 +15,6 @@ import type {
   ListedRuntimeSlotContext,
   RuntimeSlotStore,
 } from './execution-plan-cache.js';
-import { runtimeSlotKeyBelongsToInstance } from './task-execution-plan.js';
 
 const RUNTIME_SLOT_PAGE_LIMIT = 200;
 const ATTEMPT_LOOKUP_CONCURRENCY = 8;
@@ -28,11 +27,8 @@ const TERMINAL_ATTEMPT_STATUSES = new Set<TaskAttempt['status']>([
 ]);
 
 export interface RuntimeResourceReaperInput {
-  agentName: string;
   mainWorktree: string | null;
   now?: number;
-  runtimeInstanceId: string;
-  runtimeProfileId: string;
   sessionRootDir: string;
   scratchRootDir: string;
   teamId: string;
@@ -65,8 +61,7 @@ export interface RuntimeResourceReaperResult {
   unsafePaths: number;
 }
 
-interface OwnedSlotPage {
-  allItems: ListedRuntimeSlotContext[];
+interface SlotPage {
   items: ListedRuntimeSlotContext[];
   truncated: boolean;
 }
@@ -87,13 +82,13 @@ export async function reapRuntimeSlotResources(
 ): Promise<RuntimeResourceReaperResult> {
   const now = input.now ?? Date.now();
   const [activePage, idlePage] = await Promise.all([
-    listOwnedSlots(deps.runtimeSlotStore, input, 'active'),
-    listOwnedSlots(deps.runtimeSlotStore, input, 'idle'),
+    listTeamSlots(deps.runtimeSlotStore, input, 'active'),
+    listTeamSlots(deps.runtimeSlotStore, input, 'idle'),
   ]);
   const active = activePage.items;
   const idle = idlePage.items;
   const slots = [...active, ...idle];
-  const allSlots = [...activePage.allItems, ...idlePage.allItems];
+  let allSlots = slots;
   const result: RuntimeResourceReaperResult = {
     failed: 0,
     failures: [],
@@ -104,6 +99,7 @@ export async function reapRuntimeSlotResources(
     unsafePathDetails: [],
     unsafePaths: 0,
   };
+  if (result.truncated) return result;
   const reaped = new Set(
     idle
       .filter((item) => item.slot.expiresAtMs <= now)
@@ -111,6 +107,32 @@ export async function reapRuntimeSlotResources(
   );
   for (const slotId of await findTerminalActiveSlotIds(deps, active, result)) {
     reaped.add(slotId);
+  }
+
+  // A checkout can be shared across profiles and processes. Re-read all its
+  // owners once before deletion, including owners admitted during this pass.
+  // Eligibility belongs to the slot/attempt, not the lifetime of this process.
+  if (reaped.size > 0 && !result.truncated) {
+    const pages = await Promise.all([
+      listTeamSlots(deps.runtimeSlotStore, input, 'active'),
+      listTeamSlots(deps.runtimeSlotStore, input, 'idle'),
+    ]);
+    allSlots = pages.flatMap((page) => page.items);
+    result.truncated = pages.some((page) => page.truncated);
+    const current = new Map(allSlots.map((item) => [item.slot.id, item]));
+    for (const original of slots) {
+      const item = current.get(original.slot.id);
+      if (
+        !item ||
+        item.slot.state !== original.slot.state ||
+        item.slot.lastTaskId !== original.slot.lastTaskId ||
+        item.slot.lastAttemptN !== original.slot.lastAttemptN ||
+        item.session?.sessionDir !== original.session?.sessionDir ||
+        item.workspace?.worktreePath !== original.workspace?.worktreePath ||
+        (item.slot.state === 'idle' && item.slot.expiresAtMs > now)
+      )
+        reaped.delete(original.slot.id);
+    }
   }
 
   const retainedSessionDirs = new Set(
@@ -136,9 +158,6 @@ export async function reapRuntimeSlotResources(
   for (const item of slots) {
     if (result.truncated) break;
     if (!reaped.has(item.slot.id)) continue;
-    if (!(await slotStillQualifiesForReaping(deps, input, item, now, result))) {
-      continue;
-    }
 
     const sessionDir = item.session?.sessionDir;
     if (
@@ -213,26 +232,18 @@ export async function reapRuntimeSlotResources(
   return result;
 }
 
-async function listOwnedSlots(
+async function listTeamSlots(
   store: RuntimeSlotStore,
   input: RuntimeResourceReaperInput,
   state: 'active' | 'idle',
-): Promise<OwnedSlotPage> {
+): Promise<SlotPage> {
   const listed = await store.listSlots({
-    agentName: input.agentName,
     limit: RUNTIME_SLOT_PAGE_LIMIT,
-    runtimeProfileId: input.runtimeProfileId,
     state,
     teamId: input.teamId,
   });
   return {
-    allItems: listed,
-    items: listed.filter((item) =>
-      runtimeSlotKeyBelongsToInstance(
-        item.slot.slotKey,
-        input.runtimeInstanceId,
-      ),
-    ),
+    items: listed,
     // The API has no continuation cursor. Treat a full page as incomplete
     // even when it happens to contain exactly all matching rows.
     truncated: listed.length === RUNTIME_SLOT_PAGE_LIMIT,
@@ -275,47 +286,6 @@ async function findTerminalActiveSlotIds(
     },
   );
   return terminal;
-}
-
-async function slotStillQualifiesForReaping(
-  deps: RuntimeResourceReaperDeps,
-  input: RuntimeResourceReaperInput,
-  original: ListedRuntimeSlotContext,
-  now: number,
-  result: RuntimeResourceReaperResult,
-): Promise<boolean> {
-  let page: OwnedSlotPage;
-  try {
-    page = await listOwnedSlots(
-      deps.runtimeSlotStore,
-      input,
-      original.slot.state,
-    );
-  } catch (err) {
-    recordFailure(
-      deps,
-      result,
-      original.slot.id,
-      `slot:${original.slot.id}`,
-      null,
-      err,
-    );
-    return false;
-  }
-  const current = page.items.find(
-    (candidate) => candidate.slot.id === original.slot.id,
-  );
-  if (!current) return false;
-  if (
-    current.slot.lastTaskId !== original.slot.lastTaskId ||
-    current.slot.lastAttemptN !== original.slot.lastAttemptN
-  ) {
-    return false;
-  }
-  return (
-    current.slot.state === 'active' ||
-    (current.slot.state === 'idle' && current.slot.expiresAtMs <= now)
-  );
 }
 
 async function reapLegacyOrphanWorktrees(

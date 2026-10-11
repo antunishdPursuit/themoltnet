@@ -378,10 +378,7 @@ export async function runOnce(
         taskReader: ctx.agent.tasks,
       },
       {
-        agentName: identity.agent,
         mainWorktree: resolveMainWorktree(sandbox.rootDir),
-        runtimeInstanceId,
-        runtimeProfileId: profile.id,
         sessionRootDir: stateDirs.piSessionsDir,
         scratchRootDir: join(stateDirs.rootDir, 'task-workspaces'),
         teamId: profile.teamId,

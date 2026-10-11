@@ -113,15 +113,6 @@ export function buildRuntimeSlotKey(
     : logicalSessionKey;
 }
 
-export function runtimeSlotKeyBelongsToInstance(
-  slotKey: string,
-  runtimeInstanceId: string,
-): boolean {
-  return slotKey.endsWith(
-    `:worker:${slugSlotIdentityComponent(runtimeInstanceId)}`,
-  );
-}
-
 function slugSlotIdentityComponent(input: string): string {
   return slugifyAsciiLower(input.trim(), 64, ['.', '_', '-']);
 }
