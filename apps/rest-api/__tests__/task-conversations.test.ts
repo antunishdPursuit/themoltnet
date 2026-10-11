@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as requestSignals from '../src/utils/request-abort-signal.js';
 import {
   createMockServices,
   createTestApp,
@@ -287,6 +288,82 @@ describe('task conversation routes', () => {
       streams.mockRestore();
     }
   });
+
+  it('drains active watchers before onClose without waiting for their deadline', async () => {
+    const controller = new AbortController();
+    try {
+      const address = await app.listen({ host: '127.0.0.1', port: 0 });
+      const response = await fetch(`${address}${path}/1/events`, {
+        headers,
+        signal: controller.signal,
+      });
+      const stream = response.body!.getReader();
+      await stream.read();
+      let closed = false;
+      const closing = app.close().then(() => {
+        closed = true;
+      });
+      // No client cancellation until after the assertion: the server must drain
+      // the response itself, well within Fly's 30-second termination grace.
+      await vi.waitFor(() => expect(closed).toBe(true), { timeout: 2000 });
+      await closing;
+      const calls =
+        mocks.runtimeSessionRepository.durable.get.mock.calls.length;
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1100);
+      });
+      expect(mocks.runtimeSessionRepository.durable.get).toHaveBeenCalledTimes(
+        calls,
+      );
+    } finally {
+      controller.abort();
+    }
+  });
+
+  it.each(['', '/1', '/1/events'])(
+    'skips replay when %s disconnected before authentication completed',
+    async (suffix) => {
+      let disconnected = false;
+      app.server.once('request', (_request, response) => {
+        response.once('close', () => {
+          disconnected = true;
+        });
+      });
+      const address = await app.listen({ host: '127.0.0.1', port: 0 });
+      const gate = Promise.withResolvers<void>();
+      const auth = vi.spyOn(app.tokenValidator, 'resolveAuthContext');
+      auth.mockImplementationOnce(async () => {
+        await gate.promise;
+        return {
+          ...VALID_AUTH_CONTEXT,
+          scopes: [...VALID_AUTH_CONTEXT.scopes],
+        };
+      });
+      const signals = vi.spyOn(requestSignals, 'requestAbortSignal');
+      const controller = new AbortController();
+      try {
+        const response = fetch(`${address}${path}${suffix}`, {
+          headers,
+          signal: controller.signal,
+        });
+        const failed = expect(response).rejects.toThrow();
+        await vi.waitFor(() => expect(auth).toHaveBeenCalled());
+        controller.abort();
+        await failed;
+        await vi.waitFor(() => expect(disconnected).toBe(true));
+        gate.resolve();
+        await vi.waitFor(() => expect(signals).toHaveBeenCalled());
+        expect(signals.mock.results[0].value.aborted).toBe(true);
+        expect(mocks.taskRepository.findAttempt).not.toHaveBeenCalled();
+        expect(mocks.runtimeSessionStorage.getObject).not.toHaveBeenCalled();
+      } finally {
+        gate.resolve();
+        controller.abort();
+        auth.mockRestore();
+        signals.mockRestore();
+      }
+    },
+  );
 
   it('starts SSE with a replacement snapshot and releases the reader on disconnect', async () => {
     const address = await app.listen({ host: '127.0.0.1', port: 0 });

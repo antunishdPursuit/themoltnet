@@ -21,23 +21,26 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
 
 import { PRINCIPAL_AUTH_SECURITY } from '../openapi-security.js';
+import { requestAbortSignal } from '../utils/request-abort-signal.js';
 import { requireCurrentTeamId } from '../utils/require-current-team-id.js';
 import { requireKetoSubject } from '../utils/require-keto-subject.js';
 
-function requestLifetime(reply: FastifyReply) {
-  const cancellation = new AbortController();
-  const disconnected = () => cancellation.abort();
-  reply.raw.once('close', disconnected);
+function requestLifetime(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  shutdown: AbortSignal,
+) {
   const signal = AbortSignal.any([
-    cancellation.signal,
+    requestAbortSignal(request, reply),
+    shutdown,
     AbortSignal.timeout(300_000),
   ]);
   const aborted = () => reply.raw.destroy();
-  signal.addEventListener('abort', aborted, { once: true });
+  if (signal.aborted) aborted();
+  else signal.addEventListener('abort', aborted, { once: true });
   return {
     signal,
     dispose() {
-      reply.raw.off('close', disconnected);
       signal.removeEventListener('abort', aborted);
     },
   };
@@ -56,6 +59,11 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
     }),
     repository: fastify.runtimeSessionRepository.durable,
     tasks: fastify.taskRepository,
+  });
+  const shutdown = new AbortController();
+  // onClose waits for active responses; stop watchers before Fastify drains them.
+  server.addHook('preClose', async () => {
+    shutdown.abort();
   });
   server.addHook('onClose', () => service.close());
   const config = {
@@ -100,7 +108,7 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const lifetime = requestLifetime(reply);
+      const lifetime = requestLifetime(request, reply, shutdown.signal);
       let reader: Awaited<ReturnType<typeof service.open>> | undefined;
       try {
         reader = await service.open(
@@ -127,7 +135,7 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const lifetime = requestLifetime(reply);
+      const lifetime = requestLifetime(request, reply, shutdown.signal);
       let reader: Awaited<ReturnType<typeof service.open>> | undefined;
       try {
         reader = await service.open(
@@ -169,7 +177,7 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const lifetime = requestLifetime(reply);
+      const lifetime = requestLifetime(request, reply, shutdown.signal);
       const { signal } = lifetime;
       let reader: Awaited<ReturnType<typeof service.open>>;
       try {
