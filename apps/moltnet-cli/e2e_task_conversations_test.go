@@ -348,11 +348,26 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 		}, http.StatusCreated, &task)
 		e2eAPI(t, http.MethodPost, "/tasks/"+task.ID+"/claim", map[string]any{"leaseTtlSec": 60}, http.StatusOK, nil)
 
-		_, stderr, err := cli("list", task.ID, "--team-id", seeded.teamID)
-		if err == nil {
-			t.Fatal("expected failure for an attempt without a Durable store")
+		// Until an attempt opens a Durable store, the API lists no conversations.
+		stdout, stderr, err := cli("list", task.ID, "--team-id", seeded.teamID)
+		if err != nil {
+			t.Fatalf("conversations list: %v\nstderr: %s", err, stderr)
 		}
-		if !strings.Contains(stderr, "has no Durable conversation") {
+		var list struct {
+			Items []json.RawMessage `json:"items"`
+		}
+		if err := json.Unmarshal([]byte(stdout), &list); err != nil {
+			t.Fatalf("decode list: %v\n%s", err, stdout)
+		}
+		if len(list.Items) != 0 {
+			t.Fatalf("items = %s, want none", stdout)
+		}
+
+		_, stderr, err = cli("get", task.ID, "--team-id", seeded.teamID)
+		if err == nil {
+			t.Fatal("expected get to fail for an attempt without a Durable store")
+		}
+		if !strings.Contains(stderr, "has no Durable conversation yet") {
 			t.Errorf("stderr does not explain the missing conversation: %s", stderr)
 		}
 	})
@@ -371,7 +386,10 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 		}()
 		// Let the follower print the committed messages while the attempt is live.
 		time.Sleep(3 * time.Second)
-		e2eAPI(t, http.MethodPost, fmt.Sprintf("/tasks/%s/attempts/%d/fail", seeded.taskID, seeded.attemptN), map[string]any{
+		// An attempt can only fail once a heartbeat has started it.
+		attempt := fmt.Sprintf("/tasks/%s/attempts/%d", seeded.taskID, seeded.attemptN)
+		e2eAPI(t, http.MethodPost, attempt+"/heartbeat", map[string]any{}, http.StatusOK, nil)
+		e2eAPI(t, http.MethodPost, attempt+"/fail", map[string]any{
 			"error": map[string]any{"code": "e2e_finished", "message": "follow test ends the attempt", "retryable": false},
 		}, http.StatusOK, nil)
 

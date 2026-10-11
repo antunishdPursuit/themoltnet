@@ -234,8 +234,6 @@ func listConversations(ctx context.Context, client *moltnetapi.Client, taskID, t
 	switch v := res.(type) {
 	case *moltnetapi.ListTaskConversationsOK:
 		return v, nil
-	case *moltnetapi.ListTaskConversationsNotFound:
-		return nil, fmt.Errorf("attempt %d of task %s has no Durable conversation (attempts recorded before Durable only have task messages: use `moltnet task tail --since 0`)", attemptN, taskID)
 	default:
 		return nil, formatAPIError(res)
 	}
@@ -250,6 +248,10 @@ func mainConversationID(ctx context.Context, client *moltnetapi.Client, taskID, 
 		if item.Kind == moltnetapi.ListTaskConversationsOKItemsItemKindMain {
 			return item.ConversationId, nil
 		}
+	}
+	if len(list.Items) == 0 {
+		// The API lists nothing until the attempt opens a Durable store.
+		return "", fmt.Errorf("attempt %d of task %s has no Durable conversation yet (attempts recorded before Durable only have task messages: use `moltnet task tail --since 0`)", attemptN, taskID)
 	}
 	return "", fmt.Errorf("attempt %d of task %s has no main conversation yet", attemptN, taskID)
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -249,12 +248,8 @@ func TestTaskConversationsGet_FollowPrintsInterruptedPartialAtEnd(t *testing.T) 
 }
 
 func TestTaskConversationsGet_NoConversationExplainsLegacyAttempts(t *testing.T) {
-	h := &stubConversationHandler{list: &moltnetapi.ListTaskConversationsNotFound{
-		Title:  "Not found",
-		Status: 404,
-		Code:   "NOT_FOUND",
-		Type:   url.URL{Scheme: "about", Opaque: "blank"},
-	}}
+	// An attempt that never opened a Durable store lists no conversations.
+	h := &stubConversationHandler{list: &moltnetapi.ListTaskConversationsOK{Items: []moltnetapi.ListTaskConversationsOKItemsItem{}}}
 	_, _, client := newTestServer(t, h)
 
 	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
