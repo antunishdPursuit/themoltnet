@@ -152,6 +152,11 @@ export function createDurableTaskExecutor(options: {
 }): TaskExecutor {
   return async (claimed, reporter) => {
     const { task, attemptN } = claimed;
+    // Matches the legacy executor: an absent or non-positive limit is unlimited.
+    const turnLimit =
+      options.maxTurns !== undefined && options.maxTurns > 0
+        ? options.maxTurns
+        : undefined;
     const key = `${task.id}/${attemptN}`;
     const base = { taskId: task.id, attemptN };
     const contract = getSubmitOutputContract(task.taskType, task.input);
@@ -164,6 +169,7 @@ export function createDurableTaskExecutor(options: {
       | undefined;
     let onAbort: (() => void) | undefined;
     let reporterOpen = false;
+    let failed = false;
     // Live task messages are telemetry: Durable storage stays the source of
     // truth, so a reporter failure never fails or interrupts the attempt.
     const emit = async (
@@ -294,8 +300,7 @@ export function createDurableTaskExecutor(options: {
               let exhausted = false;
               await harness!.commit(async (tx) => {
                 const state = await tx.doc(Attempts, key, seed);
-                exhausted =
-                  !!options.maxTurns && state.turns >= options.maxTurns;
+                exhausted = turnLimit !== undefined && state.turns >= turnLimit;
                 if (!exhausted) state.turns += 1;
               }, context);
               if (exhausted) {
@@ -499,7 +504,7 @@ export function createDurableTaskExecutor(options: {
                         String(api.conversationId),
                         null,
                       );
-                      exhausted = state.turns >= (options.maxTurns || 30);
+                      exhausted = state.turns >= (turnLimit ?? 30);
                       if (!exhausted) state.turns += 1;
                     }, ctx);
                     if (exhausted)
@@ -663,8 +668,7 @@ export function createDurableTaskExecutor(options: {
           })
         : [];
       const maxTurnsExceeded =
-        options.maxTurns !== undefined &&
-        (state?.turns ?? 0) >= options.maxTurns;
+        turnLimit !== undefined && (state?.turns ?? 0) >= turnLimit;
       const result: TaskOutput =
         output && !errors.length
           ? {
@@ -711,6 +715,7 @@ export function createDurableTaskExecutor(options: {
       await reporter.finalize(usage);
       return result;
     } catch (error) {
+      failed = true;
       if (
         terminalRecorded ||
         (connection?.signal.aborted && !reporter.cancelSignal.aborted)
@@ -727,36 +732,42 @@ export function createDurableTaskExecutor(options: {
       throw error;
     } finally {
       if (onAbort) connection?.signal.removeEventListener('abort', onAbort);
-      try {
+      // Every step runs even when an earlier one fails. A cleanup failure
+      // interrupts an otherwise settled attempt, but never replaces the error
+      // that is already propagating.
+      const cleanupErrors: TaskExecutionInterrupted[] = [];
+      const cleanup = async (message: string, step: () => unknown) => {
         try {
-          await harness?.close(BACKGROUND_CONTEXT).catch((cause: unknown) => {
-            if (!connection?.signal.aborted)
-              throw new TaskExecutionInterrupted(
-                'Durable shutdown interrupted',
-                { cause },
-              );
-          });
-        } finally {
-          await connection?.storage
-            .close(BACKGROUND_CONTEXT)
-            .catch(() => undefined);
+          await step();
+        } catch (cause) {
+          cleanupErrors.push(new TaskExecutionInterrupted(message, { cause }));
         }
-      } finally {
-        try {
-          await Promise.resolve(prepared?.close()).catch((cause: unknown) => {
-            throw new TaskExecutionInterrupted(
-              'Durable environment cleanup interrupted; reconcile the attempt',
-              { cause },
-            );
-          });
-        } finally {
-          await Promise.resolve(reporter.close()).catch((cause: unknown) => {
-            throw new TaskExecutionInterrupted(
-              'Durable reporter cleanup interrupted; reconcile the attempt',
-              { cause },
-            );
-          });
-        }
+      };
+      await cleanup('Durable shutdown interrupted', () =>
+        harness?.close(BACKGROUND_CONTEXT).catch((cause: unknown) => {
+          // Closing after the writer was lost is expected to fail.
+          if (!connection?.signal.aborted) throw cause;
+        }),
+      );
+      await connection?.storage
+        .close(BACKGROUND_CONTEXT)
+        .catch(() => undefined);
+      await cleanup(
+        'Durable environment cleanup interrupted; reconcile the attempt',
+        () => prepared?.close(),
+      );
+      await cleanup(
+        'Durable reporter cleanup interrupted; reconcile the attempt',
+        () => reporter.close(),
+      );
+      if (failed) {
+        for (const error of cleanupErrors)
+          process.stderr.write(
+            `durable executor: ${error.message} for task ${task.id} attempt ${attemptN} after a failure: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}\n`,
+          );
+      } else if (cleanupErrors[0]) {
+        // eslint-disable-next-line no-unsafe-finally -- a settled attempt whose cleanup failed must be reconciled
+        throw cleanupErrors[0];
       }
     }
   };

@@ -14,6 +14,7 @@ import {
 import {
   type ClaimedTask,
   createSubagentContractRegistry,
+  TaskExecutionInterrupted,
   type TaskReporter,
 } from '@themoltnet/agent-runtime';
 import { describe, expect, it, type Mock, vi } from 'vitest';
@@ -38,12 +39,15 @@ function task(
     traceHeaders: {},
   } as ClaimedTask;
 }
-function reporter(): TaskReporter & { record: Mock<TaskReporter['record']> } {
+function reporter(): TaskReporter & {
+  record: Mock<TaskReporter['record']>;
+  close: Mock<TaskReporter['close']>;
+} {
   return {
     open: vi.fn(),
     record: vi.fn<TaskReporter['record']>(),
     finalize: vi.fn(),
-    close: vi.fn(),
+    close: vi.fn<TaskReporter['close']>(),
     cancelReason: null,
     cancelSignal: new AbortController().signal,
   };
@@ -314,7 +318,9 @@ it('resumes after interrupted unsafe tool intent without executing the tool twic
     }),
     submitted(),
   ]);
-  await expect(execute(task(), reporter())).rejects.toThrow('interrupted');
+  await expect(execute(task(), reporter())).rejects.toBeInstanceOf(
+    TaskExecutionInterrupted,
+  );
   controller = new AbortController();
   const result = await execute(task(), reporter());
   expect(result.status).toBe('completed');
@@ -489,6 +495,99 @@ describe('live task messages', () => {
       expect((await execute(task(), events)).status).toBe('completed');
       expect(stderr).toHaveBeenCalledWith(
         expect.stringContaining('kind="tool_call_start": buffer closed'),
+      );
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+});
+
+describe('turn limits and cleanup', () => {
+  function executor(
+    prepared: Record<string, unknown>,
+    extra: { subagentContracts?: boolean } = {},
+  ) {
+    const remote = remoteLog();
+    const faux = fauxProvider({ tokensPerSecond: 0 });
+    const models = createModels();
+    models.setProvider(faux.provider);
+    const execute = createDurableTaskExecutor({
+      models,
+      model: { provider: faux.provider.id, modelId: faux.models[0].id },
+      ...(extra.subagentContracts === false
+        ? {}
+        : {
+            subagentContracts: createSubagentContractRegistry([
+              {
+                name: 'verdict',
+                description: 'Return a verdict',
+                parametersSchema: Type.Object({ verdict: Type.String() }),
+              },
+            ]),
+          }),
+      open: async (_claimed, signal) => ({
+        storage: await ApiDurableStorage.open(
+          remote.transport,
+          BACKGROUND_CONTEXT,
+        ),
+        signal,
+        check: () => signal.throwIfAborted(),
+        prepare: async () => ({
+          authorizeTool: async () => undefined,
+          close: async () => {},
+          ...prepared,
+        }),
+      }),
+    });
+    return { faux, execute };
+  }
+
+  it('treats a zero turn limit as unlimited, like the legacy executor', async () => {
+    const { faux, execute } = setup(false, 0);
+    faux.setResponses(
+      Array.from({ length: 4 }, () => fauxAssistantMessage('Finished')),
+    );
+    const result = await execute(task(), reporter());
+    expect(result.error?.code).toBe('submit_output_missing');
+    expect(faux.state.callCount).toBe(4);
+  });
+
+  it('interrupts a settled attempt whose environment cleanup fails and still closes the reporter', async () => {
+    const { faux, execute } = executor({
+      close: async () => {
+        throw new Error('vm stuck');
+      },
+    });
+    faux.setResponses([submitted()]);
+    const events = reporter();
+    const error = await execute(task(), events).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(TaskExecutionInterrupted);
+    expect((error as Error).message).toContain('environment cleanup');
+    expect((error as Error).cause).toEqual(new Error('vm stuck'));
+    expect(events.close).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the original failure when cleanup also fails', async () => {
+    const { execute } = executor(
+      {
+        subagentTools: [],
+        close: async () => {
+          throw new Error('vm stuck');
+        },
+      },
+      { subagentContracts: false },
+    );
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
+    try {
+      const error = await execute(task(), reporter()).catch((e: unknown) => e);
+      expect(error).not.toBeInstanceOf(TaskExecutionInterrupted);
+      expect((error as Error).message).toBe(
+        'Subagent contracts are required for delegation',
+      );
+      expect(stderr).toHaveBeenCalledWith(
+        expect.stringContaining('environment cleanup interrupted'),
       );
     } finally {
       stderr.mockRestore();
