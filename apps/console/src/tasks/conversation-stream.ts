@@ -20,6 +20,7 @@ export interface WatchConversationOptions {
   onSnapshot: (snapshot: ConversationSnapshot) => void;
   /** Called once when the stream fails and polling takes over. */
   onFallback?: (error: unknown) => void;
+  onConnection?: (state: 'connected' | 'retrying') => void;
   /** Delay before reopening a stream the server closed normally. */
   reconnectDelayMs?: number;
   pollIntervalMs?: number;
@@ -42,6 +43,28 @@ function isSnapshot(value: unknown): value is ConversationSnapshot {
   );
 }
 
+export class ConversationReadError extends Error {
+  constructor(readonly status: number) {
+    super(`Conversation read failed (${status})`);
+  }
+}
+
+export const isPermanentConversationError = (error: unknown) =>
+  error instanceof ConversationReadError &&
+  [401, 403, 404].includes(error.status);
+
+export async function readConversation(
+  options: Parameters<typeof getTaskConversation>[0],
+): Promise<ConversationSnapshot> {
+  const result = await getTaskConversation(options);
+  if (!result.data) {
+    if (result.response)
+      throw new ConversationReadError(result.response.status);
+    throw new Error('Conversation read failed', { cause: result.error });
+  }
+  return result.data;
+}
+
 /**
  * Follows a conversation until the attempt is terminal or `signal` aborts.
  *
@@ -56,12 +79,13 @@ export async function watchConversationSnapshots(
 ): Promise<void> {
   const {
     client,
-    signal,
     onSnapshot,
     reconnectDelayMs = 1_000,
     pollIntervalMs = 2_000,
     sleep = abortableDelay,
   } = options;
+  const cancellation = new AbortController();
+  const signal = AbortSignal.any([options.signal, cancellation.signal]);
   const request = {
     client,
     headers: { 'x-moltnet-team-id': options.teamId },
@@ -94,6 +118,7 @@ export async function watchConversationSnapshots(
       for await (const data of stream as AsyncIterable<unknown>) {
         if (!isSnapshot(data)) continue;
         received = true;
+        options.onConnection?.('connected');
         onSnapshot(data);
         if (!isLiveAttemptStatus(data.attemptStatus)) return;
       }
@@ -108,20 +133,32 @@ export async function watchConversationSnapshots(
     if (signal.aborted) return;
 
     options.onFallback?.(failure);
+    options.onConnection?.('retrying');
+    let failures = 0;
     while (!signal.aborted) {
-      // A failed poll keeps the last snapshot on screen; the next poll retries.
-      const data = await getTaskConversation(request).then(
-        (result) => result.data,
-        () => undefined,
-      );
-      if (data) {
+      try {
+        const data = await readConversation(request);
+        options.onConnection?.('connected');
         onSnapshot(data);
+        failures = 0;
         if (!isLiveAttemptStatus(data.attemptStatus)) return;
+      } catch (error) {
+        if (signal.aborted || isPermanentConversationError(error)) throw error;
+        failures++;
+        options.onConnection?.('retrying');
       }
-      await sleep(pollIntervalMs, signal);
+      await sleep(
+        Math.min(
+          pollIntervalMs * 2 ** Math.min(Math.max(failures - 1, 0), 4),
+          30_000,
+        ),
+        signal,
+      );
     }
   } catch (error) {
     if (signal.aborted) return;
     throw error;
+  } finally {
+    cancellation.abort();
   }
 }

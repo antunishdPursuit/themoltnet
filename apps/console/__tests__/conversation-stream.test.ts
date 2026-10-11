@@ -76,6 +76,7 @@ function setup(responses: { events: Response[]; reads?: Response[] }) {
   });
   const onSnapshot = vi.fn<(value: ConversationSnapshot) => void>();
   const onFallback = vi.fn();
+  const onConnection = vi.fn();
   const watch = () =>
     watchConversationSnapshots({
       client,
@@ -86,11 +87,21 @@ function setup(responses: { events: Response[]; reads?: Response[] }) {
       signal: controller.signal,
       onSnapshot,
       onFallback,
+      onConnection,
       reconnectDelayMs: 5,
       pollIntervalMs: 7,
       sleep,
     });
-  return { requests, fetch, sleep, onSnapshot, onFallback, controller, watch };
+  return {
+    requests,
+    fetch,
+    sleep,
+    onSnapshot,
+    onFallback,
+    onConnection,
+    controller,
+    watch,
+  };
 }
 
 describe('watchConversationSnapshots', () => {
@@ -196,5 +207,43 @@ describe('watchConversationSnapshots', () => {
 
     expect(t.onFallback).toHaveBeenCalledTimes(1);
     expect(t.onSnapshot).toHaveBeenCalledTimes(1);
+  });
+  it('aborts the HTTP request when a terminal snapshot arrives on an otherwise open stream', async () => {
+    const t = setup({
+      events: [sseResponse([frame(snapshot('done', 'completed'))], true)],
+    });
+    await t.watch();
+    expect(t.requests[0].signal.aborted).toBe(true);
+  });
+
+  it('backs off failed polling, reports staleness, and clears it after recovery', async () => {
+    const t = setup({
+      events: [new Response('', { status: 503 })],
+      reads: [
+        new Response('{}', { status: 500 }),
+        new Response('{}', { status: 503 }),
+        new Response(JSON.stringify(snapshot('done', 'completed')), {
+          headers: { 'content-type': 'application/json' },
+        }),
+      ],
+    });
+    await t.watch();
+    expect(t.sleep.mock.calls.map(([ms]) => ms)).toEqual([7, 14]);
+    expect(t.onConnection.mock.calls.map(([state]) => state)).toEqual([
+      'retrying',
+      'retrying',
+      'retrying',
+      'connected',
+    ]);
+  });
+
+  it.each([401, 403, 404])('stops polling on HTTP %s', async (status) => {
+    const t = setup({
+      events: [new Response('', { status: 503 })],
+      reads: [new Response('{}', { status })],
+    });
+    await expect(t.watch()).rejects.toMatchObject({ status });
+    expect(t.fetch).toHaveBeenCalledTimes(2);
+    expect(t.sleep).not.toHaveBeenCalled();
   });
 });
