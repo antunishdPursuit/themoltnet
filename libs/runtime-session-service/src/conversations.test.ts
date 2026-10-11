@@ -9,9 +9,11 @@ import {
   type StorageWrite,
 } from '@earendil-works/pi-durable';
 import { KetoNamespace } from '@moltnet/auth';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createConversationService } from './conversations.js';
+
+afterEach(() => vi.useRealTimers());
 
 const context = BACKGROUND_CONTEXT;
 const input = {
@@ -271,4 +273,73 @@ describe('read-only Durable conversations', () => {
     );
     await f.session.close(context);
   });
+});
+
+it('reuses idle replay for pagination but reauthorizes every acquisition', async () => {
+  const f = await fixture();
+  const first = await f.service.open(input);
+  const expected = await first.snapshot(f.root);
+  await first.close();
+  f.read.mockClear();
+  const second = await f.service.open(input);
+  expect(f.read).toHaveBeenCalledWith(
+    expect.objectContaining({ afterSeq: f.commits.length }),
+  );
+  expect(await second.snapshot(f.root)).toEqual(expected);
+  await expect(first.snapshot(f.root)).rejects.toThrow('closed');
+  await first.close(); // A stale handle must not release the new owner.
+  expect(await second.snapshot(f.root)).toEqual(expected);
+  await second.close();
+  f.read.mockRejectedValueOnce(new Error('permission revoked'));
+  await expect(f.service.open(input)).rejects.toThrow('permission revoked');
+  await f.service.close();
+});
+
+it('expires idle readers and bounds active reader admission', async () => {
+  vi.useFakeTimers();
+  const f = await fixture();
+  const first = await f.service.open(input);
+  await first.close();
+  await vi.advanceTimersByTimeAsync(30_001);
+  f.read.mockClear();
+  const readers = [await f.service.open(input)];
+  expect(f.read).toHaveBeenCalledWith(expect.objectContaining({ afterSeq: 0 }));
+  for (let i = 1; i < 16; i++) readers.push(await f.service.open(input));
+  await expect(f.service.open(input)).rejects.toThrow('capacity');
+  await readers[0].close();
+  const reused = await f.service.open(input);
+  expect(await reused.snapshot(f.root)).toBeDefined();
+  await f.service.close();
+  vi.useRealTimers();
+});
+
+it('passes cancellation into initial replay and discards interrupted replicas', async () => {
+  const f = await fixture();
+  const controller = new AbortController();
+  const original = f.read.getMockImplementation()!;
+  f.read.mockImplementationOnce(async (args) => {
+    expect(args).toMatchObject({ signal: controller.signal });
+    controller.abort();
+    return original(args);
+  });
+  await expect(f.service.open(input, controller.signal)).rejects.toThrow();
+  f.read.mockClear();
+  const next = await f.service.open(input);
+  expect(f.read).toHaveBeenCalledWith(expect.objectContaining({ afterSeq: 0 }));
+  await next.close();
+  await f.service.close();
+});
+
+it('keeps simultaneous readers and different principals isolated', async () => {
+  const f = await fixture();
+  const first = await f.service.open(input);
+  const second = await f.service.open(input);
+  await first.close();
+  expect(await second.snapshot(f.root)).toBeDefined();
+  f.read.mockClear();
+  const other = await f.service.open({ ...input, subjectId: 'another-agent' });
+  expect(f.read).toHaveBeenCalledWith(expect.objectContaining({ afterSeq: 0 }));
+  await second.close();
+  await other.close();
+  await f.service.close();
 });

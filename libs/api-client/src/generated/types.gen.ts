@@ -13114,7 +13114,25 @@ export type WatchTaskConversationResponses = {
   /**
    * conversation.snapshot events; subsequent failure terminates the stream. Reconnect to reauthorize and refresh.
    */
-  200: Blob | File;
+  200: {
+    attemptStatus: string;
+    conversationId: string;
+    cursor: string;
+    live: {
+      [key: string]: unknown;
+    };
+    messages: Array<{
+      entryId: string | null;
+      entryKind: string;
+      id: string;
+      inherited: boolean;
+      message: {
+        [key: string]: unknown;
+      };
+      status: 'completed' | 'streaming' | 'interrupted' | 'failed';
+    }>;
+    nextBeforeEntryId: string | null;
+  };
 };
 
 export type WatchTaskConversationResponse =

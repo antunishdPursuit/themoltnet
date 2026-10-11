@@ -45194,8 +45194,110 @@
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "format": "binary",
-                  "type": "string"
+                  "properties": {
+                    "attemptStatus": {
+                      "type": "string"
+                    },
+                    "conversationId": {
+                      "pattern": "^[1-9][0-9]*$",
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "live": {
+                      "additionalProperties": {},
+                      "type": "object"
+                    },
+                    "messages": {
+                      "items": {
+                        "properties": {
+                          "entryId": {
+                            "anyOf": [
+                              {
+                                "pattern": "^[1-9][0-9]*$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "entryKind": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "inherited": {
+                            "type": "boolean"
+                          },
+                          "message": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "enum": [
+                                  "completed"
+                                ],
+                                "type": "string"
+                              },
+                              {
+                                "enum": [
+                                  "streaming"
+                                ],
+                                "type": "string"
+                              },
+                              {
+                                "enum": [
+                                  "interrupted"
+                                ],
+                                "type": "string"
+                              },
+                              {
+                                "enum": [
+                                  "failed"
+                                ],
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "entryId",
+                          "entryKind",
+                          "inherited",
+                          "status",
+                          "message"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "nextBeforeEntryId": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[1-9][0-9]*$",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "conversationId",
+                    "cursor",
+                    "attemptStatus",
+                    "messages",
+                    "nextBeforeEntryId",
+                    "live"
+                  ],
+                  "type": "object"
                 }
               }
             },

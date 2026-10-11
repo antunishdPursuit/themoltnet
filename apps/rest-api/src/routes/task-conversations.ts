@@ -17,12 +17,31 @@ import {
   createConversationService,
   createRuntimeStoreService,
 } from '@moltnet/runtime-session-service';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Type } from 'typebox';
 
 import { PRINCIPAL_AUTH_SECURITY } from '../openapi-security.js';
 import { requireCurrentTeamId } from '../utils/require-current-team-id.js';
 import { requireKetoSubject } from '../utils/require-keto-subject.js';
+
+function requestLifetime(reply: FastifyReply) {
+  const cancellation = new AbortController();
+  const disconnected = () => cancellation.abort();
+  reply.raw.once('close', disconnected);
+  const signal = AbortSignal.any([
+    cancellation.signal,
+    AbortSignal.timeout(300_000),
+  ]);
+  const aborted = () => reply.raw.destroy();
+  signal.addEventListener('abort', aborted, { once: true });
+  return {
+    signal,
+    dispose() {
+      reply.raw.off('close', disconnected);
+      signal.removeEventListener('abort', aborted);
+    },
+  };
+}
 
 export async function taskConversationRoutes(fastify: FastifyInstance) {
   const server = fastify.withTypeProvider<TypeBoxTypeProvider>();
@@ -38,6 +57,7 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
     repository: fastify.runtimeSessionRepository.durable,
     tasks: fastify.taskRepository,
   });
+  server.addHook('onClose', () => service.close());
   const config = {
     rateLimit: fastify.rateLimitConfig.read,
     auth: {
@@ -79,12 +99,18 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
         response: { ...errors, 200: ConversationList },
       },
     },
-    async (request) => {
-      const reader = await service.open(subject(request, request.params));
+    async (request, reply) => {
+      const lifetime = requestLifetime(reply);
+      let reader: Awaited<ReturnType<typeof service.open>> | undefined;
       try {
+        reader = await service.open(
+          subject(request, request.params),
+          lifetime.signal,
+        );
         return reader.list();
       } finally {
-        await reader.close();
+        lifetime.dispose();
+        await reader?.close();
       }
     },
   );
@@ -100,15 +126,21 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
         response: { ...errors, 200: ConversationSnapshot },
       },
     },
-    async (request) => {
-      const reader = await service.open(subject(request, request.params));
+    async (request, reply) => {
+      const lifetime = requestLifetime(reply);
+      let reader: Awaited<ReturnType<typeof service.open>> | undefined;
       try {
+        reader = await service.open(
+          subject(request, request.params),
+          lifetime.signal,
+        );
         return await reader.snapshot(
           request.params.conversationId,
           request.query,
         );
       } finally {
-        await reader.close();
+        lifetime.dispose();
+        await reader?.close();
       }
     },
   );
@@ -129,7 +161,7 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
               'conversation.snapshot events; subsequent failure terminates the stream. Reconnect to reauthorize and refresh.',
             content: {
               'text/event-stream': {
-                schema: Type.String({ format: 'binary' }),
+                schema: ConversationSnapshot,
               },
             },
           },
@@ -137,18 +169,13 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const cancellation = new AbortController();
-      const disconnected = () => cancellation.abort();
-      reply.raw.once('close', disconnected);
-      const signal = AbortSignal.any([
-        cancellation.signal,
-        AbortSignal.timeout(300_000),
-      ]);
+      const lifetime = requestLifetime(reply);
+      const { signal } = lifetime;
       let reader: Awaited<ReturnType<typeof service.open>>;
       try {
-        reader = await service.open(subject(request, request.params));
+        reader = await service.open(subject(request, request.params), signal);
       } catch (error) {
-        reply.raw.off('close', disconnected);
+        lifetime.dispose();
         throw error;
       }
       let initial: ConversationSnapshot;
@@ -156,8 +183,12 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
         initial = await reader.snapshot(request.params.conversationId);
       } catch (error) {
         await reader.close();
-        reply.raw.off('close', disconnected);
+        lifetime.dispose();
         throw error;
+      }
+      async function cleanup() {
+        lifetime.dispose();
+        await reader.close();
       }
       async function* events() {
         let snapshot = initial;
@@ -180,15 +211,19 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
         } catch (error) {
           if (!signal.aborted) throw error;
         } finally {
-          reply.raw.off('close', disconnected);
-          await reader.close();
+          await cleanup();
         }
       }
+      const stream = Readable.from(events(), { highWaterMark: 1, signal });
+      // Destruction before the first next() never enters the generator finally.
+      stream.once('close', () => {
+        void cleanup();
+      });
       return reply
         .header('Cache-Control', 'no-store')
         .header('X-Accel-Buffering', 'no')
         .type('text/event-stream')
-        .send(Readable.from(events(), { highWaterMark: 1 }) as never);
+        .send(stream as never);
     },
   );
 }

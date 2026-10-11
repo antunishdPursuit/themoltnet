@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createMockServices,
@@ -38,6 +38,7 @@ describe('task conversation routes', () => {
       attemptN: 1,
     });
     repo.listAttempts.mockResolvedValue([{ taskId, attemptN: 1 }]);
+    repo.listCommitTaskIds.mockResolvedValue([taskId]);
     repo.get.mockResolvedValue({
       id: storeId,
       format: 'pi-durable.v1',
@@ -131,6 +132,7 @@ describe('task conversation routes', () => {
       mocks.runtimeSessionRepository.durable.append,
     ).not.toHaveBeenCalled();
     expect(mocks.taskRepository.appendMessages).not.toHaveBeenCalled();
+    expect(mocks.runtimeSessionStorage.getObject).toHaveBeenCalledTimes(1);
   });
   it('denies inaccessible shared-store tasks before reading any blobs', async () => {
     mocks.permissionChecker.canViewTasks.mockImplementation(
@@ -147,6 +149,54 @@ describe('task conversation routes', () => {
     expect(result.statusCode).toBe(404);
     expect(mocks.runtimeSessionStorage.getObject).not.toHaveBeenCalled();
   });
+  it('reauthorizes copied ancestors on cached reads with no new commits', async () => {
+    mocks.runtimeSessionRepository.durable.listCommitTaskIds.mockResolvedValue([
+      taskId,
+      'ancestor',
+    ]);
+    expect(
+      (await app.inject({ method: 'GET', url: `${path}/1`, headers }))
+        .statusCode,
+    ).toBe(200);
+    mocks.permissionChecker.canViewTasks.mockImplementation(
+      async (ids: string[]) =>
+        new Map(ids.map((id) => [id, id !== 'ancestor'])),
+    );
+    expect(
+      (await app.inject({ method: 'GET', url: `${path}/1`, headers }))
+        .statusCode,
+    ).toBe(404);
+    expect(mocks.runtimeSessionStorage.getObject).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['', '/1', '/1/events'])(
+    'aborts backing object reads when %s disconnects during initial replay',
+    async (suffix) => {
+      let readSignal: AbortSignal | undefined;
+      mocks.runtimeSessionStorage.getObject.mockImplementation(
+        (_key, signal) => {
+          readSignal = signal;
+          return new Promise((_resolve, reject) => {
+            signal!.addEventListener('abort', () => reject(signal!.reason), {
+              once: true,
+            });
+          });
+        },
+      );
+      const address = await app.listen({ host: '127.0.0.1', port: 0 });
+      const controller = new AbortController();
+      const response = fetch(`${address}${path}${suffix}`, {
+        headers,
+        signal: controller.signal,
+      });
+      const failed = expect(response).rejects.toThrow();
+      await vi.waitFor(() => expect(readSignal).toBeDefined());
+      controller.abort();
+      await failed;
+      await vi.waitFor(() => expect(readSignal!.aborted).toBe(true));
+    },
+  );
+
   it('rejects unbound conversations and invalid history cursors', async () => {
     expect(
       (await app.inject({ method: 'GET', url: `${path}/99`, headers }))
@@ -162,6 +212,82 @@ describe('task conversation routes', () => {
       ).statusCode,
     ).toBe(400);
   });
+  it('closes a backpressured response and its reader when its lifetime expires', async () => {
+    const lifetime = new AbortController();
+    const timeout = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(lifetime.signal);
+    const from = Readable.from;
+    let output: Readable | undefined;
+    const streams = vi
+      .spyOn(Readable, 'from')
+      .mockImplementation((source, options) => {
+        const stream = from(source, options);
+        if (options?.signal) output = stream;
+        return stream;
+      });
+    const controller = new AbortController();
+    try {
+      const address = await app.listen({ host: '127.0.0.1', port: 0 });
+      const response = await fetch(`${address}${path}/1/events`, {
+        headers,
+        signal: controller.signal,
+      });
+      await response.body!.getReader().read();
+      expect(output).toBeDefined();
+      output!.pause();
+      // Suspend the generator at its next yield, rather than in its polling wait.
+      await vi.waitFor(
+        () => expect(output!.readableLength).toBeGreaterThan(0),
+        { timeout: 3000 },
+      );
+      lifetime.abort();
+      await vi.waitFor(() => {
+        expect(output!.destroyed).toBe(true);
+      });
+    } finally {
+      controller.abort();
+      timeout.mockRestore();
+      streams.mockRestore();
+    }
+  });
+
+  it('releases readers even when the response is destroyed before its first pull', async () => {
+    let lifetime = new AbortController();
+    const timeout = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockImplementation(() => lifetime.signal);
+    const from = Readable.from;
+    const streams = vi
+      .spyOn(Readable, 'from')
+      .mockImplementation((source, options) => {
+        if (options?.signal) lifetime.abort();
+        return from(source, options);
+      });
+    try {
+      const address = await app.listen({ host: '127.0.0.1', port: 0 });
+      // More than the reader limit: every pre-start cancellation must release its slot.
+      for (let i = 0; i < 17; i++) {
+        lifetime = new AbortController();
+        const response = await fetch(`${address}${path}/1/events`, {
+          headers,
+        }).catch(() => null);
+        if (response) {
+          expect(response.status).not.toBe(503);
+          await response.text().catch(() => undefined);
+        }
+      }
+      lifetime = new AbortController();
+      expect(
+        (await app.inject({ method: 'GET', url: `${path}/1`, headers }))
+          .statusCode,
+      ).toBe(200);
+    } finally {
+      timeout.mockRestore();
+      streams.mockRestore();
+    }
+  });
+
   it('starts SSE with a replacement snapshot and releases the reader on disconnect', async () => {
     const address = await app.listen({ host: '127.0.0.1', port: 0 });
     const controller = new AbortController();

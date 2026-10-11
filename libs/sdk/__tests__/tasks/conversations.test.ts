@@ -1,5 +1,6 @@
-import { createClient } from '@moltnet/api-client';
-import { expect, it, vi } from 'vitest';
+import { createClient, watchTaskConversation } from '@moltnet/api-client';
+import type { ConversationSnapshot } from '@moltnet/runtime-profiles';
+import { expect, expectTypeOf, it, vi } from 'vitest';
 
 import { createTasksNamespace } from '../../src/namespaces/tasks.js';
 
@@ -78,4 +79,23 @@ it('rejects malformed snapshots instead of presenting empty conversation state',
   });
   const stream = snapshots[Symbol.asyncIterator]();
   await expect(stream.next()).rejects.toThrow('Invalid conversation snapshot');
+});
+
+it('the generated watch client yields typed JSON snapshots', async () => {
+  const fetch = vi.fn(
+    async () =>
+      new Response(
+        `event: conversation.snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
+        { headers: { 'Content-Type': 'text/event-stream' } },
+      ),
+  );
+  const { stream } = await watchTaskConversation({
+    client: createClient({ baseUrl: 'https://example.test', fetch }),
+    path: { id: 'task', n: 1, conversationId: '1' },
+    headers: { 'x-moltnet-team-id': 'team' },
+  });
+  for await (const event of stream) {
+    expectTypeOf(event).toEqualTypeOf<ConversationSnapshot>();
+    expect(event.messages).toEqual([]);
+  }
 });
