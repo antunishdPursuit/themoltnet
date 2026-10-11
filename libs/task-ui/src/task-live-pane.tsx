@@ -3,27 +3,36 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   useEffect,
+  useId,
   useState,
 } from 'react';
 
+import {
+  hasConversationContent,
+  operationalTaskMessages,
+  type TaskConversationThread,
+} from './conversation.js';
 import { humanizeToken } from './format.js';
 import { JsonViewer } from './json-viewer.js';
+import { TaskConversationView } from './task-conversation-view.js';
+import { TaskMessagesTimeline } from './task-messages-timeline.js';
 import { TaskStatusBadge } from './task-status-badge.js';
 import { TaskTurnStream } from './task-turn-stream.js';
 import type { TaskAttemptSummary, TaskMessage, TaskSummary } from './types.js';
 
-type PaneTab = 'turns' | 'usage' | 'input';
-
-const TABS: { id: PaneTab; label: string }[] = [
-  { id: 'turns', label: 'Turns' },
-  { id: 'usage', label: 'Usage' },
-  { id: 'input', label: 'Input' },
-];
+type PaneTab = 'turns' | 'events' | 'usage' | 'input';
 
 export interface TaskLivePaneProps {
   task: TaskSummary;
   attempt?: TaskAttemptSummary | null;
   messages: TaskMessage[];
+  /**
+   * Durable conversation threads for the attempt. When any thread has content
+   * it replaces the task-message transcript, and operational task messages move
+   * to the Events tab. Attempts without a conversation keep the task-message
+   * transcript.
+   */
+  conversation?: TaskConversationThread[];
   /** Docs URL surfaced in the empty turn-stream state (run an agent daemon). */
   learnMoreHref?: string;
   /** Deselects or hides the pane in the parent view. */
@@ -38,6 +47,7 @@ export function TaskLivePane({
   task,
   attempt,
   messages,
+  conversation,
   learnMoreHref,
   onClose,
   defaultCollapsed = false,
@@ -49,6 +59,26 @@ export function TaskLivePane({
   const live = task.status === 'running' || task.status === 'dispatched';
   const taskTitle = task.title || humanizeToken(task.taskType);
   const isDialog = presentation === 'dialog';
+  const idPrefix = useId();
+  const durable = hasConversationContent(conversation);
+  const events = durable ? operationalTaskMessages(messages) : [];
+  const errorCount = events.filter((m) => m.kind === 'error').length;
+  const tabs: { id: PaneTab; label: string }[] = [
+    { id: 'turns', label: 'Turns' },
+    ...(durable
+      ? [
+          {
+            id: 'events' as const,
+            label: errorCount
+              ? `Events (${events.length}, ${errorCount} ${errorCount === 1 ? 'error' : 'errors'})`
+              : `Events (${events.length})`,
+          },
+        ]
+      : []),
+    { id: 'usage', label: 'Usage' },
+    { id: 'input', label: 'Input' },
+  ];
+  const activeTab = tabs.some((entry) => entry.id === tab) ? tab : 'turns';
 
   useEffect(() => {
     setCollapsed(defaultCollapsed);
@@ -170,11 +200,13 @@ export function TaskLivePane({
               background: theme.color.bg.surface,
             }}
           >
-            {TABS.map((entry) => (
+            {tabs.map((entry) => (
               <button
                 key={entry.id}
+                id={`${idPrefix}-tab-${entry.id}`}
                 role="tab"
-                aria-selected={tab === entry.id}
+                aria-selected={activeTab === entry.id}
+                aria-controls={`${idPrefix}-panel`}
                 type="button"
                 onClick={() => setTab(entry.id)}
                 style={{
@@ -185,12 +217,12 @@ export function TaskLivePane({
                   cursor: 'pointer',
                   background: 'transparent',
                   color:
-                    tab === entry.id
+                    activeTab === entry.id
                       ? theme.color.primary.DEFAULT
                       : theme.color.text.secondary,
                   border: 'none',
                   borderBottom: `2px solid ${
-                    tab === entry.id
+                    activeTab === entry.id
                       ? theme.color.primary.DEFAULT
                       : 'transparent'
                   }`,
@@ -201,21 +233,41 @@ export function TaskLivePane({
             ))}
           </div>
 
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            {tab === 'turns' ? (
-              <TaskTurnStream
-                messages={messages}
-                live={live}
-                learnMoreHref={learnMoreHref}
-                attemptStatus={attempt?.status}
-              />
+          <div
+            id={`${idPrefix}-panel`}
+            role="tabpanel"
+            aria-labelledby={`${idPrefix}-tab-${activeTab}`}
+            style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+          >
+            {activeTab === 'turns' ? (
+              durable ? (
+                <TaskConversationView threads={conversation} live={live} />
+              ) : (
+                <TaskTurnStream
+                  messages={messages}
+                  live={live}
+                  learnMoreHref={learnMoreHref}
+                  attemptStatus={attempt?.status}
+                />
+              )
             ) : null}
-            {tab === 'usage' ? (
+            {activeTab === 'events' ? (
+              <div style={{ padding: theme.spacing[4] }}>
+                {events.length ? (
+                  <TaskMessagesTimeline messages={events} joinText={false} />
+                ) : (
+                  <Text color="muted">
+                    No errors, policy decisions or notices for this attempt.
+                  </Text>
+                )}
+              </div>
+            ) : null}
+            {activeTab === 'usage' ? (
               <div style={{ padding: theme.spacing[4] }}>
                 <JsonViewer value={attempt?.usage ?? {}} defaultExpanded />
               </div>
             ) : null}
-            {tab === 'input' ? (
+            {activeTab === 'input' ? (
               <div style={{ padding: theme.spacing[4] }}>
                 <JsonViewer value={task.input} defaultExpanded />
               </div>
