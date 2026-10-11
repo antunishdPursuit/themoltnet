@@ -9,10 +9,18 @@
 // The e2e test replaces __TASK_ID__ with the claimed task ID.
 
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
-import { createSession, defineDocFamily, MemoryStorage, type StorageWrite } from '@earendil-works/pi-durable';
+import {
+  createSession,
+  defineDocFamily,
+  MemoryStorage,
+  type StorageWrite,
+} from '@earendil-works/pi-durable';
 
 const Attempts = defineDocFamily({
-  kind: 'moltnet.attempt', version: 1, scope: 'session', family: true,
+  kind: 'moltnet.attempt',
+  version: 1,
+  scope: 'session',
+  family: true,
   initial: (conversationId: number) => ({ conversationId }),
 });
 const commits: StorageWrite[][] = [];
@@ -23,19 +31,62 @@ class Capture extends MemoryStorage {
   }
 }
 const session = createSession(new Capture());
-const root = (await session.commit((tx) => tx.createConversation({ ownership: { kind: 'ownerless' } }), context)).id;
+const root = (
+  await session.commit(
+    (tx) => tx.createConversation({ ownership: { kind: 'ownerless' } }),
+    context,
+  )
+).id;
 await session.commit(async (tx) => {
   await tx.doc(Attempts, '__TASK_ID__/1', root);
-  await tx.appendEntry(root, { kind: 'pi.user', model: [{ role: 'user', content: 'List the workspace.', timestamp: 1 }] });
+  await tx.appendEntry(root, {
+    kind: 'pi.user',
+    model: [{ role: 'user', content: 'List the workspace.', timestamp: 1 }],
+  });
 }, context);
 await session.commit(async (tx) => {
-  await tx.appendEntry(root, { kind: 'pi.assistant', model: [{ role: 'assistant', content: [
-    { type: 'text', text: 'Listing files.' },
-    { type: 'toolCall', id: 'call-1', name: 'bash', arguments: { command: 'ls' } },
-  ], timestamp: 2 } as never] });
-  await tx.appendEntry(root, { kind: 'pi.tool', model: [{ role: 'toolResult', toolCallId: 'call-1', toolName: 'bash', content: [{ type: 'text', text: 'README.md' }], isError: false, timestamp: 3 } as never] });
+  await tx.appendEntry(root, {
+    kind: 'pi.assistant',
+    model: [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Listing files.' },
+          {
+            type: 'toolCall',
+            id: 'call-1',
+            name: 'bash',
+            arguments: { command: 'ls' },
+          },
+        ],
+        timestamp: 2,
+      } as never,
+    ],
+  });
+  await tx.appendEntry(root, {
+    kind: 'pi.tool',
+    model: [
+      {
+        role: 'toolResult',
+        toolCallId: 'call-1',
+        toolName: 'bash',
+        content: [{ type: 'text', text: 'README.md' }],
+        isError: false,
+        timestamp: 3,
+      } as never,
+    ],
+  });
 }, context);
 await session.commit(async (tx) => {
-  await tx.appendEntry(root, { kind: 'pi.assistant', model: [{ role: 'assistant', content: [{ type: 'text', text: 'The workspace holds README.md.' }], timestamp: 4 } as never] });
+  await tx.appendEntry(root, {
+    kind: 'pi.assistant',
+    model: [
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'The workspace holds README.md.' }],
+        timestamp: 4,
+      } as never,
+    ],
+  });
 }, context);
 process.stdout.write(JSON.stringify(commits, null, 2) + '\n');
