@@ -8,6 +8,9 @@ import { CodingTools } from '@earendil-works/pi-durable/tools';
 
 import { createGondolinReadToolDefinitions } from './gondolin-tools.js';
 
+/** Durable `bash` spills long output under the guest temp directory. */
+const GUEST_SPILL_ROOT = '/tmp';
+
 /** Reuse our guest read/search implementations; Durable owns shell output spilling. */
 export function createDurableGondolinTools(
   config: Parameters<typeof createGondolinReadToolDefinitions>[0] & {
@@ -15,7 +18,10 @@ export function createDurableGondolinTools(
   },
 ): ToolRegistration[] {
   const readTools = adaptDurableTools(
-    createGondolinReadToolDefinitions(config),
+    createGondolinReadToolDefinitions({
+      ...config,
+      readableGuestRoots: [GUEST_SPILL_ROOT],
+    }),
     {
       cwd: config.cwdPath,
       model: config.model,

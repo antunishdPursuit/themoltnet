@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  closeSync,
+  constants,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import {
   BACKGROUND_CONTEXT,
@@ -11,8 +18,12 @@ import {
   buildTaskUserPrompt,
   TaskExecutionInterrupted,
   taskTypeUsesSubagents,
+  traceRuntimePhase,
 } from '@themoltnet/agent-runtime';
-import { resolveVfsShadowConfig } from '@themoltnet/sandbox-gondolin';
+import {
+  GUEST_TASK_CONTEXT_MOUNT,
+  resolveVfsShadowConfig,
+} from '@themoltnet/sandbox-gondolin';
 import { ShellCommandAnalyzer } from '@themoltnet/shell-command-analyzer';
 
 import { resolvePiCodingAgentDir } from './config.js';
@@ -61,9 +72,74 @@ import {
 } from './tool-operations.js';
 import {
   authorizeDurableToolCall,
+  createStderrToolPolicyLogger,
   resolveSessionToolPolicy,
 } from './tool-policy/session-policy.js';
 import { resumeVm } from './vm.js';
+
+/**
+ * Host-side proof that a resumed attempt found the workspace its first run
+ * prepared. The guest cannot read or write `.moltnet` paths in a mount.
+ */
+function workspaceMarkerPath(
+  cwdPath: string,
+  taskId: string,
+  attemptN: number,
+) {
+  return join(
+    cwdPath,
+    '.moltnet',
+    'durable-workspaces',
+    `${taskId}-${attemptN}`,
+  );
+}
+
+function writeWorkspaceMarker(marker: string, token: string) {
+  mkdirSync(dirname(marker), { recursive: true });
+  const fd = openSync(
+    marker,
+    constants.O_WRONLY |
+      constants.O_CREAT |
+      constants.O_TRUNC |
+      constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    writeFileSync(fd, token);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function workspaceUnavailable(reason: string, cause?: unknown) {
+  return new TaskExecutionInterrupted(
+    `Durable workspace is unavailable (${reason}); restore its persistent volume before resuming`,
+    cause === undefined ? undefined : { cause },
+  );
+}
+
+/** Returns the stored token once the expected marker is confirmed. */
+function verifyWorkspaceMarker(
+  previous: Readonly<Record<string, unknown>>,
+  marker: string,
+): string {
+  if (typeof previous.marker !== 'string' || typeof previous.token !== 'string')
+    throw workspaceUnavailable('checkpoint has no workspace marker');
+  // Compare before touching the filesystem: the path comes from stored state.
+  if (previous.marker !== marker)
+    throw workspaceUnavailable(
+      `workspace moved from ${previous.marker} to ${marker}`,
+    );
+  let stored: string;
+  try {
+    stored = readFileSync(marker, 'utf8');
+  } catch (cause) {
+    throw workspaceUnavailable(`marker ${marker} is unreadable`, cause);
+  }
+  if (stored !== previous.token)
+    throw workspaceUnavailable(`marker ${marker} belongs to another run`);
+  return previous.token;
+}
 
 /** Mounted workspaces remain available independently of the daemon process. */
 export function createGondolinDurableTaskExecutor(
@@ -75,24 +151,43 @@ export function createGondolinDurableTaskExecutor(
   return async (
     ...args: Parameters<ReturnType<typeof createDurableTaskExecutor>>
   ) => {
-    if (args[0].task.taskType === 'classify')
+    const [claimedTask, reporter] = args;
+    if (claimedTask.task.taskType === 'classify')
       return executeProfileClassificationTask(options.classifier, ...args);
     const agent = options.moltnetAgent;
     if (!agent || !options.runtimeProfileId)
       throw new Error(
-        'Durable runtime requires an authenticated Agent and runtime profile',
+        `Durable runtime requires an authenticated Agent and runtime profile (agent: ${agent ? 'present' : 'missing'}, profile: ${options.runtimeProfileId ?? 'missing'})`,
       );
+    const runtimeProfileId = options.runtimeProfileId;
     const piDir = resolvePiCodingAgentDir();
     const models = await createRuntimeModels(piDir);
     const model = models.getModel(options.provider, options.model);
-    if (!model) throw new Error('Selected chat model is not registered');
-    const logger = options.toolPolicyLogger ?? {
-      debug: () => {},
-      info: (obj: Record<string, unknown>, message: string) =>
-        console.error(JSON.stringify({ level: 'info', message, ...obj })),
-      warn: (obj: Record<string, unknown>, message: string) =>
-        console.error(JSON.stringify({ level: 'warn', message, ...obj })),
+    if (!model)
+      throw new Error(
+        `Chat model ${options.provider}/${options.model} is not registered`,
+      );
+    const logger =
+      options.toolPolicyLogger ??
+      createStderrToolPolicyLogger({
+        taskId: claimedTask.task.id,
+        attemptN: claimedTask.attemptN,
+      });
+    // Task events are telemetry: a reporter failure never fails the attempt.
+    const record = async (event: Parameters<typeof reporter.record>[0]) => {
+      try {
+        await reporter.record(event);
+      } catch (error) {
+        logger.warn(
+          {
+            kind: event.kind,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'durable.task_event_failed',
+        );
+      }
     };
+    const analyzer = await ShellCommandAnalyzer.create();
     configureDurableModelOptions(
       models,
       options,
@@ -143,81 +238,82 @@ export function createGondolinDurableTaskExecutor(
           async prepare(previousEnvironment) {
             let policy = await resolveSessionToolPolicy({
               agent,
-              profileId: options.runtimeProfileId!,
+              profileId: runtimeProfileId,
               teamId: claimed.task.teamId,
               runtimeKind: options.runtimeKind,
               enforcement: options.toolEnforcement ?? 'enforce',
               logger,
             });
+            // Durable never runs on the degraded fallback allow-set, even in
+            // audit mode.
             if (policy.degraded)
               throw new Error(
-                'Durable runtime requires a resolved tool policy',
+                `Durable runtime requires a resolved tool policy (runtime profile ${runtimeProfileId})`,
               );
-            const analyzer = await ShellCommandAnalyzer.create();
             const plan = (await options.makeExecutionPlan?.(claimed)) ?? null;
-            // Session ownership retains workspaces through a process interruption.
-            const retainedPlan = plan
-              ? {
-                  ...plan,
-                  workspaceScope: 'session' as const,
-                  sessionKey:
-                    plan.sessionKey ?? `${claimed.task.id}/${claimed.attemptN}`,
+            const resumed = previousEnvironment !== null;
+            const workspace = await traceRuntimePhase(
+              'moltnet.execution.workspace.prepare',
+              {
+                'moltnet.workspace.mode': plan?.workspaceMode ?? 'shared_mount',
+                'moltnet.workspace.resumed': resumed,
+              },
+              async () => {
+                try {
+                  return prepareTaskWorkspace(
+                    claimed.task,
+                    options.mountPath ?? process.cwd(),
+                    plan,
+                    { reuseExisting: resumed },
+                  );
+                } catch (error) {
+                  if (!resumed) throw error;
+                  throw workspaceUnavailable(
+                    error instanceof Error ? error.message : String(error),
+                    error,
+                  );
                 }
-              : null;
-            if (previousEnvironment) {
-              const marker = previousEnvironment.marker;
-              const token = previousEnvironment.token;
-              if (
-                typeof marker !== 'string' ||
-                typeof token !== 'string' ||
-                !existsSync(marker) ||
-                readFileSync(marker, 'utf8') !== token
-              ) {
-                throw new TaskExecutionInterrupted(
-                  'Durable workspace is unavailable; restore its persistent volume before resuming',
-                );
-              }
-            }
-            const workspace = prepareTaskWorkspace(
-              claimed.task,
-              options.mountPath ?? process.cwd(),
-              retainedPlan,
+              },
             );
-            await args[1].record({
+            const marker = workspaceMarkerPath(
+              workspace.cwdPath,
+              claimed.task.id,
+              claimed.attemptN,
+            );
+            let token: string;
+            if (previousEnvironment) {
+              token = verifyWorkspaceMarker(previousEnvironment, marker);
+            } else {
+              token = randomUUID();
+              writeWorkspaceMarker(marker, token);
+            }
+            await record({
               kind: 'info',
               payload: {
                 event: 'execute_start',
                 provider: options.provider,
                 model: options.model,
+                resumed,
                 workspaceMode: workspace.mode,
                 workspaceBranch: workspace.branch,
                 workspaceRevision: workspace.revision,
               },
             });
-            const markerDir = join(
-              workspace.cwdPath,
-              '.moltnet',
-              'durable-workspaces',
+            const brokeredSecrets = await traceRuntimePhase(
+              'moltnet.execution.credentials.resolve',
+              {
+                'moltnet.credentials.requirement_count':
+                  options.runtimeDefinition?.brokeredHttpSecrets?.length ?? 0,
+              },
+              () =>
+                resolveAttemptBrokeredHttpSecrets({
+                  runtimeDefinition: options.runtimeDefinition,
+                  agentName: options.agentName,
+                  claimedTask: claimed,
+                  cwdPath: workspace.cwdPath,
+                  signal: executionSignal,
+                }),
             );
-            const marker = join(
-              markerDir,
-              `${claimed.task.id}-${claimed.attemptN}`,
-            );
-            if (!previousEnvironment) mkdirSync(markerDir, { recursive: true });
-            const token = previousEnvironment?.token ?? randomUUID();
-            if (!previousEnvironment)
-              writeFileSync(marker, String(token), { flag: 'w', mode: 0o600 });
-            if (previousEnvironment && marker !== previousEnvironment.marker)
-              throw new TaskExecutionInterrupted(
-                'Durable workspace path changed',
-              );
-            const brokeredSecrets = await resolveAttemptBrokeredHttpSecrets({
-              runtimeDefinition: options.runtimeDefinition,
-              agentName: options.agentName,
-              claimedTask: claimed,
-              cwdPath: workspace.cwdPath,
-              signal: executionSignal,
-            });
             const capabilityLifetime = new AbortController();
             const capabilityRouter = createAttemptHostCapabilityRouter({
               options,
@@ -229,59 +325,88 @@ export function createGondolinDurableTaskExecutor(
               ]),
             });
             capabilityRouter?.setPolicy(policy);
-            const managed = await (options.resumeVm ?? resumeVm)({
-              checkpointPath: options.template.checkpointPath,
-              agentName: options.agentName,
-              agentRootDir: options.agentRootDir,
-              mountPath: workspace.mountPath,
-              workspaceMode: workspace.mode,
-              sandboxConfig: applyExecutionPlanSandboxOverrides(
-                {
-                  ...options.sandboxConfig,
-                  snapshot: undefined,
-                  resumeCommands: [...options.template.resumeCommands],
-                },
-                plan,
-              ),
-              brokeredSecrets,
-              ...(capabilityRouter && {
-                hostOrigins: capabilityRouter.origins,
-                guestProjection: capabilityRouter.guestProjection,
-              }),
-              forwardEnv: options.forwardEnv,
-              extraAllowedHosts: options.extraAllowedHosts,
-              onDiagnostic: options.onVmDiagnostic,
-              signal: executionSignal,
-            }).catch((error: unknown) => {
+            const managed = await traceRuntimePhase(
+              'moltnet.execution.vm.resume',
+              { 'moltnet.workspace.mode': workspace.mode },
+              () =>
+                (options.resumeVm ?? resumeVm)({
+                  checkpointPath: options.template.checkpointPath,
+                  agentName: options.agentName,
+                  agentRootDir: options.agentRootDir,
+                  mountPath: workspace.mountPath,
+                  workspaceMode: workspace.mode,
+                  sandboxConfig: applyExecutionPlanSandboxOverrides(
+                    {
+                      ...options.sandboxConfig,
+                      snapshot: undefined,
+                      resumeCommands: [...options.template.resumeCommands],
+                    },
+                    plan,
+                  ),
+                  brokeredSecrets,
+                  ...(capabilityRouter && {
+                    hostOrigins: capabilityRouter.origins,
+                    guestProjection: capabilityRouter.guestProjection,
+                  }),
+                  forwardEnv: options.forwardEnv,
+                  extraAllowedHosts: options.extraAllowedHosts,
+                  onDiagnostic: options.onVmDiagnostic,
+                  signal: executionSignal,
+                }),
+            ).catch((error: unknown) => {
               capabilityLifetime.abort(error);
               throw error;
             });
+            // Every teardown step runs even when an earlier one fails.
             const close = async () => {
               capabilityLifetime.abort(new Error('Durable environment closed'));
-              try {
-                for (const binding of brokeredSecrets ?? []) {
-                  if (binding.value)
-                    managed.secretManager.revokeSecret(binding.guestEnv);
-                }
-              } finally {
+              const failures: unknown[] = [];
+              for (const binding of brokeredSecrets ?? []) {
+                if (!binding.value) continue;
                 try {
-                  await managed.services.stop();
-                } finally {
-                  await managed.vm.close();
+                  managed.secretManager.revokeSecret(binding.guestEnv);
+                } catch (error) {
+                  failures.push(error);
                 }
               }
+              for (const step of [
+                () => managed.services.stop(),
+                () => managed.vm.close(),
+              ]) {
+                try {
+                  await step();
+                } catch (error) {
+                  failures.push(error);
+                }
+              }
+              if (failures.length > 0)
+                throw new AggregateError(
+                  failures,
+                  'Durable environment cleanup failed',
+                );
             };
             try {
-              const effectiveRuntimeContext = resolveEffectiveRuntimeContext({
-                rawTaskContext: (claimed.task.input as { context?: unknown })
-                  .context,
-                runtimeProfileContext: options.runtimeProfileContext,
-              });
-              const injected = await injectRuntimeContext({
-                context: effectiveRuntimeContext,
-                fs: managed.vm.fs,
-                guestWorkspace: managed.guestWorkspace,
-              });
+              const effectiveRuntimeContext = await traceRuntimePhase(
+                'moltnet.execution.context.resolve',
+                {},
+                async () =>
+                  resolveEffectiveRuntimeContext({
+                    rawTaskContext: (
+                      claimed.task.input as { context?: unknown }
+                    ).context,
+                    runtimeProfileContext: options.runtimeProfileContext,
+                  }),
+              );
+              const injected = await traceRuntimePhase(
+                'moltnet.execution.context.inject',
+                { 'moltnet.context.ref_count': effectiveRuntimeContext.length },
+                () =>
+                  injectRuntimeContext({
+                    context: effectiveRuntimeContext,
+                    fs: managed.vm.fs,
+                    guestWorkspace: managed.guestWorkspace,
+                  }),
+              );
               const assembled = buildTaskUserPrompt(claimed.task, {
                 taskId: claimed.task.id,
                 diaryId: claimed.task.diaryId ?? '',
@@ -293,7 +418,7 @@ export function createGondolinDurableTaskExecutor(
                 extras: options.promptExtras,
                 effectiveRuntimeContext,
               });
-              await args[1].record({
+              await record({
                 kind: 'info',
                 payload: {
                   event: 'prompt_assembled',
@@ -303,7 +428,7 @@ export function createGondolinDurableTaskExecutor(
               });
               let prompt = assembled.text;
               if (injected.userInlineSuffix)
-                prompt += `\n\n${injected.userInlineSuffix}`;
+                prompt += `\n\n---\n\n${injected.userInlineSuffix}`;
               const env = new GondolinDurableEnv(
                 managed.vm,
                 managed.vm.id,
@@ -312,8 +437,11 @@ export function createGondolinDurableTaskExecutor(
                   workspace.cwdPath,
                   managed.guestWorkspace,
                 ),
-                executionSignal,
-                lifecycle,
+                {
+                  lifetime: executionSignal,
+                  lifecycle,
+                  roots: [managed.guestWorkspace, GUEST_TASK_CONTEXT_MOUNT],
+                },
               );
               const runtimeTools = options.runtimeDefinition
                 ? await materializePiTools({
@@ -321,7 +449,7 @@ export function createGondolinDurableTaskExecutor(
                     context: {
                       agent,
                       claimedTask: claimed,
-                      reporter: args[1],
+                      reporter,
                       vm: managed.vm,
                       cwdPath: workspace.cwdPath,
                       guestWorkspace: managed.guestWorkspace,
@@ -503,17 +631,28 @@ export function createGondolinDurableTaskExecutor(
                     },
                     toolName: name,
                     args: arguments_,
-                    onDecision: (record) =>
-                      args[1].record({
+                    onDecision: (decision) =>
+                      reporter.record({
                         kind: 'tool_policy_decision',
-                        payload: { ...record },
+                        payload: { ...decision },
                       }),
                   });
                 },
                 close,
               };
             } catch (error) {
-              await close();
+              // Keep the setup failure; a teardown failure is only logged.
+              await close().catch((closeError: unknown) =>
+                logger.warn(
+                  {
+                    error:
+                      closeError instanceof Error
+                        ? closeError.message
+                        : String(closeError),
+                  },
+                  'durable.environment_close_failed',
+                ),
+              );
               throw error;
             }
           },

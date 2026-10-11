@@ -1,4 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,8 +16,12 @@ import {
   Type,
 } from '@earendil-works/pi-ai';
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
-import type { ClaimedTask, TaskReporter } from '@themoltnet/agent-runtime';
-import { afterEach, expect, it, vi } from 'vitest';
+import {
+  type ClaimedTask,
+  TaskExecutionInterrupted,
+  type TaskReporter,
+} from '@themoltnet/agent-runtime';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { remoteLog } from '../__tests__/durable-log.js';
 import { createGondolinDurableTaskExecutor } from './durable-gondolin.js';
@@ -110,6 +120,8 @@ function setup(granted: boolean, tools: string[] = []) {
       secretManager: { revokeSecret },
     } as never);
   const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
+  const allowedTools = vi.fn();
+  const record = vi.fn();
   const options = {
     agentName: 'a',
     provider: faux.provider.id,
@@ -124,7 +136,7 @@ function setup(granted: boolean, tools: string[] = []) {
     moltnetAgent: {
       runtimeSessions: {},
       runtimeProfiles: {
-        allowedTools: vi.fn().mockResolvedValue({
+        allowedTools: allowedTools.mockResolvedValue({
           enforcement: 'enforce',
           runtimeKind: 'gondolin_pi_durable',
           allowedTools: [
@@ -160,7 +172,7 @@ function setup(granted: boolean, tools: string[] = []) {
   } as unknown as ClaimedTask;
   const reporter = {
     open: vi.fn(),
-    record: vi.fn(),
+    record,
     finalize: vi.fn(),
     close: vi.fn(),
     cancelReason: null,
@@ -168,6 +180,11 @@ function setup(granted: boolean, tools: string[] = []) {
   } as TaskReporter;
   return {
     faux,
+    remote,
+    logger,
+    record,
+    allowedTools,
+    mountPath,
     options,
     claimed,
     reporter,
@@ -352,4 +369,141 @@ it('uses the host SDK for an authorized MoltNet tool', async () => {
   );
   expect(result.status).toBe('completed');
   expect(get).toHaveBeenCalledWith('pack', { expand: undefined });
+});
+
+describe('resume', () => {
+  /** Runs one attempt that loses its writer lease after the first prompt. */
+  async function interruptAfterPrepare(s: ReturnType<typeof setup>) {
+    const lease = new AbortController();
+    vi.mocked(acquireDurableTransport).mockResolvedValueOnce({
+      transport: s.remote.transport,
+      signal: lease.signal,
+      check: () => lease.signal.throwIfAborted(),
+    });
+    s.faux.setResponses([
+      () => {
+        lease.abort(new TaskExecutionInterrupted('lease lost'));
+        return fauxAssistantMessage('working');
+      },
+    ]);
+    await expect(
+      createGondolinDurableTaskExecutor(s.options)(s.claimed, s.reporter),
+    ).rejects.toBeInstanceOf(TaskExecutionInterrupted);
+    s.faux.setResponses([
+      fauxAssistantMessage(
+        fauxToolCall('submit_freeform_output', { summary: 'Done' }),
+        { stopReason: 'toolUse' },
+      ),
+    ]);
+  }
+  const marker = (s: ReturnType<typeof setup>) =>
+    join(
+      s.mountPath,
+      '.moltnet',
+      'durable-workspaces',
+      `${s.claimed.task.id}-${s.claimed.attemptN}`,
+    );
+
+  it('reuses the workspace its first run marked', async () => {
+    const s = setup(false);
+    await interruptAfterPrepare(s);
+    expect(existsSync(marker(s))).toBe(true);
+    const output = await createGondolinDurableTaskExecutor(s.options)(
+      s.claimed,
+      s.reporter,
+    );
+    expect(output.status).toBe('completed');
+    expect(s.record).toHaveBeenCalledWith({
+      kind: 'info',
+      payload: expect.objectContaining({
+        event: 'execute_start',
+        resumed: true,
+      }),
+    });
+  });
+
+  it('refuses to resume when the workspace marker is gone', async () => {
+    const s = setup(false);
+    await interruptAfterPrepare(s);
+    s.resumeVm.mockClear();
+    rmSync(marker(s));
+    await expect(
+      createGondolinDurableTaskExecutor(s.options)(s.claimed, s.reporter),
+    ).rejects.toThrow(/workspace is unavailable \(marker .* is unreadable\)/);
+    expect(s.resumeVm).not.toHaveBeenCalled();
+  });
+
+  it('refuses to resume when the marker belongs to another run', async () => {
+    const s = setup(false);
+    await interruptAfterPrepare(s);
+    const original = readFileSync(marker(s), 'utf8');
+    writeFileSync(marker(s), `${original}-other`);
+    await expect(
+      createGondolinDurableTaskExecutor(s.options)(s.claimed, s.reporter),
+    ).rejects.toThrow(/belongs to another run/);
+  });
+});
+
+describe('tool policy', () => {
+  it('blocks a shell command outside the policy and reports the decision', async () => {
+    const s = setup(false, ['bash']);
+    s.allowedTools.mockResolvedValue({
+      enforcement: 'enforce',
+      runtimeKind: 'gondolin_pi_durable',
+      allowedTools: ['bash'],
+      allowedShellCommands: [{ argvPrefix: ['git', 'status'] }],
+    } as never);
+    const managed = await s.resumeVm({} as never);
+    // The executable probe reports `git` as installed.
+    Object.assign(managed.vm, {
+      exec: vi
+        .fn()
+        .mockResolvedValue({ exitCode: 0, stdout: '0\n', stderr: '' }),
+    });
+    s.faux.setResponses([
+      fauxAssistantMessage(fauxToolCall('bash', { command: 'curl x' }), {
+        stopReason: 'toolUse',
+      }),
+      fauxAssistantMessage(
+        fauxToolCall('submit_freeform_output', { summary: 'Done' }),
+        { stopReason: 'toolUse' },
+      ),
+    ]);
+    const output = await createGondolinDurableTaskExecutor(s.options)(
+      s.claimed,
+      s.reporter,
+    );
+    expect(output.status).toBe('completed');
+    expect(s.record).toHaveBeenCalledWith({
+      kind: 'tool_policy_decision',
+      payload: expect.objectContaining({ decision: 'blocked' }),
+    });
+    expect(s.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ toolName: 'bash', decision: 'blocked' }),
+      'tool_policy.blocked',
+    );
+  });
+
+  it('refuses a degraded policy before preparing the workspace', async () => {
+    const s = setup(false);
+    s.allowedTools.mockRejectedValue(new Error('policy service down'));
+    await expect(
+      createGondolinDurableTaskExecutor(s.options)(s.claimed, s.reporter),
+    ).rejects.toThrow('resolved tool policy (runtime profile profile)');
+    expect(s.resumeVm).not.toHaveBeenCalled();
+  });
+});
+
+it('completes when the task reporter cannot record setup events', async () => {
+  const s = setup(false);
+  s.record.mockRejectedValue(new Error('reporter down'));
+  const output = await createGondolinDurableTaskExecutor(s.options)(
+    s.claimed,
+    s.reporter,
+  );
+  expect(output.status).toBe('completed');
+  expect(s.logger.warn).toHaveBeenCalledWith(
+    expect.objectContaining({ kind: 'info', error: 'reporter down' }),
+    'durable.task_event_failed',
+  );
 });

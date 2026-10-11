@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -123,5 +123,56 @@ describe('exact-revision task workspaces', () => {
     expect(() =>
       execFileSync('git', ['-C', workspace.cwdPath, 'rev-parse', 'HEAD']),
     ).toThrow();
+  });
+});
+
+describe('resuming a task workspace', () => {
+  it('keeps the agent edits in a seeded scratch workspace', () => {
+    const { root } = repository();
+    const scratchPlan: PiTaskExecutionPlan = {
+      ...plan('scratch_mount', ''),
+      workspaceRevision: null,
+      workspaceSeed: { copyFromPath: root, source: 'producer' },
+    };
+    const first = prepareTaskWorkspace(task(), root, scratchPlan);
+    writeFileSync(join(first.cwdPath, 'file.txt'), 'agent edit\n');
+
+    const resumed = prepareTaskWorkspace(task(), root, scratchPlan, {
+      reuseExisting: true,
+    });
+
+    expect(resumed.cwdPath).toBe(first.cwdPath);
+    expect(readFileSync(join(resumed.cwdPath, 'file.txt'), 'utf8')).toBe(
+      'agent edit\n',
+    );
+  });
+
+  it('fails when the scratch workspace is gone', () => {
+    const { root } = repository();
+    const scratchPlan: PiTaskExecutionPlan = {
+      ...plan('scratch_mount', ''),
+      workspaceRevision: null,
+    };
+    expect(() =>
+      prepareTaskWorkspace(task(), root, scratchPlan, { reuseExisting: true }),
+    ).toThrow('Scratch workspace is missing');
+  });
+
+  it('accepts a shared mount whose HEAD moved after the first run', () => {
+    const { root, first } = repository();
+    expect(() =>
+      prepareTaskWorkspace(task(), root, plan('shared_mount', first), {
+        reuseExisting: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it('fails when the dedicated worktree is gone', () => {
+    const { root, second } = repository();
+    expect(() =>
+      prepareTaskWorkspace(task(), root, plan('dedicated_worktree', second), {
+        reuseExisting: true,
+      }),
+    ).toThrow('Task worktree is missing');
   });
 });

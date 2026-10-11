@@ -60,13 +60,7 @@ function setup(image = false) {
   });
   const vm = { fs: { readFile, access, stat, listDir }, exec } as unknown as VM;
   const lifecycle = createGondolinToolLifecycle();
-  const env = new GondolinDurableEnv(
-    vm,
-    'vm',
-    '/workspace',
-    undefined,
-    lifecycle,
-  );
+  const env = new GondolinDurableEnv(vm, 'vm', '/workspace', { lifecycle });
   const tools = createDurableGondolinTools({
     vm,
     cwdPath: '/host/project',
@@ -112,6 +106,23 @@ describe('Durable Gondolin coding tools', () => {
       { type: 'text', text: expect.stringContaining('README.md:2: two') },
     ]);
     expect(listDir).toHaveBeenCalledWith('/workspace', expect.anything());
+  });
+
+  it('reads the guest file a truncated bash command spilled to', async () => {
+    const { invoke, readFile } = setup();
+    const result = await invoke('read', { path: '/tmp/pi-output-.Ab12Cd' });
+    expect(result.content).toEqual([
+      { type: 'text', text: expect.stringContaining('one') },
+    ]);
+    expect(readFile).toHaveBeenCalledWith('/tmp/pi-output-.Ab12Cd');
+  });
+
+  it('still refuses reads outside the workspace and temp directory', async () => {
+    const { invoke, readFile } = setup();
+    await expect(invoke('read', { path: '/etc/passwd' })).rejects.toThrow(
+      'path escapes workspace',
+    );
+    expect(readFile).not.toHaveBeenCalled();
   });
 
   it('returns image content through the native image-aware read tool', async () => {

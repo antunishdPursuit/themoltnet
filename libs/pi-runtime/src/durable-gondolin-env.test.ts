@@ -1,6 +1,6 @@
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
 import type { VM } from '@earendil-works/gondolin';
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { GondolinDurableEnv } from './durable-gondolin-env.js';
 import { createGondolinToolLifecycle } from './tool-operations.js';
@@ -73,7 +73,7 @@ it('rejects file and shell work after lifetime cancellation without touching the
     { exec, fs: { readFile } } as unknown as VM,
     'vm',
     '/workspace',
-    controller.signal,
+    { lifetime: controller.signal },
   );
   expect((await env.readTextFile('file', BACKGROUND_CONTEXT)).ok).toBe(false);
   const result = await env.exec('echo secret', {}, BACKGROUND_CONTEXT);
@@ -104,8 +104,7 @@ it.each([false, true])(
       { exec, close } as unknown as VM,
       'vm',
       '/workspace',
-      undefined,
-      lifecycle,
+      { lifecycle },
     );
     const result = await env.exec(
       'sleep 300',
@@ -123,3 +122,159 @@ it.each([false, true])(
     expect(exec).toHaveBeenCalledOnce();
   },
 );
+
+describe('workspace confinement', () => {
+  function confined() {
+    const fs = {
+      writeFile: vi.fn().mockResolvedValue(undefined),
+      readFile: vi.fn().mockResolvedValue('text'),
+      rename: vi.fn().mockResolvedValue(undefined),
+      deleteFile: vi.fn().mockResolvedValue(undefined),
+      mkdir: vi.fn().mockResolvedValue(undefined),
+    };
+    const exec = vi.fn();
+    const env = new GondolinDurableEnv(
+      { exec, fs } as unknown as VM,
+      'vm',
+      '/workspace/project',
+      { roots: ['/workspace', '/moltnet-task-context'] },
+    );
+    return { env, fs, exec };
+  }
+
+  it.each([
+    '/usr/local/bin/git',
+    '../../etc/profile',
+    '/workspace-other/file',
+    '/tmp/file',
+  ])('rejects a write to %s without touching the guest', async (path) => {
+    const { env, fs } = confined();
+    const result = await env.writeFile(path, 'x', BACKGROUND_CONTEXT);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('permission_denied');
+    expect((await env.absolutePath(path, BACKGROUND_CONTEXT)).ok).toBe(false);
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects mutations whose second path escapes', async () => {
+    const { env, fs } = confined();
+    expect(
+      (await env.renameFile('a', '/usr/bin/a', BACKGROUND_CONTEXT)).ok,
+    ).toBe(false);
+    expect(
+      (await env.remove('/etc', { recursive: true }, BACKGROUND_CONTEXT)).ok,
+    ).toBe(false);
+    expect(
+      (await env.createDir('/opt/x', undefined, BACKGROUND_CONTEXT)).ok,
+    ).toBe(false);
+    expect(fs.rename).not.toHaveBeenCalled();
+    expect(fs.deleteFile).not.toHaveBeenCalled();
+    expect(fs.mkdir).not.toHaveBeenCalled();
+  });
+
+  it('resolves allowed paths against the working directory', async () => {
+    const { env, fs } = confined();
+    expect((await env.writeFile('src/a.ts', 'x', BACKGROUND_CONTEXT)).ok).toBe(
+      true,
+    );
+    expect(
+      (await env.writeFile('../shared.txt', 'x', BACKGROUND_CONTEXT)).ok,
+    ).toBe(true);
+    expect(
+      (
+        await env.readTextFile(
+          '/moltnet-task-context/brief.md',
+          BACKGROUND_CONTEXT,
+        )
+      ).ok,
+    ).toBe(true);
+    expect(fs.writeFile.mock.calls.map(([path]) => path)).toEqual([
+      '/workspace/project/src/a.ts',
+      '/workspace/shared.txt',
+    ]);
+  });
+
+  it('refuses a shell working directory outside the workspace', async () => {
+    const { env, exec } = confined();
+    const result = await env.exec(
+      'ls',
+      { cwd: '/usr/local/bin' },
+      BACKGROUND_CONTEXT,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('spawn_error');
+    expect(exec).not.toHaveBeenCalled();
+  });
+});
+
+describe('output spilling', () => {
+  function spilling(chunks: Buffer[], options: { hang?: boolean } = {}) {
+    const files = new Map<string, string>();
+    const appends: string[] = [];
+    const pending = new Promise<never>(() => {});
+    const exec = vi.fn((argv: string[], execOptions: { stdin?: Buffer }) => {
+      if (argv[0] === 'mktemp')
+        return Promise.resolve({ ok: true, stdout: '/tmp/spill\n' });
+      if (argv[2] === 'cat >> "$1"') {
+        appends.push(execOptions.stdin!.toString());
+        files.set(
+          argv[4],
+          (files.get(argv[4]) ?? '') + execOptions.stdin!.toString(),
+        );
+        return Promise.resolve({ ok: true });
+      }
+      const done = options.hang ? pending : Promise.resolve({ exitCode: 0 });
+      return Object.assign(done, {
+        output: async function* () {
+          for (const data of chunks) yield { stream: 'stdout' as const, data };
+          if (options.hang) await pending;
+        },
+      });
+    });
+    const writeFile = vi.fn(async (path: string, text: string) => {
+      files.set(path, text);
+    });
+    const close = vi.fn().mockResolvedValue(undefined);
+    const env = new GondolinDurableEnv(
+      { exec, close, fs: { writeFile } } as unknown as VM,
+      'vm',
+      '/workspace',
+    );
+    return { env, files, appends };
+  }
+
+  it('appends spilled output in batches', async () => {
+    const chunks = Array.from({ length: 200 }, (_, i) =>
+      Buffer.from(`line ${i}\n`),
+    );
+    const { env, files, appends } = spilling(chunks);
+    const result = await env.exec(
+      'noisy',
+      { spill: { afterBytes: 10, afterLines: 1 } },
+      BACKGROUND_CONTEXT,
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: { exitCode: 0, spillPath: '/tmp/spill' },
+    });
+    expect(files.get('/tmp/spill')).toBe(chunks.join(''));
+    expect(appends.length).toBe(1);
+  });
+
+  it('reports the spill file of a command that timed out', async () => {
+    const { env } = spilling(
+      [Buffer.from('one\n'), Buffer.from('two\n'), Buffer.from('three\n')],
+      { hang: true },
+    );
+    const result = await env.exec(
+      'slow',
+      { timeout: 0.05, spill: { afterBytes: 2, afterLines: 1 } },
+      BACKGROUND_CONTEXT,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('timeout');
+      expect(result.error.spillPath).toBe('/tmp/spill');
+    }
+  });
+});

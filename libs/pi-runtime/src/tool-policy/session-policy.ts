@@ -51,6 +51,16 @@ export interface ToolPolicyLogger {
   warn: (obj: Record<string, unknown>, msg: string) => void;
 }
 
+/** JSON lines on stderr, for callers that did not inject a logger. */
+export function createStderrToolPolicyLogger(
+  bindings: Record<string, unknown> = {},
+): ToolPolicyLogger {
+  const write =
+    (level: 'info' | 'warn') => (obj: Record<string, unknown>, msg: string) =>
+      console.error(JSON.stringify({ level, msg, ...bindings, ...obj }));
+  return { debug: () => {}, info: write('info'), warn: write('warn') };
+}
+
 /** Minimal shape of the SDK method the resolver needs (keeps deps testable). */
 export interface AllowedToolsClient {
   runtimeProfiles: {
@@ -471,20 +481,32 @@ export async function authorizeDurableToolCall(input: {
       typeof input.args.command === 'string' ? input.args.command : undefined,
     analyze: input.analyze,
   });
-  input.logger.info(
-    {
-      tool: input.toolName,
-      reasonCode: decision.reasonCode,
-      ...input.context,
-    },
-    'durable.tool_policy',
-  );
   const outcome =
     'audit' in decision
       ? 'would_block'
       : 'allow' in decision && !decision.allow
         ? 'blocked'
         : 'allowed';
+  // Same events and fields as the session extension, so dashboards keep working.
+  const fields = {
+    ...input.context,
+    toolName: input.toolName,
+    decision: outcome === 'would_block' ? 'audit' : outcome,
+    reason: decision.reasonCode,
+    ...('matchedShellCommands' in decision &&
+    decision.matchedShellCommands?.length
+      ? { shellFingerprints: decision.matchedShellCommands }
+      : {}),
+    ...('missing' in decision && decision.missing?.length
+      ? { unauthorizedExecutables: decision.missing }
+      : {}),
+  };
+  if (outcome === 'blocked') input.logger.warn(fields, 'tool_policy.blocked');
+  else
+    input.logger.info(
+      fields,
+      outcome === 'allowed' ? 'tool_policy.allowed' : 'tool_policy.audit',
+    );
   recordToolPolicyDecisionMetric({
     decision: outcome,
     reason: decision.reasonCode,

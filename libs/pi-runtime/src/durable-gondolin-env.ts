@@ -22,16 +22,60 @@ import {
   type GondolinToolLifecycle,
 } from './tool-operations.js';
 
+/** Spilled output is appended in batches of at least this many bytes. */
+const SPILL_FLUSH_BYTES = 64 * 1024;
+/** Keeps generated temp names well inside guest filename limits. */
+const MAX_TEMP_NAME_LENGTH = 80;
+
+export interface GondolinDurableEnvOptions {
+  /** Ends every guest operation, for example when the writer lease is lost. */
+  lifetime?: AbortSignal;
+  lifecycle?: GondolinToolLifecycle;
+  /**
+   * Guest directories that paths may address. Defaults to `cwd`. Temp paths
+   * this env creates are always allowed.
+   */
+  roots?: readonly string[];
+}
+
+function isSameOrInside(path: string, root: string) {
+  return root === '/' || path === root || path.startsWith(`${root}/`);
+}
+
 /** All filesystem and shell operations target the guest; none access host paths. */
 export class GondolinDurableEnv implements ExecutionEnv {
   private readonly temporary = new Set<string>();
+  private readonly lifetime?: AbortSignal;
+  private readonly lifecycle: GondolinToolLifecycle;
+  private readonly roots: readonly string[];
   constructor(
     readonly vm: VM,
     readonly id: string,
     public cwd: string,
-    private readonly lifetime?: AbortSignal,
-    private readonly lifecycle: GondolinToolLifecycle = createGondolinToolLifecycle(),
-  ) {}
+    options: GondolinDurableEnvOptions = {},
+  ) {
+    this.lifetime = options.lifetime;
+    this.lifecycle = options.lifecycle ?? createGondolinToolLifecycle();
+    this.roots = (options.roots ?? [cwd]).map((root) => posix.resolve(root));
+  }
+
+  /**
+   * Resolves `path` against `cwd` and rejects anything outside the allowed
+   * roots. The check is lexical, like the workspace mapping of the session
+   * tools.
+   */
+  private resolve(path: string): string {
+    const resolved = posix.resolve(this.cwd, path);
+    const allowed = [...this.roots, ...this.temporary].some((root) =>
+      isSameOrInside(resolved, root),
+    );
+    if (!allowed)
+      throw Object.assign(
+        new Error(`Path is outside the task workspace: ${path}`),
+        { code: 'EACCES' },
+      );
+    return resolved;
+  }
 
   private options(context: Context) {
     return {
@@ -84,7 +128,7 @@ export class GondolinDurableEnv implements ExecutionEnv {
     return result.stdout;
   }
   absolutePath(path: string, context: Context) {
-    return this.file(path, context, async () => posix.resolve(this.cwd, path));
+    return this.file(path, context, async () => this.resolve(path));
   }
   joinPath(parts: string[], context: Context) {
     return this.file(parts.join('/'), context, async () =>
@@ -93,29 +137,26 @@ export class GondolinDurableEnv implements ExecutionEnv {
   }
   readTextFile(path: string, context: Context) {
     return this.file(path, context, () =>
-      this.vm.fs.readFile(path, { ...this.options(context), encoding: 'utf8' }),
+      this.vm.fs.readFile(this.resolve(path), {
+        ...this.options(context),
+        encoding: 'utf8',
+      }),
     );
   }
   readBinaryFile(path: string, context: Context) {
     return this.file<Uint8Array>(path, context, () =>
-      this.vm.fs.readFile(path, this.options(context)),
+      this.vm.fs.readFile(this.resolve(path), this.options(context)),
     );
   }
   writeFile(path: string, content: string | Uint8Array, context: Context) {
     return this.file(path, context, () =>
-      this.vm.fs.writeFile(path, content, this.options(context)),
+      this.vm.fs.writeFile(this.resolve(path), content, this.options(context)),
     );
   }
   appendFile(path: string, content: string | Uint8Array, context: Context) {
     return this.file(path, context, async () => {
       const result = await this.vm.exec(
-        [
-          '/bin/sh',
-          '-c',
-          'cat >> "$1"',
-          'append',
-          posix.resolve(this.cwd, path),
-        ],
+        ['/bin/sh', '-c', 'cat >> "$1"', 'append', this.resolve(path)],
         { ...this.options(context), stdin: Buffer.from(content) },
       );
       if (!result.ok) throw new Error(result.stderr);
@@ -126,30 +167,32 @@ export class GondolinDurableEnv implements ExecutionEnv {
       if (!Number.isSafeInteger(size) || size < 0)
         throw new Error('Invalid file size');
       await this.command(
-        ['truncate', '-s', String(size), '--', posix.resolve(this.cwd, path)],
+        ['truncate', '-s', String(size), '--', this.resolve(path)],
         context,
       );
     });
   }
   flushFile(path: string, context: Context) {
     return this.file(path, context, async () => {
-      await this.command(
-        ['sync', '-f', '--', posix.resolve(this.cwd, path)],
-        context,
-      );
+      await this.command(['sync', '-f', '--', this.resolve(path)], context);
     });
   }
   renameFile(source: string, destination: string, context: Context) {
     return this.file(source, context, () =>
-      this.vm.fs.rename(source, destination, this.options(context)),
+      this.vm.fs.rename(
+        this.resolve(source),
+        this.resolve(destination),
+        this.options(context),
+      ),
     );
   }
   fileInfo(path: string, context: Context) {
     return this.file<FileInfo>(path, context, async () => {
-      const stat = await this.vm.fs.stat(path, this.options(context));
+      const resolved = this.resolve(path);
+      const stat = await this.vm.fs.stat(resolved, this.options(context));
       return {
-        name: posix.basename(path),
-        path: posix.resolve(this.cwd, path),
+        name: posix.basename(resolved),
+        path: resolved,
         size: stat.size,
         mtimeMs: stat.mtimeMs,
         kind: stat.isDirectory()
@@ -162,10 +205,14 @@ export class GondolinDurableEnv implements ExecutionEnv {
   }
   listDir(path: string, context: Context) {
     return this.file(path, context, async () => {
-      const names = await this.vm.fs.listDir(path, this.options(context));
+      const directory = this.resolve(path);
+      const names = await this.vm.fs.listDir(directory, this.options(context));
       const entries: FileInfo[] = [];
       for (const name of names) {
-        const result = await this.fileInfo(posix.join(path, name), context);
+        const result = await this.fileInfo(
+          posix.join(directory, name),
+          context,
+        );
         if (!result.ok) throw result.error;
         entries.push(result.value);
       }
@@ -175,17 +222,14 @@ export class GondolinDurableEnv implements ExecutionEnv {
   canonicalPath(path: string, context: Context) {
     return this.file(path, context, async () =>
       (
-        await this.command(
-          ['realpath', '--', posix.resolve(this.cwd, path)],
-          context,
-        )
+        await this.command(['realpath', '--', this.resolve(path)], context)
       ).replace(/\n$/, ''),
     );
   }
   exists(path: string, context: Context) {
     return this.file(path, context, async () => {
       try {
-        await this.vm.fs.access(path, this.options(context));
+        await this.vm.fs.access(this.resolve(path), this.options(context));
         return true;
       } catch (error) {
         if ((error as { code?: string }).code === 'ENOENT') return false;
@@ -199,7 +243,10 @@ export class GondolinDurableEnv implements ExecutionEnv {
     context: Context,
   ) {
     return this.file(path, context, () =>
-      this.vm.fs.mkdir(path, { ...this.options(context), ...options }),
+      this.vm.fs.mkdir(this.resolve(path), {
+        ...this.options(context),
+        ...options,
+      }),
     );
   }
   remove(
@@ -208,11 +255,16 @@ export class GondolinDurableEnv implements ExecutionEnv {
     context: Context,
   ) {
     return this.file(path, context, () =>
-      this.vm.fs.deleteFile(path, { ...this.options(context), ...options }),
+      this.vm.fs.deleteFile(this.resolve(path), {
+        ...this.options(context),
+        ...options,
+      }),
     );
   }
   private safeName(value: string) {
-    return value.replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 80);
+    return value
+      .replace(/[^a-zA-Z0-9_.-]/g, '_')
+      .slice(0, MAX_TEMP_NAME_LENGTH);
   }
   createTempDir(prefix: string | undefined, context: Context) {
     return this.file('/tmp', context, async () => {
@@ -250,7 +302,7 @@ export class GondolinDurableEnv implements ExecutionEnv {
   ): Promise<Result<TextLineReader, FileError>> {
     return this.file(path, context, async () => {
       const stream = await this.vm.fs.readFileStream(
-        path,
+        this.resolve(path),
         this.options(context),
       );
       stream.setEncoding('utf8');
@@ -329,47 +381,68 @@ export class GondolinDurableEnv implements ExecutionEnv {
     let bytes = 0;
     let lines = 0;
     let buffered: string[] = [];
+    let pendingBytes = 0;
     let spillPath: string | undefined;
     let endsWithNewline = true;
+    // One guest process per append is expensive, so spilled output is
+    // written in batches and flushed once more when the command ends.
+    const flush = async () => {
+      if (!spillPath || buffered.length === 0) return;
+      const text = buffered.join('');
+      buffered = [];
+      pendingBytes = 0;
+      const appended = await this.appendFile(spillPath, text, context);
+      if (!appended.ok) throw appended.error;
+    };
     const output = async (text: string) => {
       options?.onOutput?.(text, context);
       if (!options?.spill) return;
       bytes += Buffer.byteLength(text);
       lines += text.split('\n').length - 1;
       if (text) endsWithNewline = text.endsWith('\n');
+      buffered.push(text);
       if (
         !spillPath &&
         bytes <= options.spill.afterBytes &&
         lines + (endsWithNewline ? 0 : 1) <= options.spill.afterLines
-      ) {
-        buffered.push(text);
+      )
+        return;
+      if (!spillPath) {
+        const file = await this.createTempFile(
+          { prefix: 'pi-output-' },
+          context,
+        );
+        if (!file.ok) throw file.error;
+        spillPath = file.value;
+        const initial = await this.writeFile(
+          spillPath,
+          buffered.join(''),
+          context,
+        );
+        if (!initial.ok) throw initial.error;
+        buffered = [];
         return;
       }
-      {
-        if (!spillPath) {
-          const file = await this.createTempFile(
-            { prefix: 'pi-output-' },
-            context,
-          );
-          if (!file.ok) throw file.error;
-          spillPath = file.value;
-          const initial = await this.writeFile(
-            spillPath,
-            buffered.join(''),
-            context,
-          );
-          if (!initial.ok) throw initial.error;
-          buffered = [];
-        }
-        const appended = await this.appendFile(spillPath, text, context);
-        if (!appended.ok) throw appended.error;
-      }
+      pendingBytes += Buffer.byteLength(text);
+      if (pendingBytes >= SPILL_FLUSH_BYTES) await flush();
     };
+    let cwd: string;
+    try {
+      cwd = this.resolve(options?.cwd ?? this.cwd);
+    } catch (error) {
+      return err(
+        new ExecutionError(
+          'spawn_error',
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
     try {
       const result = await execManagedCommand(this.vm, command, {
-        cwd: options?.cwd ?? this.cwd,
+        cwd,
         env: options?.env,
         signal: this.options(context).signal,
+        // Durable timeouts are in seconds; the Gondolin primitive takes ms.
         timeoutMs: options?.timeout ? options.timeout * 1000 : undefined,
         onData: (chunk, stream) => output(decoders[stream].write(chunk)),
       });
@@ -385,17 +458,21 @@ export class GondolinDurableEnv implements ExecutionEnv {
               : result.termination.reason,
           trigger: result.timedOut ? 'timeout' : 'cancellation',
         });
-      if (result.timedOut || result.cancelled)
-        return err(
-          new ExecutionError(
-            result.timedOut ? 'timeout' : 'aborted',
-            'Guest execution interrupted',
-          ),
+      if (result.timedOut || result.cancelled) {
+        // Best effort: the guest may already be gone after a cancellation.
+        await flush().catch(() => {});
+        const interrupted = new ExecutionError(
+          result.timedOut ? 'timeout' : 'aborted',
+          'Guest execution interrupted',
         );
+        if (spillPath) interrupted.spillPath = spillPath;
+        return err(interrupted);
+      }
       for (const decoder of Object.values(decoders)) {
         const tail = decoder.end();
         if (tail) await output(tail);
       }
+      await flush();
       return ok({
         exitCode: result.exitCode,
         ...(spillPath ? { spillPath } : {}),
