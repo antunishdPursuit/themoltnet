@@ -41,7 +41,11 @@
       "generate:durable-fixture": {
         "executor": "nx:run-commands",
         "options": {
-          "command": "node --import tsx libs/bootstrap/src/testing/generate-conversation-fixture.ts"
+          "commands": [
+            "node --import tsx libs/bootstrap/src/testing/generate-conversation-fixture.ts",
+            "prettier --write apps/moltnet-cli/testdata/durable-conversation-commits.json"
+          ],
+          "parallel": false
         },
         "cache": false
       }

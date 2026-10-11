@@ -11,105 +11,105 @@
     {
       "type": "entry",
       "value": {
+        "conversationId": 2,
+        "id": 4,
         "kind": "pi.user",
         "model": [
           {
-            "role": "user",
             "content": "List the workspace.",
+            "role": "user",
             "timestamp": 1
           }
-        ],
-        "id": 4,
-        "conversationId": 2
+        ]
       }
     },
     {
-      "type": "document.create",
+      "content": {
+        "kind": "base",
+        "value": {
+          "conversationId": 2
+        },
+        "version": 1
+      },
       "record": {
         "id": 3,
-        "kind": "moltnet.attempt",
         "key": "__TASK_ID__/1",
+        "kind": "moltnet.attempt",
         "scope": {
           "kind": "session"
         }
       },
-      "content": {
-        "version": 1,
-        "kind": "base",
-        "value": {
-          "conversationId": 2
-        }
-      }
+      "type": "document.create"
     }
   ],
   [
     {
       "type": "entry",
       "value": {
+        "conversationId": 2,
+        "id": 5,
         "kind": "pi.assistant",
         "model": [
           {
-            "role": "assistant",
+            "api": "anthropic-messages",
             "content": [
               {
-                "type": "text",
-                "text": "Listing files."
+                "text": "Listing files.",
+                "type": "text"
               },
               {
-                "type": "toolCall",
-                "id": "call-1",
-                "name": "bash",
                 "arguments": {
                   "command": "ls"
-                }
+                },
+                "id": "call-1",
+                "name": "bash",
+                "type": "toolCall"
               }
             ],
-            "timestamp": 2,
-            "api": "anthropic-messages",
-            "provider": "anthropic",
             "model": "fixture",
+            "provider": "anthropic",
+            "role": "assistant",
+            "stopReason": "toolUse",
+            "timestamp": 2,
             "usage": {
-              "input": 0,
-              "output": 0,
               "cacheRead": 0,
               "cacheWrite": 0,
-              "totalTokens": 0,
               "cost": {
-                "input": 0,
-                "output": 0,
                 "cacheRead": 0,
                 "cacheWrite": 0,
+                "input": 0,
+                "output": 0,
                 "total": 0
-              }
-            },
-            "stopReason": "toolUse"
+              },
+              "input": 0,
+              "output": 0,
+              "totalTokens": 0
+            }
           }
-        ],
-        "id": 5,
-        "conversationId": 2
+        ]
       }
     },
     {
       "type": "entry",
       "value": {
+        "conversationId": 2,
+        "id": 6,
         "kind": "pi.tool",
         "model": [
           {
-            "role": "toolResult",
-            "toolCallId": "call-1",
-            "toolName": "bash",
             "content": [
               {
-                "type": "text",
-                "text": "README.md"
+                "text": "README.md",
+                "type": "text"
               }
             ],
             "isError": false,
-            "timestamp": 3
+            "role": "toolResult",
+            "timestamp": 3,
+            "toolCallId": "call-1",
+            "toolName": "bash"
           }
-        ],
-        "id": 6,
-        "conversationId": 2
+        ]
       }
     }
   ],
@@ -117,39 +117,39 @@
     {
       "type": "entry",
       "value": {
+        "conversationId": 2,
+        "id": 7,
         "kind": "pi.assistant",
         "model": [
           {
-            "role": "assistant",
+            "api": "anthropic-messages",
             "content": [
               {
-                "type": "text",
-                "text": "The workspace holds README.md."
+                "text": "The workspace holds README.md.",
+                "type": "text"
               }
             ],
-            "timestamp": 4,
-            "api": "anthropic-messages",
-            "provider": "anthropic",
             "model": "fixture",
+            "provider": "anthropic",
+            "role": "assistant",
+            "stopReason": "stop",
+            "timestamp": 4,
             "usage": {
-              "input": 0,
-              "output": 0,
               "cacheRead": 0,
               "cacheWrite": 0,
-              "totalTokens": 0,
               "cost": {
-                "input": 0,
-                "output": 0,
                 "cacheRead": 0,
                 "cacheWrite": 0,
+                "input": 0,
+                "output": 0,
                 "total": 0
-              }
-            },
-            "stopReason": "stop"
+              },
+              "input": 0,
+              "output": 0,
+              "totalTokens": 0
+            }
           }
-        ],
-        "id": 7,
-        "conversationId": 2
+        ]
       }
     }
   ]
