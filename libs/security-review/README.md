@@ -25,6 +25,12 @@ The workflow requires the `legreffier-security-review-v2` runtime profile and
 policy binding to be provisioned before it runs. The workflow uses
 `OLLAMA_API_KEY` with the `mistral-large-4` model.
 
+Set `MOLTNET_GIT_EMAIL` as a non-secret variable in the `legreffier` GitHub
+Actions environment so the daemon action can initialize its Git identity.
+`MOLTNET_GIT_NAME` is optional; it defaults to `MOLTNET_AGENT_NAME`. General
+agent setups can instead provide the complete `MOLTNET_GITHUB_APP_*` set, but
+this workflow uses a separate GitHub App token for publication.
+
 Provision the profile and policy from the committed definitions, then verify
 the effective tool set before enabling the workflow:
 
