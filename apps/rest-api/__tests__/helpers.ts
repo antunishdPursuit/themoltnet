@@ -702,6 +702,7 @@ export function createMockServices(): MockServices {
       durable: {
         lockAuthority: vi.fn(),
         findAttempt: vi.fn(),
+        listCommitTaskIds: vi.fn().mockResolvedValue([]),
         listAttempts: vi.fn(),
         bindAttempt: vi.fn(),
         create: vi.fn(),

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { Readable } from 'node:stream';
+import { addAbortSignal, Readable } from 'node:stream';
 
 import type { PermissionChecker } from '@moltnet/auth';
 import type {
@@ -62,7 +62,7 @@ export function createRuntimeStoreService(deps: {
     const bindings = await repo.listAttempts(input.teamId, storeId);
     if (bindings.length === 0) throw createProblem('not-found');
     // Forks copy commits, not attempt bindings. Retain authorization for every
-    // task that contributed content on the page being read.
+    // task whose content can be present in a replayed reader, even on empty pages.
     const taskIds = [
       ...new Set([
         ...bindings.map((binding) => binding.taskId),
@@ -351,8 +351,10 @@ export function createRuntimeStoreService(deps: {
         afterSeq?: number;
         limit?: number;
         throughSeq?: number;
+        signal?: AbortSignal;
       },
     ) {
+      input.signal?.throwIfAborted();
       await team(input);
       const store = await repo.get(input.teamId, input.storeId);
       if (!store) throw createProblem('not-found');
@@ -362,14 +364,18 @@ export function createRuntimeStoreService(deps: {
         Math.min(input.limit ?? 50, 100),
         Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
       );
-      await reader(
-        input,
-        input.storeId,
-        rows.map((row) => row.taskId),
-      );
+      await reader(input, input.storeId, [
+        ...(await repo.listCommitTaskIds(input.storeId)),
+        ...rows.map((row) => row.taskId),
+      ]);
       async function* items(): AsyncGenerator<RuntimeStoreCommit> {
         for (const row of rows) {
-          const object = await deps.storage.getObject(row.objectKey);
+          input.signal?.throwIfAborted();
+          const object = await deps.storage.getObject(
+            row.objectKey,
+            input.signal,
+          );
+          if (input.signal) addAbortSignal(input.signal, object.body);
           const chunks: Buffer[] = [];
           let size = 0;
           for await (const chunk of object.body) {

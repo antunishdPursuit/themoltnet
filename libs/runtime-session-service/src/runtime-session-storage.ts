@@ -26,7 +26,7 @@ export interface RuntimeSessionStorage {
     contentEncoding?: string | null;
   }): Promise<void>;
 
-  getObject(key: string): Promise<RuntimeSessionObject>;
+  getObject(key: string, signal?: AbortSignal): Promise<RuntimeSessionObject>;
 
   deleteObject(key: string): Promise<void>;
 
@@ -74,7 +74,7 @@ export function createRuntimeSessionStorage(
 
   return {
     putObject: (input) => storage.putObject(input),
-    getObject: (key) => storage.getObject(key),
+    getObject: (key, signal) => storage.getObject(key, signal),
     deleteObject: (key) => storage.deleteObject(key),
     deleteObjects: (keys) => storage.deleteObjects(keys),
   };

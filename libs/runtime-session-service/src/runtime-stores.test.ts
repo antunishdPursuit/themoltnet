@@ -386,3 +386,30 @@ async function collect<T>(items: AsyncIterable<T>): Promise<T[]> {
   for await (const item of items) result.push(item);
   return result;
 }
+
+it('cancels a stalled object body without reading subsequent commits', async () => {
+  const f = setup();
+  const handle = await f.service.open(authority);
+  await f.service.append({
+    ...authority,
+    ...handle,
+    commitId: 'cancelled-read',
+    expectedSeq: 0,
+    writes,
+  });
+  const body = new Readable({ read() {} });
+  f.storage.getObject.mockResolvedValue({ body });
+  const controller = new AbortController();
+  const page = await f.service.read({
+    ...authority,
+    storeId: 'store',
+    signal: controller.signal,
+  });
+  const pending = page.items.next();
+  const rejected = expect(pending).rejects.toThrow();
+  await vi.waitFor(() => expect(f.storage.getObject).toHaveBeenCalled());
+  controller.abort();
+  await rejected;
+  expect(body.destroyed).toBe(true);
+  expect(f.storage.getObject).toHaveBeenCalledTimes(1);
+});
