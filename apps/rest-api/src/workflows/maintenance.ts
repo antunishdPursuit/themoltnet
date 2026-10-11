@@ -31,6 +31,7 @@ import {
   type TaskArtifactStorage,
 } from '@moltnet/task-artifact-service';
 import {
+  DEFAULT_RUNNING_TIMEOUT_SECONDS,
   deleteObjectsWithLocalRetries,
   filterCleanupManifestByTaskIds,
   registerTaskDeletionQueue,
@@ -455,7 +456,11 @@ export function initMaintenanceWorkflows(
     async (now: Date, gracePeriodSec: number, batchSize: number) => {
       const { taskRepository } = getDeps();
       const staleSince = new Date(now.getTime() - gracePeriodSec * 1000);
-      return taskRepository.listOrphanedTasks(staleSince, batchSize);
+      return taskRepository.listOrphanedTasks(
+        staleSince,
+        batchSize,
+        DEFAULT_RUNNING_TIMEOUT_SECONDS,
+      );
     },
     { name: 'maintenance.taskOrphanSweeper.listOrphans' },
   );
@@ -595,18 +600,26 @@ export function initMaintenanceWorkflows(
       // recv) and force-release unconditionally.
       const backstopAgeMs = input.gracePeriodSec * 2 * 1000;
       for (const { task, attempt } of orphans) {
-        if (!task.claimExpiresAt) {
-          // listOrphanedTasks' SQL filter (lt(claimExpiresAt, …))
-          // never returns null rows today, but if that ever changes a
-          // null expiry tells us nothing about age — don't pretend it's
-          // past the backstop. Force-release with an honest log.
+        const runningDeadlineMs = attempt.startedAt
+          ? attempt.startedAt.getTime() +
+            (task.runningTimeoutSec ?? DEFAULT_RUNNING_TIMEOUT_SECONDS) * 1000
+          : null;
+        const pastRunningDeadline =
+          runningDeadlineMs !== null &&
+          runningDeadlineMs <= sweepNowMs - input.gracePeriodSec * 1000;
+        if (pastRunningDeadline) {
+          logger.warn(
+            { taskId: task.id, attemptN: attempt.attemptN },
+            'maintenance: task orphan — running deadline passed, force-releasing',
+          );
+        } else if (!task.claimExpiresAt) {
           logger.error(
             {
               taskId: task.id,
               attemptN: attempt.attemptN,
               workflowId: attempt.workflowId,
             },
-            'maintenance: task orphan — claimExpiresAt is null, force-releasing (unexpected: listOrphanedTasks should have excluded this row)',
+            'maintenance: task orphan — claimExpiresAt is null, force-releasing',
           );
         } else {
           const claimAgeMs = sweepNowMs - task.claimExpiresAt.getTime();
@@ -693,7 +706,11 @@ export function initMaintenanceWorkflows(
   const listExpiredTasksStep = DBOS.registerStep(
     async (now: Date, batchSize: number) => {
       const { taskRepository } = getDeps();
-      return taskRepository.listExpiredNonTerminalTasks(now, batchSize);
+      return taskRepository.listExpiredNonTerminalTasks(
+        now,
+        batchSize,
+        orphanSweeperConfig.TASK_DEFAULT_EXPIRES_IN_SEC,
+      );
     },
     { name: 'maintenance.taskExpirySweeper.listExpired' },
   );

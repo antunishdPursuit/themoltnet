@@ -134,6 +134,9 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
       | 'expired';
     claimExpiresAt: Date | null;
     expiresAt?: Date | null;
+    queuedAt?: Date;
+    runningTimeoutSec?: number;
+    startedAt?: Date | null;
     completedAt?: Date | null;
     createAttempt?: boolean;
     attemptStatus?: 'claimed' | 'running' | 'timed_out' | 'completed';
@@ -155,6 +158,8 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
           : null,
       claimExpiresAt: opts.claimExpiresAt,
       expiresAt: opts.expiresAt ?? null,
+      queuedAt: opts.queuedAt,
+      runningTimeoutSec: opts.runningTimeoutSec,
       completedAt: opts.completedAt ?? null,
       cancelledByAgentId: opts.status === 'cancelled' ? AGENT_ID : null,
       cancelReason:
@@ -168,6 +173,7 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
         claimedByAgentId: AGENT_ID,
         workflowId: `task:${opts.id}:attempt:1`,
         status: opts.attemptStatus ?? 'running',
+        startedAt: opts.startedAt,
       });
     }
   }
@@ -207,10 +213,50 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
 
     // Cutoff: 5 minutes ago. Only STALE_TASK qualifies.
     const cutoff = new Date(NOW.getTime() - 5 * 60 * 1000);
-    const result = await repo.listOrphanedTasks(cutoff, 100);
+    const result = await repo.listOrphanedTasks(cutoff, 100, 7200);
     const ids = result.map((r) => r.task.id);
     expect(ids).toContain(STALE_TASK);
     expect(ids).not.toContain(FRESH_TASK);
+
+    await db.delete(taskAttempts);
+    await db.delete(tasks);
+  });
+
+  it('finds a running attempt past its total budget even without an expired lease', async () => {
+    const now = new Date('2026-04-26T10:00:00Z');
+    const staleSince = new Date(now.getTime() - 5 * 60 * 1000);
+    const overdueId = '44444444-4444-4444-8444-444444444411';
+    const liveId = '44444444-4444-4444-8444-444444444412';
+    const missingLeaseId = '44444444-4444-4444-8444-444444444413';
+
+    await seedTask({
+      id: overdueId,
+      status: 'running',
+      claimExpiresAt: new Date(now.getTime() + 60_000),
+      startedAt: new Date(now.getTime() - 30 * 60 * 1000),
+      runningTimeoutSec: 600,
+      createAttempt: true,
+    });
+    await seedTask({
+      id: missingLeaseId,
+      status: 'running',
+      claimExpiresAt: null,
+      startedAt: new Date(now.getTime() - 3 * 3600_000),
+      createAttempt: true,
+    });
+    await seedTask({
+      id: liveId,
+      status: 'running',
+      claimExpiresAt: new Date(now.getTime() + 60_000),
+      startedAt: new Date(now.getTime() - 2 * 60 * 1000),
+      runningTimeoutSec: 600,
+      createAttempt: true,
+    });
+
+    const rows = await repo.listOrphanedTasks(staleSince, 100, 7200);
+    expect(rows.map(({ task }) => task.id)).toContain(overdueId);
+    expect(rows.map(({ task }) => task.id)).toContain(missingLeaseId);
+    expect(rows.map(({ task }) => task.id)).not.toContain(liveId);
 
     await db.delete(taskAttempts);
     await db.delete(tasks);
@@ -250,7 +296,7 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
       attemptStatus: 'timed_out',
     });
 
-    const result = await repo.listOrphanedTasks(CUTOFF, 100);
+    const result = await repo.listOrphanedTasks(CUTOFF, 100, 7200);
     const ids = result.map((r) => r.task.id);
     expect(ids).toContain(STALE_RUNNING);
     expect(ids).not.toContain(STALE_COMPLETED);
@@ -273,7 +319,7 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
       attemptStatus: 'claimed',
     });
 
-    const result = await repo.listOrphanedTasks(CUTOFF, 100);
+    const result = await repo.listOrphanedTasks(CUTOFF, 100, 7200);
     const row = result.find((r) => r.task.id === TASK_ID);
     expect(row).toBeDefined();
     expect(row!.attempt.attemptN).toBe(1);
@@ -287,7 +333,7 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
   it('returns empty when no tasks are orphaned', async () => {
     const NOW = new Date('2026-04-26T10:00:00Z');
     const CUTOFF = new Date(NOW.getTime() - 5 * 60 * 1000);
-    const result = await repo.listOrphanedTasks(CUTOFF, 100);
+    const result = await repo.listOrphanedTasks(CUTOFF, 100, 7200);
     expect(result).toHaveLength(0);
   });
 
@@ -316,7 +362,7 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
       });
     }
 
-    const result = await repo.listOrphanedTasks(CUTOFF, 2);
+    const result = await repo.listOrphanedTasks(CUTOFF, 2, 7200);
     expect(result).toHaveLength(2);
 
     await db.delete(taskAttempts);
@@ -372,7 +418,7 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
       expiresAt: NOW,
     });
 
-    const result = await repo.listExpiredNonTerminalTasks(NOW, 100);
+    const result = await repo.listExpiredNonTerminalTasks(NOW, 100, 7200);
     const ids = result.map((task) => task.id);
     expect(ids).toEqual([EXPIRED_WAITING, EXPIRED_QUEUED, BOUNDARY_WAITING]);
     expect(ids).not.toContain(FUTURE_WAITING);
@@ -380,6 +426,30 @@ describe('TaskRepository maintenance sweeper queries (integration)', () => {
     expect(ids).not.toContain(TERMINAL_EXPIRED);
 
     await db.delete(taskAttempts);
+    await db.delete(tasks);
+  });
+
+  it('expires legacy queued tasks with no explicit expiry after the configured lifetime', async () => {
+    const now = new Date('2026-04-26T10:00:00Z');
+    const oldId = '88888888-8888-4888-8888-888888888811';
+    const freshId = '88888888-8888-4888-8888-888888888812';
+    await seedTask({
+      id: oldId,
+      status: 'queued',
+      claimExpiresAt: null,
+      queuedAt: new Date(now.getTime() - 3 * 3600_000),
+    });
+    await seedTask({
+      id: freshId,
+      status: 'queued',
+      claimExpiresAt: null,
+      queuedAt: new Date(now.getTime() - 3600_000),
+    });
+
+    const rows = await repo.listExpiredNonTerminalTasks(now, 100, 7200);
+    expect(rows.map((task) => task.id)).toContain(oldId);
+    expect(rows.map((task) => task.id)).not.toContain(freshId);
+
     await db.delete(tasks);
   });
 

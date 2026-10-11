@@ -545,6 +545,27 @@ describe('taskOrphanSweeperWorkflow — backstop (#1077)', () => {
     expect(warnCall).toBeDefined();
   });
 
+  it('force-releases an attempt past its run budget even when its lease is still current', async () => {
+    const DBOS = await init();
+    const orphan = makeOrphan(new Date(Date.now() + 60_000));
+    orphan.attempt.startedAt = new Date(Date.now() - 3 * 3600_000);
+    orphan.task.runningTimeoutSec = 7200;
+    const { deps } = makeDeps([orphan]);
+    const { setMaintenanceDeps: setDeps } =
+      await import('../src/workflows/maintenance.js');
+    setDeps(deps);
+
+    const result = await runSweep();
+
+    expect(DBOS.resumeWorkflow).not.toHaveBeenCalled();
+    expect(result).toEqual({ examined: 1, resumed: 0, forceReleased: 1 });
+    expect(deps.taskRepository.updateAttempt).toHaveBeenCalledWith(
+      TASK_ID,
+      ATTEMPT_N,
+      expect.objectContaining({ status: 'timed_out' }),
+    );
+  });
+
   it('per-iteration force-release isolation: one failure does not abort the batch', async () => {
     const DBOS = await init();
     void DBOS;
@@ -630,7 +651,7 @@ describe('taskOrphanSweeperWorkflow — backstop (#1077)', () => {
 
     expect(
       deps.taskRepository.listExpiredNonTerminalTasks,
-    ).toHaveBeenCalledWith(expect.any(Date), BATCH_SIZE);
+    ).toHaveBeenCalledWith(expect.any(Date), BATCH_SIZE, 90 * 24 * 60 * 60);
     expect(
       deps.taskRepository.expireManyIfStillNonTerminal,
     ).toHaveBeenCalledWith([EXPIRED_TASK_ID]);

@@ -471,7 +471,11 @@ export function createTaskRepository(db: Database) {
     async listExpiredNonTerminalTasks(
       now: Date,
       limit: number,
+      defaultLifetimeSec: number,
     ): Promise<Task[]> {
+      // Pre-policy tasks have no expiresAt; give them the operator's current
+      // default lifetime from their original enqueue time.
+      const legacyCutoff = new Date(now.getTime() - defaultLifetimeSec * 1000);
       return getExecutor(db)
         .select()
         .from(tasks)
@@ -485,10 +489,13 @@ export function createTaskRepository(db: Database) {
               'cancelled',
               'expired',
             ]),
-            lte(tasks.expiresAt, now),
+            or(
+              lte(tasks.expiresAt, now),
+              and(isNull(tasks.expiresAt), lte(tasks.queuedAt, legacyCutoff)),
+            ),
           ),
         )
-        .orderBy(asc(tasks.expiresAt))
+        .orderBy(asc(tasks.queuedAt))
         .limit(limit);
     },
 
@@ -1073,6 +1080,7 @@ export function createTaskRepository(db: Database) {
     async listOrphanedTasks(
       staleSince: Date,
       limit: number,
+      defaultRunningTimeoutSec: number,
     ): Promise<
       Array<{
         task: Task;
@@ -1087,10 +1095,20 @@ export function createTaskRepository(db: Database) {
           and(
             inArray(tasks.status, ['dispatched', 'running']),
             inArray(taskAttempts.status, ['claimed', 'running']),
-            lt(tasks.claimExpiresAt, staleSince),
+            or(
+              lt(tasks.claimExpiresAt, staleSince),
+              // A live lease cannot extend the absolute running budget.
+              and(
+                eq(taskAttempts.status, 'running'),
+                lte(
+                  sql`(${taskAttempts.startedAt} + coalesce(${tasks.runningTimeoutSec}, ${defaultRunningTimeoutSec}) * interval '1 second')`,
+                  staleSince,
+                ),
+              ),
+            ),
           ),
         )
-        .orderBy(asc(tasks.claimExpiresAt))
+        .orderBy(asc(taskAttempts.claimedAt))
         .limit(limit);
       return rows;
     },
