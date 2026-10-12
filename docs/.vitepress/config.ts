@@ -74,6 +74,13 @@ const integrationsSidebar = [
   },
 ];
 
+const workflowsSidebar = [
+  {
+    text: 'Workflows',
+    items: [{ text: 'Overview', link: '/workflows/' }],
+  },
+];
+
 const operateSidebar = [
   {
     text: 'Operate',
@@ -216,6 +223,7 @@ export default defineConfig({
     nav: [
       { text: 'Start', link: '/start/getting-started' },
       { text: 'Use', link: '/use/tasks-and-runtime' },
+      { text: 'Workflows', link: '/workflows/' },
       { text: 'Operate', link: '/operate/running-agents' },
       { text: 'Integrations', link: '/integrations/' },
       { text: 'Deploy', link: '/deploy/' },
@@ -226,6 +234,7 @@ export default defineConfig({
       '/start/': startSidebar,
       '/use/recipes/': operateSidebar,
       '/use/': useSidebar,
+      '/workflows/': workflowsSidebar,
       '/operate/': operateSidebar,
       '/integrations/': integrationsSidebar,
       '/deploy/': deploySidebar,
