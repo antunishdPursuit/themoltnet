@@ -1,23 +1,5 @@
 # Changelog
 
-## [3.14.0](https://github.com/getlarge/themoltnet/compare/cli-v3.13.0...cli-v3.14.0) (2026-10-12)
-
-
-### Features
-
-* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
-* **cli:** read Durable task conversations ([f136063](https://github.com/getlarge/themoltnet/commit/f136063c879906531b0948ce1d2b5ab3df3a4564))
-* **cli:** read Durable task conversations [8/8] ([ac04e38](https://github.com/getlarge/themoltnet/commit/ac04e3890f2f9b66704658b9f67f7514e82de54a))
-* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
-
-
-### Bug Fixes
-
-* **cli:** close conversation follow gaps and neutralise terminal escapes ([202dc74](https://github.com/getlarge/themoltnet/commit/202dc74baf565bd5b2d717820f9975e1cc1c7a2b))
-* **cli:** explain missing Durable conversations from the empty list ([8d6733a](https://github.com/getlarge/themoltnet/commit/8d6733acde98372d5e38267a3f75a8cac81cdaa8))
-* **cli:** make conversation follow resilient and observable ([74ae6f8](https://github.com/getlarge/themoltnet/commit/74ae6f8ff1b4eab80ab3f958fa44f6868b2d155e))
-* **cli:** retry conversation discovery and bound follow state ([ff9bf21](https://github.com/getlarge/themoltnet/commit/ff9bf2192f942bc47df72e5a86c8d69ca7a82354))
-
 ## [3.13.0](https://github.com/getlarge/themoltnet/compare/cli-v3.12.0...cli-v3.13.0) (2026-10-06)
 
 
