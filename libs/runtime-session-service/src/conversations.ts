@@ -1,0 +1,470 @@
+import { createHash } from 'node:crypto';
+
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
+import {
+  type ConversationId,
+  type ConversationRecord,
+  type DocumentAddress,
+  type EntryId,
+  MemoryStorage,
+  type Seq,
+  type StorageWrite,
+} from '@earendil-works/pi-durable';
+import type { RuntimeStoreRepository, TaskRepository } from '@moltnet/database';
+import type {
+  ConversationList,
+  ConversationMessage,
+  ConversationSnapshot,
+} from '@moltnet/runtime-profiles';
+
+import { createProblem } from './problems.js';
+import type { RuntimeSessionSubject } from './runtime-sessions.js';
+import type { createRuntimeStoreService } from './runtime-stores.js';
+
+type Stores = ReturnType<typeof createRuntimeStoreService>;
+type Attempt = RuntimeSessionSubject & {
+  teamId: string;
+  taskId: string;
+  attemptN: number;
+};
+const context = BACKGROUND_CONTEXT;
+const MAX_REPLAY_BYTES = 64 * 1024 * 1024;
+const MAX_CONVERSATIONS = 1024;
+const MAX_READERS = 16;
+const MAX_TOTAL_REPLAY_BYTES = 128 * 1024 * 1024;
+const IDLE_TTL_MS = 30_000;
+const record = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+/** An isolated read replica. Only Pi's public Storage methods run; no Harness, scheduler, models or writer lease. */
+export function createConversationService(deps: {
+  stores: Stores;
+  repository: RuntimeStoreRepository;
+  tasks: Pick<TaskRepository, 'findAttempt'>;
+  now?: () => number;
+}) {
+  type Reader = ReturnType<typeof createReader>;
+  const readers = new Set<Reader>();
+  const idle = new Map<string, { reader: Reader; timer: NodeJS.Timeout }>();
+  let totalBytes = 0;
+  let stopped = false;
+
+  async function dispose(reader: Reader) {
+    if (!readers.delete(reader)) return;
+    totalBytes -= reader.bytes;
+    await reader.close();
+  }
+  async function evictOldest() {
+    const entry = idle.entries().next().value;
+    if (!entry) return false;
+    const [key, cached] = entry;
+    idle.delete(key);
+    clearTimeout(cached.timer);
+    await dispose(cached.reader);
+    return true;
+  }
+  function createReader(input: Attempt) {
+    const storage = new MemoryStorage();
+    let seq = 0;
+    let bytes = 0;
+    let storeId: string | undefined;
+    let firstSeq = 0;
+    let root: ConversationId | undefined;
+    let status = 'unknown';
+    let writerActive = false;
+    const created = new Map<number, number>();
+    const parents = new Map<number, number | undefined>();
+    let conversations: ConversationRecord[] = [];
+    let closed = false;
+
+    // Persisted commits are untrusted JSON. Pi's ancestry walks assume a valid
+    // graph and are synchronous, so cancellation cannot stop a cycle there.
+    function validateConversations(writes: Record<string, unknown>[]) {
+      let changed = false;
+      for (const write of writes) {
+        if (write.type !== 'conversation') continue;
+        const value = record(write.value);
+        const id = value.id;
+        const parent = record(value.parent);
+        if (
+          typeof id !== 'number' ||
+          !Number.isSafeInteger(id) ||
+          id < 1 ||
+          parents.has(id) ||
+          (value.parent !== undefined &&
+            (typeof parent.conversationId !== 'number' ||
+              !Number.isSafeInteger(parent.conversationId) ||
+              parent.conversationId < 1 ||
+              typeof parent.at !== 'number' ||
+              !Number.isSafeInteger(parent.at) ||
+              parent.at < 0))
+        )
+          throw createProblem(
+            'service-unavailable',
+            'Invalid conversation ancestry',
+          );
+        parents.set(id, parent.conversationId as number | undefined);
+        changed = true;
+        // Also bounds the maximum depth of every native ancestry traversal.
+        if (parents.size > MAX_CONVERSATIONS)
+          throw createProblem('service-unavailable', 'Too many conversations');
+      }
+      if (!changed) return;
+      const checked = new Set<number>();
+      for (const id of parents.keys()) {
+        const path = new Set<number>();
+        let current: number | undefined = id;
+        while (current !== undefined && !checked.has(current)) {
+          if (path.has(current) || !parents.has(current))
+            throw createProblem(
+              'service-unavailable',
+              'Invalid conversation ancestry',
+            );
+          path.add(current);
+          current = parents.get(current);
+        }
+        for (const ancestor of path) checked.add(ancestor);
+      }
+    }
+    async function doc(address: DocumentAddress) {
+      const entry = await storage.findDocument(address, 'current', context);
+      return entry
+        ? (await storage.document(entry.id, 'current', context))?.value
+        : undefined;
+    }
+    async function refresh(signal?: AbortSignal) {
+      signal?.throwIfAborted();
+      if (closed) throw new Error('Conversation reader is closed');
+      const attached = await deps.stores.findAttempt(input);
+      if (!attached) {
+        if (storeId) throw createProblem('not-found');
+        return false;
+      }
+      if (storeId && attached.storeId !== storeId)
+        throw createProblem('conflict', 'Attempt store changed');
+      storeId = attached.storeId;
+      const attempt = await deps.tasks.findAttempt(
+        input.taskId,
+        input.attemptN,
+      );
+      if (!attempt) throw createProblem('not-found');
+      status = attempt.status;
+      const bounds = await deps.repository.attemptBounds(
+        storeId,
+        input.taskId,
+        input.attemptN,
+      );
+      firstSeq = bounds.firstSeq;
+      // Every refresh reauthorizes *all* attempts sharing the store, even if its head did not move.
+      let page = await deps.stores.read({
+        ...input,
+        storeId,
+        afterSeq: seq,
+        signal,
+        throughSeq: bounds.lastSeq,
+        limit: 100,
+      });
+      if (bounds.lastSeq < seq)
+        throw createProblem('conflict', 'Conversation history changed');
+      while (seq < bounds.lastSeq) {
+        const previous = seq;
+        for await (const commit of page.items) {
+          signal?.throwIfAborted();
+          if (commit.seq !== seq + 1)
+            throw createProblem(
+              'service-unavailable',
+              'Incomplete conversation history',
+            );
+          const size = Buffer.byteLength(JSON.stringify(commit.writes));
+          if (bytes + size > MAX_REPLAY_BYTES)
+            throw createProblem(
+              'service-unavailable',
+              'Conversation replay exceeds the supported size',
+            );
+          while (totalBytes + size > MAX_TOTAL_REPLAY_BYTES) {
+            if (!(await evictOldest()))
+              throw createProblem(
+                'service-unavailable',
+                'Conversation reader capacity reached',
+              );
+          }
+          bytes += size;
+          totalBytes += size;
+          validateConversations(commit.writes);
+          storage
+            .prepareCommit(
+              commit.writes as unknown as StorageWrite[],
+              commit.seq as Seq,
+            )
+            .apply();
+          for (const write of commit.writes) {
+            if (write.type === 'conversation')
+              created.set(Number(record(write.value).id), commit.seq);
+          }
+          seq = commit.seq;
+        }
+        if (seq === previous)
+          throw createProblem(
+            'service-unavailable',
+            'Incomplete conversation history',
+          );
+        if (seq < bounds.lastSeq)
+          page = await deps.stores.read({
+            ...input,
+            storeId,
+            afterSeq: seq,
+            signal,
+            throughSeq: bounds.lastSeq,
+            limit: 100,
+          });
+      }
+      const store = await deps.repository.get(input.teamId, storeId);
+      writerActive =
+        !!store &&
+        store.writerTaskId === input.taskId &&
+        store.writerAttemptN === input.attemptN &&
+        !!store.writerExpiresAt &&
+        store.writerExpiresAt.getTime() > (deps.now ?? Date.now)() &&
+        ['claimed', 'running'].includes(status);
+      const state = await doc({
+        kind: 'moltnet.attempt',
+        scope: { kind: 'session' },
+        key: `${input.taskId}/${input.attemptN}`,
+      });
+      root =
+        typeof state?.conversationId === 'number'
+          ? (state.conversationId as ConversationId)
+          : undefined;
+      const all = await storage.scanConversations(
+        {},
+        MAX_CONVERSATIONS,
+        undefined,
+        context,
+      );
+      if (all.next)
+        throw createProblem('service-unavailable', 'Too many conversations');
+      const allowed = new Set<number>(root === undefined ? [] : [root]);
+      let expanded = true;
+      while (expanded) {
+        expanded = false;
+        for (const conversation of all.items) {
+          if (
+            conversation.owner &&
+            allowed.has(conversation.owner.conversationId) &&
+            (created.get(conversation.id) ?? 0) >= firstSeq &&
+            !allowed.has(conversation.id)
+          ) {
+            allowed.add(conversation.id);
+            expanded = true;
+          }
+        }
+      }
+      conversations = all.items.filter((c) => allowed.has(c.id));
+      return true;
+    }
+    return {
+      get bytes() {
+        return bytes;
+      },
+      refresh,
+      list(): ConversationList {
+        return {
+          items: conversations.map((c) => ({
+            conversationId: String(c.id),
+            parentConversationId: c.owner
+              ? String(c.owner.conversationId)
+              : null,
+            kind: c.id === root ? 'main' : 'subagent',
+          })),
+        };
+      },
+      async snapshot(
+        conversationId: string,
+        query: { beforeEntryId?: string; limit?: number } = {},
+      ): Promise<ConversationSnapshot> {
+        const id = Number(conversationId) as ConversationId;
+        if (
+          !Number.isSafeInteger(id) ||
+          !conversations.some((c) => c.id === id)
+        )
+          throw createProblem('not-found');
+        const before =
+          query.beforeEntryId === undefined
+            ? undefined
+            : Number(query.beforeEntryId);
+        if (
+          before !== undefined &&
+          (!Number.isSafeInteger(before) || before < 1)
+        )
+          throw createProblem('validation-failed', 'Invalid entry cursor');
+        const page = await storage.scanEntries(
+          {
+            conversationId: id,
+            ...(before === undefined
+              ? {}
+              : { maxEntryId: (before - 1) as EntryId }),
+          },
+          query.limit ?? 100,
+          undefined,
+          context,
+        );
+        const messages: ConversationMessage[] = [];
+        for (const entry of [...page.items].reverse()) {
+          const stored = await storage.entry(entry.id, context);
+          for (const [index, message] of (entry.model ?? []).entries()) {
+            const value = record(message);
+            messages.push({
+              id: `${entry.id}/${index}`,
+              entryId: String(entry.id),
+              entryKind: entry.kind,
+              inherited: (stored?.commitSeq ?? 0) < firstSeq,
+              status:
+                value.stopReason === 'aborted'
+                  ? 'interrupted'
+                  : value.stopReason === 'error'
+                    ? 'failed'
+                    : 'completed',
+              message: value,
+            });
+          }
+        }
+        const live = record(
+          await doc({
+            kind: 'pi.live',
+            scope: { kind: 'conversation', conversationId: id },
+          }),
+        );
+        const partial = record(live.generation).message;
+        if (before === undefined && partial)
+          messages.push({
+            id: `partial/${id}`,
+            entryId: null,
+            entryKind: 'pi.assistant',
+            inherited: false,
+            status: writerActive ? 'streaming' : 'interrupted',
+            message: record(partial),
+          });
+        const cursor = createHash('sha256')
+          .update(
+            JSON.stringify([
+              input.teamId,
+              input.taskId,
+              input.attemptN,
+              storeId,
+              id,
+              seq,
+              status,
+              writerActive,
+            ]),
+          )
+          .digest('base64url');
+        return {
+          conversationId,
+          cursor,
+          attemptStatus: status,
+          messages,
+          nextBeforeEntryId:
+            page.next && page.items.length
+              ? String(page.items[page.items.length - 1].id)
+              : null,
+          live,
+        };
+      },
+      async close() {
+        if (!closed) {
+          closed = true;
+          await storage.close(context);
+        }
+      },
+    };
+  }
+  return {
+    async open(input: Attempt, signal?: AbortSignal) {
+      signal?.throwIfAborted();
+      if (stopped) throw new Error('Conversation service is closed');
+      // A reader has one owner at a time. Cache idle replicas by principal as
+      // well as attempt; never share mutable state or authorization decisions.
+      const key = JSON.stringify([
+        input.teamId,
+        input.taskId,
+        input.attemptN,
+        input.subjectNs,
+        input.subjectId,
+      ]);
+      const cached = idle.get(key);
+      if (cached) {
+        idle.delete(key);
+        clearTimeout(cached.timer);
+      }
+      while (!cached && readers.size >= MAX_READERS) {
+        if (!(await evictOldest()))
+          throw createProblem(
+            'service-unavailable',
+            'Conversation reader capacity reached',
+          );
+      }
+      signal?.throwIfAborted();
+      if (stopped) throw new Error('Conversation service is closed');
+      const reader = cached?.reader ?? createReader(input);
+      readers.add(reader);
+      try {
+        // Reauthorize on cache hits and unchanged heads, then replay only new commits.
+        await reader.refresh(signal);
+        signal?.throwIfAborted();
+        if (stopped) throw new Error('Conversation service is closed');
+      } catch (error) {
+        await dispose(reader);
+        throw error;
+      }
+      let released = false;
+      let reusable = true;
+      function assertOpen() {
+        if (released || stopped)
+          throw new Error('Conversation reader is closed');
+      }
+      return {
+        async refresh(refreshSignal?: AbortSignal) {
+          assertOpen();
+          try {
+            return await reader.refresh(refreshSignal);
+          } catch (error) {
+            reusable = false;
+            throw error;
+          }
+        },
+        list() {
+          assertOpen();
+          return reader.list();
+        },
+        async snapshot(...args: Parameters<Reader['snapshot']>) {
+          assertOpen();
+          return reader.snapshot(...args);
+        },
+        async close() {
+          if (released) return;
+          released = true;
+          // Interrupted reads and overlapping requests never replace a healthy
+          // idle replica. The cache is bounded by total replay bytes and count.
+          if (stopped || !reusable || signal?.aborted || idle.has(key)) {
+            await dispose(reader);
+            return;
+          }
+          const timer = setTimeout(() => {
+            idle.delete(key);
+            void dispose(reader);
+          }, IDLE_TTL_MS);
+          timer.unref();
+          idle.set(key, { reader, timer });
+        },
+      };
+    },
+    async close() {
+      stopped = true;
+      for (const cached of idle.values()) clearTimeout(cached.timer);
+      idle.clear();
+      await Promise.all([...readers].map(dispose));
+    },
+  };
+}

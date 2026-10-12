@@ -1,6 +1,7 @@
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { runtimeProfileModel } from '@moltnet/runtime-profiles';
 import {
   AgentRuntime,
   ApiTaskReporter,
@@ -24,7 +25,6 @@ import {
   makePrBodyAnchorWriter,
 } from '../lib/correlation.js';
 import { createRuntimeInstanceId } from '../lib/daemon-slot-identity.js';
-import { ProducerContextResolutionError } from '../lib/execution-plan-cache.js';
 import {
   resolveExecutorSigningPrivateKey,
   validateDaemonScopes,
@@ -58,18 +58,10 @@ import { runWithDaemonRuntimeContext } from '../lib/runtime-context.js';
 import { runtimeExecutionOffer } from '../lib/runtime-governance.js';
 import { createRuntimeProfileRetryTriage } from '../lib/runtime-profile-retry-triage.js';
 import { reapRuntimeSlotResources } from '../lib/runtime-resource-reaper.js';
-import {
-  applyRuntimeSessionUploadFailure,
-  createApiRuntimeSessionStore,
-  resolveParentRuntimeSession,
-  resolveRuntimeSessionKind,
-} from '../lib/runtime-sessions.js';
 import { createApiRuntimeSlotStore } from '../lib/runtime-slots.js';
 import { redactRequiredEnvValues } from '../lib/secret-redaction.js';
-import { resolveLatestPiSessionPath } from '../lib/session-files.js';
 import { installShutdownSignalHandlers } from '../lib/shutdown-signal.js';
 import { createApiSourceAttemptResolver } from '../lib/source-attempts.js';
-import { makeTurnEventHandler } from '../lib/turn-event-logger.js';
 import { defaultPiDaemonAdapter } from '../pi.js';
 import { type DaemonRuntimeAdapter } from '../runtime.js';
 
@@ -88,6 +80,7 @@ export async function runOnce(
       ...runtimeCommandOptionDefs(),
       ...projectRunOptionDefs(),
       'task-id': { type: 'string', short: 't' },
+      'resume-attempt': { type: 'string' },
       team: { type: 'string' },
       sandbox: { type: 'string' },
       profile: { type: 'string' },
@@ -101,6 +94,17 @@ export async function runOnce(
   }
 
   const taskId = values['task-id'];
+  const resumeAttempt =
+    values['resume-attempt'] === undefined
+      ? undefined
+      : Number(values['resume-attempt']);
+  if (
+    resumeAttempt !== undefined &&
+    (!Number.isSafeInteger(resumeAttempt) || resumeAttempt < 1)
+  ) {
+    console.error('--resume-attempt must be a positive integer');
+    return 1;
+  }
   if (!values.profile) {
     console.error('Missing required flag: --profile\n');
     console.error(ONCE_HELP);
@@ -258,6 +262,8 @@ export async function runOnce(
     }),
     selection,
   );
+  const primaryModel = runtimeProfileModel(profile.models);
+  const generation = profile.models.generation;
   const { logger, shutdown: shutdownLogger } = createRootLogger({
     name: 'agent-daemon.once',
     level: cfg.logLevel || (identity.debug ? 'debug' : 'info'),
@@ -272,23 +278,17 @@ export async function runOnce(
     apiUrl: selection.apiUrl,
     mode: 'once',
     agent: identity.agent,
-    provider: profile.provider,
-    model: profile.model,
-    thinkingLevel: profile.thinkingLevel,
-    temperature: profile.temperature,
-    topP: profile.topP,
-    topK: profile.topK,
-    maxOutputTokens: profile.maxOutputTokens,
+    provider: primaryModel.provider,
+    model: primaryModel.model,
+    thinkingLevel: generation?.thinkingLevel ?? null,
+    temperature: generation?.temperature ?? null,
+    topP: generation?.topP ?? null,
+    topK: generation?.topK ?? null,
+    maxOutputTokens: generation?.maxOutputTokens ?? null,
     runtimeProfileId: profile.id,
     runtimeProfileName: profile.name,
   });
   const slotRegistry = createApiRuntimeSlotStore({ agent: ctx.agent });
-  const runtimeSessionStore = createApiRuntimeSessionStore({
-    agent: ctx.agent,
-    logger: {
-      warn: (context, message) => rootLogger.warn(context, message),
-    },
-  });
   const sourceAttemptResolver = createApiSourceAttemptResolver({
     agent: ctx.agent,
   });
@@ -303,10 +303,7 @@ export async function runOnce(
     runtimeAdapter,
     runtimeInstanceId,
     signingPrivateKey,
-    slotRegistry,
-    runtimeSessionStore,
     sourceAttemptResolver,
-    warmRetentionSec: operations.warmRetentionSec,
   });
   const { executionPlans, preparedRuntime, sandbox, slotIdentity, stateDirs } =
     prepared;
@@ -324,23 +321,33 @@ export async function runOnce(
       'moltnet.task.id': taskId,
       'moltnet.agent.name': identity.agent,
       'moltnet.credential.source': ctx.credentialSource,
-      'moltnet.llm.provider': profile.provider,
-      'moltnet.llm.model': profile.model,
-      ...(profile.thinkingLevel
-        ? { 'moltnet.llm.thinking_level': profile.thinkingLevel }
-        : {}),
-      ...(profile.temperature !== null
-        ? { 'moltnet.llm.temperature': String(profile.temperature) }
-        : {}),
-      ...(profile.topP !== null
-        ? { 'moltnet.llm.top_p': String(profile.topP) }
-        : {}),
-      ...(profile.topK !== null
-        ? { 'moltnet.llm.top_k': String(profile.topK) }
-        : {}),
-      ...(profile.maxOutputTokens !== null
+      'moltnet.llm.provider': primaryModel.provider,
+      'moltnet.llm.model': primaryModel.model,
+      ...((generation?.thinkingLevel ?? null)
         ? {
-            'moltnet.llm.max_output_tokens': String(profile.maxOutputTokens),
+            'moltnet.llm.thinking_level': String(generation?.thinkingLevel),
+          }
+        : {}),
+      ...((generation?.temperature ?? null) !== null
+        ? {
+            'moltnet.llm.temperature': String(generation?.temperature ?? null),
+          }
+        : {}),
+      ...((generation?.topP ?? null) !== null
+        ? {
+            'moltnet.llm.top_p': String(generation?.topP ?? null),
+          }
+        : {}),
+      ...((generation?.topK ?? null) !== null
+        ? {
+            'moltnet.llm.top_k': String(generation?.topK ?? null),
+          }
+        : {}),
+      ...((generation?.maxOutputTokens ?? null) !== null
+        ? {
+            'moltnet.llm.max_output_tokens': String(
+              generation?.maxOutputTokens ?? null,
+            ),
           }
         : {}),
       'moltnet.runtime_profile.id': profile.id,
@@ -371,10 +378,7 @@ export async function runOnce(
         taskReader: ctx.agent.tasks,
       },
       {
-        agentName: identity.agent,
         mainWorktree: resolveMainWorktree(sandbox.rootDir),
-        runtimeInstanceId,
-        runtimeProfileId: profile.id,
         sessionRootDir: stateDirs.piSessionsDir,
         scratchRootDir: join(stateDirs.rootDir, 'task-workspaces'),
         teamId: profile.teamId,
@@ -450,54 +454,61 @@ export async function runOnce(
   });
 
   try {
-    const rawExecuteTask = preparedRuntime.createTaskExecutor({
-      agentName: identity.agent,
-      moltnetAgent: ctx.agent,
-      agentIdentity,
-      hostCapabilitySigner,
-      hostCapabilityLogger: rootLogger,
-      agentRootDir: ctx.agentRootDir,
-      mountPath: sandbox.rootDir,
-      provider: profile.provider,
-      model: profile.model,
-      providerFailureContext: {
+    const createRawExecuteTask = (
+      taskModel: { provider: string; model: string },
+      taskGeneration: typeof generation,
+    ) =>
+      preparedRuntime.createTaskExecutor({
+        agentName: identity.agent,
+        moltnetAgent: ctx.agent,
+        agentIdentity,
+        hostCapabilitySigner,
+        hostCapabilityLogger: rootLogger,
+        agentRootDir: ctx.agentRootDir,
+        mountPath: sandbox.rootDir,
+        provider: taskModel.provider,
+        model: taskModel.model,
+        thinkingLevel: taskGeneration?.thinkingLevel ?? null,
+        temperature: taskGeneration?.temperature ?? null,
+        topP: taskGeneration?.topP ?? null,
+        topK: taskGeneration?.topK ?? null,
+        maxOutputTokens: taskGeneration?.maxOutputTokens ?? null,
+        classifier: profile.models.classification,
+
+        sandboxConfig: sandbox.config,
+        forwardEnv: profile.requiredEnv,
+        onVmDiagnostic: (diagnostic) => {
+          const fields = {
+            event: diagnostic.event,
+            ...(diagnostic.brokeredSecretCount !== undefined && {
+              brokeredSecretCount: diagnostic.brokeredSecretCount,
+            }),
+          };
+          if (diagnostic.level === 'warning') {
+            rootLogger.warn(fields, diagnostic.message);
+          } else {
+            rootLogger.info(fields, diagnostic.message);
+          }
+        },
+        runtimeProfileContext: profile.context,
         runtimeProfileId: profile.id,
-        runtimeProfileName: profile.name,
-        piAgentDirSource: piAgentDir.source,
-      },
-      thinkingLevel: profile.thinkingLevel,
-      temperature: profile.temperature,
-      topP: profile.topP,
-      topK: profile.topK,
-      maxOutputTokens: profile.maxOutputTokens,
-      sandboxConfig: sandbox.config,
-      forwardEnv: profile.requiredEnv,
-      onVmDiagnostic: (diagnostic) => {
-        const fields = {
-          event: diagnostic.event,
-          ...(diagnostic.brokeredSecretCount !== undefined && {
-            brokeredSecretCount: diagnostic.brokeredSecretCount,
-          }),
-        };
-        if (diagnostic.level === 'warning') {
-          rootLogger.warn(fields, diagnostic.message);
-        } else {
-          rootLogger.info(fields, diagnostic.message);
-        }
-      },
-      runtimeProfileContext: profile.context,
-      runtimeProfileId: profile.id,
-      toolEnforcement: profile.toolEnforcement,
-      makeExecutionPlan: (claimedTask) =>
-        executionPlans.getOrCreate(claimedTask),
-      onTurnEvent: makeTurnEventHandler(rootLogger, { taskId }),
-      toolPolicyLogger: rootLogger,
-      maxTurns: profile.maxTurns,
-      maxBashTimeouts: profile.maxBashTimeouts,
-    });
+        toolEnforcement: profile.toolEnforcement,
+        makeExecutionPlan: (claimedTask) =>
+          executionPlans.getOrCreate(claimedTask),
+        toolPolicyLogger: rootLogger,
+        maxTurns: profile.maxTurns,
+        maxBashTimeouts: profile.maxBashTimeouts,
+      });
     const executeTask: TaskExecutor = async (claimedTask, reporter) => {
+      const taskModel = runtimeProfileModel(
+        profile.models,
+        claimedTask.task.taskType,
+      );
+      const taskGeneration =
+        claimedTask.task.taskType === 'classify' ? undefined : generation;
       const contractFailure = preflightOutputContract(claimedTask);
       if (contractFailure) return contractFailure;
+      const rawExecuteTask = createRawExecuteTask(taskModel, taskGeneration);
       if (runtimeCredentialConfig) {
         await observeGovernancePlanSafely({
           config: runtimeCredentialConfig,
@@ -536,28 +547,23 @@ export async function runOnce(
           usage: { inputTokens: 0, outputTokens: 0 },
           durationMs: 0,
           error: {
-            code:
-              err instanceof ProducerContextResolutionError
-                ? 'producer_context_missing'
-                : 'execution_plan_failed',
+            code: 'execution_plan_failed',
             message,
             retryable: false,
           },
         };
       }
-      if (executionPlan.slotKey && executionPlan.sessionPersistence) {
+      if (executionPlan.slotKey) {
         await slotRegistry.beginSlot({
           ...slotIdentity,
           runtimeProfileId: profile.id,
-          provider: profile.provider,
-          model: profile.model,
+          provider: taskModel.provider,
+          model: taskModel.model,
           teamId: claimedTask.task.teamId,
           slotKey: executionPlan.slotKey,
           taskType: claimedTask.task.taskType,
-          sessionDir: executionPlan.sessionPersistence.sessionDir,
-          sessionPath: resolveLatestPiSessionPath(
-            executionPlan.sessionPersistence.sessionDir,
-          ),
+          sessionDir: null,
+          sessionPath: null,
           workspaceId: executionPlan.workspaceId,
           worktreePath: resolveRecordedWorkspacePath(
             stateDirs.rootDir,
@@ -576,23 +582,20 @@ export async function runOnce(
       // signal arriving after the executor returns finds no live attempt.
       activeAttemptN = claimedTask.attemptN;
       try {
-        return await runWithDaemonRuntimeContext(
+        const output = await runWithDaemonRuntimeContext(
           {
             profileId: profile.id,
             profileName: profile.name,
-            provider: profile.provider,
-            model: profile.model,
-            thinkingLevel: profile.thinkingLevel,
-            temperature: profile.temperature,
-            topP: profile.topP,
-            topK: profile.topK,
-            maxOutputTokens: profile.maxOutputTokens,
+            provider: taskModel.provider,
+            model: taskModel.model,
+            thinkingLevel: taskGeneration?.thinkingLevel ?? null,
+            temperature: taskGeneration?.temperature ?? null,
+            topP: taskGeneration?.topP ?? null,
+            topK: taskGeneration?.topK ?? null,
+            maxOutputTokens: taskGeneration?.maxOutputTokens ?? null,
           },
           () => rawExecuteTask(claimedTask, reporter),
         );
-      } finally {
-        activeAttemptN = null;
-        executionPlans.delete(claimedTask);
         if (executionPlan.slotKey) {
           await slotRegistry.finishSlot(
             claimedTask.task.teamId,
@@ -600,16 +603,16 @@ export async function runOnce(
             claimedTask.attemptN,
             slotIdentity,
             executionPlan.slotKey,
-            profile.provider,
-            profile.model,
-            executionPlan.sessionPersistence
-              ? resolveLatestPiSessionPath(
-                  executionPlan.sessionPersistence.sessionDir,
-                )
-              : null,
+            taskModel.provider,
+            taskModel.model,
+            null,
             operations.warmRetentionSec,
           );
         }
+        return output;
+      } finally {
+        activeAttemptN = null;
+        executionPlans.delete(claimedTask);
       }
     };
 
@@ -626,6 +629,10 @@ export async function runOnce(
         teamId: profile.teamId,
         profileId: profile.id,
         executorFingerprint: preparedRuntime.attestor.fingerprint,
+        assertTaskEligible: (task) => {
+          runtimeProfileModel(profile.models, task.taskType);
+        },
+        resumeAttempt,
       }),
       makeReporter: () =>
         new ApiTaskReporter({
@@ -648,42 +655,11 @@ export async function runOnce(
           claimedTask.task.id,
           claimedTask.attemptN,
         );
-        let terminalOutput = redactRequiredEnvValues(
+        const terminalOutput = redactRequiredEnvValues(
           output,
           profile.requiredEnv,
           cfg.profilePrerequisiteEnv,
         );
-        if (resolved?.session?.sessionDir) {
-          try {
-            const parentSession = await resolveParentRuntimeSession(
-              runtimeSessionStore,
-              claimedTask,
-            );
-            await runtimeSessionStore.uploadAttemptFinal({
-              attemptN: claimedTask.attemptN,
-              parentSessionId: parentSession?.id ?? null,
-              sessionDir: resolved.session.sessionDir,
-              sessionKind: resolveRuntimeSessionKind(claimedTask),
-              sourceRuntimeProfileId: resolved.slot.runtimeProfileId,
-              sourceSlotId: resolved.slot.id,
-              taskId: claimedTask.task.id,
-              teamId: claimedTask.task.teamId,
-            });
-          } catch (err) {
-            rootLogger.error(
-              {
-                err,
-                taskId: claimedTask.task.id,
-                attemptN: claimedTask.attemptN,
-              },
-              'agent-daemon.runtime_session_upload_failed',
-            );
-            terminalOutput = applyRuntimeSessionUploadFailure(
-              terminalOutput,
-              err,
-            );
-          }
-        }
         return finalizeTask(ctx.agent, terminalOutput, {
           task: claimedTask.task,
           slot: resolved ? { expiresAtMs: resolved.slot.expiresAtMs } : null,

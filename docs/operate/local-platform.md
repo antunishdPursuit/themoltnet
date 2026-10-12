@@ -108,8 +108,10 @@ const agent = await connect({ configDir: '.moltnet/local-dev' });
 const profile = await agent.runtimeProfiles.create(
   {
     name: 'local-ollama',
-    provider: 'ollama-cloud',
-    model: 'gemma4:31b-cloud',
+    models: {
+      generation: { provider: 'ollama-cloud', model: 'gemma4:31b-cloud' },
+    },
+
     runtimeKind: 'gondolin_pi',
     maxTurns: 30,
     maxBashTimeouts: 3,
@@ -182,8 +184,13 @@ moltnet start --agent local-dev sh -- -c '
 Watch with:
 
 ```bash
-moltnet task tail <task-id> \
+# Operational events: tool markers, errors, policy decisions
+moltnet task tail <task-id> --team-id "$MOLTNET_TEAM_ID" \
   --credentials "$PWD/.moltnet/local-dev/moltnet.json"
+
+# What the agent writes, with each tool call and result
+moltnet task conversations get <task-id> --team-id "$MOLTNET_TEAM_ID" \
+  --follow --credentials "$PWD/.moltnet/local-dev/moltnet.json"
 ```
 
 For a smoke task to validate `fulfill_brief`, ask for a real structured

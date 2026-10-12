@@ -1,3 +1,13 @@
+export { createDurableTaskExecutor } from './durable-executor.js';
+export { createGondolinDurableTaskExecutor } from './durable-gondolin.js';
+export { GondolinDurableEnv } from './durable-gondolin-env.js';
+export {
+  ApiDurableStorage,
+  type DurableStoreTransport,
+  type RuntimeCommit,
+} from './durable-storage.js';
+export { acquireDurableTransport } from './durable-transport.js';
+export { GONDOLIN_TOOL_NAMES } from './gondolin-tools.js';
 export {
   agentSigningCapability,
   GUEST_ALLOWED_SIGNERS_PATH,
@@ -9,39 +19,28 @@ export {
   HOST_EXEC_DEFAULT_BASE_ENV,
   MOLTNET_TOOL_NAMES,
   type MoltNetToolsConfig,
+  resolveHostExecBaseEnv,
   type TrackedError,
 } from './moltnet/tools.js';
 export { createPiOtelExtension, type PiOtelOptions } from './otel/index.js';
-export { buildAgentSession } from './runtime/agent-session-factory.js';
-export {
-  createGondolinToolDefinitions,
-  createPiTaskExecutor,
-  executePiTask,
-  type ExecutePiTaskOptions,
-  GONDOLIN_TOOL_NAMES,
-  type PiSessionPersistencePlan,
-  type PiTaskExecutionPlan,
-  type PiTaskExecutionPlanFactory,
-  type ProviderErrorRetryEvent,
-  type ProviderErrorRetryLevel,
-  type ProviderErrorRetryUi,
-  type ProviderFailureProfileContext,
-  resolveHostExecBaseEnv,
-  resolveTaskWorktreePath,
-  sanitizeProviderDiagnostic,
-  type TurnEventHandlerFactory,
-} from './runtime/execute-pi-task.js';
+export type { GondolinDurableTaskOptions } from './runtime/durable-task-options.js';
+export type {
+  PiTaskExecutionPlan,
+  PiTaskExecutionPlanFactory,
+} from './runtime/execution-plan.js';
 export {
   type InjectedTaskContext,
   injectTaskContext,
   type InjectTaskContextArgs,
   type VmFsForContext,
 } from './runtime/inject-task-context.js';
+export { createClassificationTaskExecutor } from './runtime/model-runtime.js';
 export {
   resolveRuntimeProfileModel,
   type RuntimeModelSelection,
   RuntimeProfileModelResolutionError,
 } from './runtime/model-selection.js';
+export { sanitizeProviderDiagnostic } from './runtime/provider-error-classification.js';
 export {
   PROVIDER_FAILURE_CODES,
   type ProviderFailureCode,
@@ -63,17 +62,11 @@ export {
   buildRuntimeKernel,
   buildWorkspaceMountInstructions,
 } from './runtime/runtime-instructor.js';
+export { SubagentToolParameters } from './runtime/subagent-parameters.js';
+export { resolveTaskWorktreePath } from './runtime/task-workspace.js';
+export { piCodemode } from './runtime-definition.js';
 export {
-  createSubagentTool,
-  type CreateSubagentToolArgs,
-  type SubagentToolHandle,
-  type SubagentToolParameters,
-} from './runtime/subagent-tool.js';
-export type {
-  TurnEventHandler,
-  TurnEventKind,
-} from './runtime/task-event-emitter.js';
-export {
+  buildPiClassifierExecutorManifest,
   buildPiExecutorManifest,
   DEFAULT_BROKERED_HTTP_SECRET_RESOLUTION_TIMEOUT_MS,
   defineGondolinTemplate,
@@ -99,6 +92,9 @@ export {
   type PiBrokeredHttpSecretContribution,
   PiBrokeredHttpSecretResolutionError,
   type PiBrokeredHttpSecretResolveContext,
+  type PiCodingExtensionContribution,
+  type PiDurableExtensionContribution,
+  type PiDurableExtensionOptions,
   type PiExecutorManifest,
   type PiExtensionContribution,
   type PiExtensionFactory,
@@ -136,12 +132,8 @@ export {
 } from './tool-policy/gate.js';
 export {
   type AllowedToolsClient,
-  createToolPolicyExtension,
-  decideForEvent,
   resolveSessionToolPolicy,
   type SessionToolPolicy,
-  type ToolPolicyDecisionContext,
-  type ToolPolicyExtensionDeps,
 } from './tool-policy/session-policy.js';
 export { resumeVm } from './vm.js';
 export type {

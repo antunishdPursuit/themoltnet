@@ -62,6 +62,9 @@ const NON_RETRYABLE_CODES = new Set([
   // mismatch for the selected runtime profile. Retrying the same attempt shape
   // tends to burn another slot without adding useful evidence.
   'max_turns_exceeded',
+  // The model kept running commands past their timeout; a fresh attempt with
+  // the same profile repeats the pattern.
+  'max_bash_timeouts_exceeded',
   'output_rejected_by_server',
   // Submit-output validation is first handled as same-session correction by
   // the Pi submit tool. If it reaches daemon retry triage, that correction

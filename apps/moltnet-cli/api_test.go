@@ -19,6 +19,13 @@ import (
 // the given handler, returning both httptest servers and a ready Client.
 func newTestServer(t *testing.T, h moltnetapi.Handler) (*httptest.Server, *httptest.Server, *moltnetapi.Client) {
 	t.Helper()
+	return newWrappedTestServer(t, h, nil)
+}
+
+// newWrappedTestServer is newTestServer with optional middleware in front of
+// the generated API server, for faults the handler cannot produce.
+func newWrappedTestServer(t *testing.T, h moltnetapi.Handler, wrap func(http.Handler) http.Handler) (*httptest.Server, *httptest.Server, *moltnetapi.Client) {
+	t.Helper()
 
 	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -35,7 +42,11 @@ func newTestServer(t *testing.T, h moltnetapi.Handler) (*httptest.Server, *httpt
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
-	apiSrv := httptest.NewServer(apiSrv_gen)
+	var api http.Handler = apiSrv_gen
+	if wrap != nil {
+		api = wrap(apiSrv_gen)
+	}
+	apiSrv := httptest.NewServer(api)
 
 	tm := NewTokenManager(tokenSrv.URL, "cid", "csec")
 	client, err := newBearerClient(

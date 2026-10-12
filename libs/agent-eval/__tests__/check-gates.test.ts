@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   checkGates,
@@ -144,6 +144,132 @@ const completedAttempt: GateTaskAttempt = {
 };
 
 describe('checkGates', () => {
+  it.each([
+    [false, 1],
+    [true, 1],
+    [false, 2],
+  ] as const)(
+    'counts committed Durable evidence without operational mirrors (error=%s, count=%s)',
+    async (isError, count) => {
+      const entries = [
+        {
+          id: 1,
+          model: [
+            {
+              role: 'assistant',
+              content: [
+                { type: 'toolCall', name: 'moltnet_upload_task_artifact' },
+              ],
+            },
+          ],
+        },
+        {
+          id: 2,
+          model: [
+            {
+              role: 'toolResult',
+              toolName: 'submit_run_eval_output',
+              isError,
+              content: [{ type: 'text', text: 'Invalid submission shape' }],
+            },
+          ],
+        },
+      ];
+      if (count === 2) entries.push({ ...entries[1], id: 3 });
+      const agent = fakeAgent(messages(), completedAttempt);
+      const get = vi.fn().mockResolvedValue({
+        messages: entries.flatMap((entry) =>
+          entry.model.map((message) => ({
+            entryId: String(entry.id),
+            inherited: false,
+            message,
+          })),
+        ),
+        nextBeforeEntryId: null,
+      });
+      agent.tasks.conversations = {
+        list: vi.fn().mockResolvedValue({ items: [{ conversationId: '1' }] }),
+        get,
+      };
+      const result = await checkGates(
+        agent,
+        't1',
+        1,
+        { requireToolCalls: ['moltnet_upload_task_artifact'] },
+        EXPECTED_WITH_TEAM,
+      );
+      expect(get).toHaveBeenCalledExactlyOnceWith(
+        't1',
+        1,
+        '1',
+        { teamId: 'team-1' },
+        { beforeEntryId: undefined },
+      );
+      expect(result.passed).toBe(!isError && count === 1);
+      if (count === 2)
+        expect(result.failures).toContainEqual({
+          gate: 'submit_clean',
+          detail:
+            'submit_run_eval_output had 2 successful call(s), expected exactly 1',
+        });
+      if (isError)
+        expect(result.failures).toContainEqual({
+          gate: 'submit_clean',
+          detail:
+            'submit_run_eval_output had 1 invalid call(s): Invalid submission shape',
+        });
+    },
+  );
+
+  it('fails closed when conversation evidence is unavailable', async () => {
+    const agent = fakeAgent(messages(), completedAttempt);
+    agent.tasks.conversations = {
+      list: vi.fn().mockRejectedValue(new Error('Conversation unavailable')),
+      get: vi.fn(),
+    };
+    const result = await checkGates(agent, 't1', 1, {}, EXPECTED_WITH_TEAM);
+    expect(result.failures).toContainEqual({
+      gate: 'runtime_evidence',
+      detail: 'Conversation unavailable',
+    });
+  });
+
+  it('does not count inherited or partial tool calls as attempt evidence', async () => {
+    const agent = fakeAgent(messages(), completedAttempt);
+    agent.tasks.conversations = {
+      list: vi.fn().mockResolvedValue({ items: [{ conversationId: '1' }] }),
+      get: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            entryId: '1',
+            inherited: true,
+            message: {
+              role: 'assistant',
+              content: [{ type: 'toolCall', name: 'prior_tool' }],
+            },
+          },
+          {
+            entryId: null,
+            inherited: false,
+            message: {
+              role: 'assistant',
+              content: [{ type: 'toolCall', name: 'prior_tool' }],
+            },
+          },
+        ],
+        nextBeforeEntryId: null,
+      }),
+    };
+    const result = await checkGates(
+      agent,
+      't1',
+      1,
+      { requireToolCalls: ['prior_tool'] },
+      EXPECTED_WITH_TEAM,
+    );
+    expect(result.passed).toBe(false);
+  });
+
   it('passes a clean attempt against default gates', async () => {
     // Arrange
     const agent = fakeAgent(messages(), completedAttempt);

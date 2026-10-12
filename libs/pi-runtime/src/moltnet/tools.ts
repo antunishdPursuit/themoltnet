@@ -12,18 +12,27 @@ import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
+import type { VM } from '@earendil-works/gondolin';
 import { Type } from '@earendil-works/pi-ai';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { defineTool } from '@earendil-works/pi-coding-agent';
-import type { AgentSigningCapability } from '@moltnet/crypto-service/agent-signing';
+import type {
+  AgentIdentity,
+  AgentSigningCapability,
+} from '@moltnet/crypto-service/agent-signing';
 import { computeContentCid } from '@moltnet/crypto-service/content-cid';
 import {
   DEFAULT_PI_RENDER_METHOD,
   isServerRenderMethod,
 } from '@moltnet/models';
+import type {
+  ClaimedTask,
+  HostCapabilityRouter,
+} from '@themoltnet/agent-runtime';
 import { isResolvedPathInsideRoot } from '@themoltnet/sandbox-gondolin';
 import type { connect } from '@themoltnet/sdk';
 
+import { type GondolinToolLifecycle, toGuestPath } from '../tool-operations.js';
 import { type ExpandedPack, renderPhase6Markdown } from './render-phase6.js';
 
 type MoltNetAgent = Awaited<ReturnType<typeof connect>>;
@@ -43,6 +52,7 @@ export const MOLTNET_TOOL_NAMES = [
   'moltnet_get_task',
   'moltnet_list_task_attempts',
   'moltnet_list_task_messages',
+  'moltnet_read_task_conversation',
   'moltnet_upload_task_artifact',
   'moltnet_list_task_artifacts',
   'moltnet_download_task_artifact',
@@ -1125,9 +1135,7 @@ export function createMoltNetTools(
     label: 'List MoltNet Task Attempt Messages',
     description:
       'List messages for a specific task attempt. Use this when you need ' +
-      'the turn-by-turn execution record behind an accepted attempt — ' +
-      'tool calls, text deltas, and error/info events that do not appear ' +
-      'in the attempt output alone.',
+      'operational error/info events. Use moltnet_read_task_conversation for assistant replies and tool calls.',
     parameters: Type.Object({
       taskId: Type.String({ description: 'Task ID (UUID).' }),
       attemptN: Type.Integer({
@@ -1166,6 +1174,43 @@ export function createMoltNetTools(
             type: 'text' as const,
             text: JSON.stringify(messages, null, 2),
           },
+        ],
+        details: {},
+      };
+    },
+  });
+
+  const readTaskConversation = defineTool({
+    name: 'moltnet_read_task_conversation',
+    label: 'Read MoltNet Task Conversation',
+    description:
+      'Read persisted assistant replies and tool calls for an attempt. Omit conversationId to list its main and subagent conversations. Follow nextBeforeEntryId for older history. Inherited messages are prior context, not work performed by this attempt.',
+    parameters: Type.Object({
+      taskId: Type.String(),
+      attemptN: Type.Integer({ minimum: 1 }),
+      conversationId: Type.Optional(Type.String()),
+      beforeEntryId: Type.Optional(Type.String()),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    }),
+    async execute(_id, params, signal) {
+      const { agent, teamId } = ensureConnected(config);
+      if (!teamId)
+        throw new Error('A team is required to read task conversations');
+      const result = params.conversationId
+        ? await agent.tasks.conversations.get(
+            params.taskId,
+            params.attemptN,
+            params.conversationId,
+            { teamId, signal },
+            { beforeEntryId: params.beforeEntryId, limit: params.limit },
+          )
+        : await agent.tasks.conversations.list(params.taskId, params.attemptN, {
+            teamId,
+            signal,
+          });
+      return {
+        content: [
+          { type: 'text' as const, text: JSON.stringify(result, null, 2) },
         ],
         details: {},
       };
@@ -1583,10 +1628,133 @@ export function createMoltNetTools(
     getTask,
     listTaskAttempts,
     listTaskMessages,
+    readTaskConversation,
     uploadTaskArtifact,
     listTaskArtifacts,
     downloadTaskArtifact,
     reviewSessionErrors,
     hostExec,
   ];
+}
+
+const HOST_AUTHENTICATED_HOST_EXEC_REFUSED_ENV = new Set([
+  'GIT_CONFIG_GLOBAL',
+  'MOLTNET_CREDENTIALS_PATH',
+  'SSH_AUTH_SOCK',
+]);
+
+/**
+ * A signer whose every operation goes through the capability router, so a
+ * tool cannot obtain a host signature the session policy would deny.
+ */
+export function createPolicyCheckedSigner(
+  router: HostCapabilityRouter,
+  identity: AgentIdentity,
+): AgentSigningCapability {
+  async function call<O>(operation: string, input: unknown): Promise<O> {
+    const result = await router.invoke<O>('agent-signing', operation, input);
+    if (!result.ok) {
+      throw new Error(
+        `agent-signing/${operation} ${result.code}: ${result.message}`,
+      );
+    }
+    return result.output;
+  }
+  return {
+    identity,
+    async signDiaryEntry(input) {
+      return call<{ signingRequestId: string }>('sign-diary-entry', input);
+    },
+    async signGitCommit(input) {
+      const { signature } = await call<{ signature: string }>(
+        'sign-git-commit',
+        { sshsig: Buffer.from(input.sshsig).toString('base64') },
+      );
+      return { signature: new Uint8Array(Buffer.from(signature, 'base64')) };
+    },
+  };
+}
+
+export function resolveHostExecBaseEnv(
+  agentEnv: Readonly<Record<string, string | undefined>>,
+): Set<string> {
+  // Host-authenticated is the only boundary: MoltNet credential-bearing env
+  // never enters guest host-exec.
+  const names = new Set([
+    ...HOST_EXEC_DEFAULT_BASE_ENV,
+    ...Object.keys(agentEnv),
+  ]);
+  for (const name of HOST_AUTHENTICATED_HOST_EXEC_REFUSED_ENV) {
+    names.delete(name);
+  }
+  for (const name of names) {
+    if (name.startsWith('MOLTNET_')) names.delete(name);
+  }
+  return names;
+}
+export async function openVmWorkspaceFileForRead(config: {
+  vm: VM;
+  cwdPath: string;
+  guestWorkspace: string;
+  filePath: string;
+}) {
+  const localPath = path.isAbsolute(config.filePath)
+    ? config.filePath
+    : path.resolve(config.cwdPath, config.filePath);
+  const guestPath = toGuestPath(
+    config.cwdPath,
+    localPath,
+    config.guestWorkspace,
+  );
+  const info = await config.vm.fs.stat(guestPath);
+  const stream = await config.vm.fs.readFileStream(guestPath);
+  return {
+    stream,
+    isFile: info.isFile(),
+    sizeBytes: typeof info.size === 'number' ? info.size : undefined,
+    displayPath: config.filePath,
+  };
+}
+
+/** Shared task provenance, VM artifact reads, and host credential boundary. */
+export function createAttemptMoltNetTools(input: {
+  agent: MoltNetAgent;
+  claimedTask: ClaimedTask;
+  vm: VM;
+  cwdPath: string;
+  guestWorkspace: string;
+  lifecycle: GondolinToolLifecycle;
+  capabilityRouter?: HostCapabilityRouter;
+  identity?: AgentIdentity;
+  agentEnv: Readonly<Record<string, string | undefined>>;
+  hostExecAutoApprove?: HostExecAutoApproveConfig;
+  onTaskProvenanceEvent?: MoltNetToolsConfig['onTaskProvenanceEvent'];
+}): ToolDefinition[] {
+  const { task, attemptN } = input.claimedTask;
+  return createMoltNetTools({
+    getAgent: () => input.agent,
+    getSigner: () =>
+      input.capabilityRouter && input.identity
+        ? createPolicyCheckedSigner(input.capabilityRouter, input.identity)
+        : null,
+    getDiaryId: () => task.diaryId ?? '',
+    getTeamId: () => task.teamId ?? '',
+    getSessionErrors: () => [],
+    clearSessionErrors: () => {},
+    getHostCwd: () => input.cwdPath,
+    openWorkspaceFileForRead: (filePath) => {
+      input.lifecycle.assertActive();
+      return openVmWorkspaceFileForRead({ ...input, filePath });
+    },
+    hostExecBaseEnv: resolveHostExecBaseEnv(input.agentEnv),
+    hostExecAutoApprove: input.hostExecAutoApprove,
+    getTaskContext: () => ({
+      taskId: task.id,
+      taskType: task.taskType,
+      attemptN,
+      diaryId: task.diaryId ?? '',
+      correlationId: task.correlationId ?? null,
+    }),
+    onTaskProvenanceEvent: input.onTaskProvenanceEvent,
+  });
 }

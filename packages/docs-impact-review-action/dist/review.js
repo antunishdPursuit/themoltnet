@@ -1,6 +1,6 @@
 import { C as __exportAll, E as __toESM, S as __esmMin, T as __toCommonJS, _ as _Object_, a as Record, b as _Array_, c as Number$1, d as Integer, f as Boolean$1, g as Unknown, h as Cyclic, i as Partial, l as Null, m as Unsafe, n as Errors, o as Union, p as Intersect, r as Check, s as String$1, t as Clean, u as Literal, v as Optional, w as __require, x as __commonJSMin, y as Ref$1 } from "./assets/value-CDS208oC.js";
 import { t as runMain } from "./assets/run-BAJLqHWw.js";
-import { a as createRateLimitFetch, i as summarizeCorpus, r as renderComment } from "./assets/report-DJdZyA5m.js";
+import { a as createRateLimitFetch, i as summarizeCorpus, o as createRetryFetch$1, r as renderComment } from "./assets/report-DQMPYY8c.js";
 import { i as requireFullOid, n as ensureRevisions, r as existsAt, t as createGit } from "./assets/git-D6Jflhap.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { constants, lstatSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
@@ -3508,6 +3508,176 @@ var setRuntimeProfilePolicies = (options) => (options.client ?? client).put({
 		...options.headers
 	}
 });
+var getRuntimeStoreForAttempt = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/attempt",
+	...options
+});
+var openRuntimeStore = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/open",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var appendRuntimeStoreCommit = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/commits",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var mintRuntimeStoreId = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/ids",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var releaseRuntimeStore = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/release",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var renewRuntimeStore = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/renew",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
 /**
 * Get metadata for the durable team-scoped runtime session for a task attempt.
 */
@@ -3961,6 +4131,84 @@ var completeTask = (options) => (options.client ?? client).post({
 		"Content-Type": "application/json",
 		...options.headers
 	}
+});
+var listTaskConversations = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}/attempts/{n}/conversations",
+	...options
+});
+var getTaskConversation = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}/attempts/{n}/conversations/{conversationId}",
+	...options
+});
+/**
+* SSE replacement snapshots of the latest 100 entries plus partial response. Each connection, including reconnects, starts with a fresh snapshot; replace prior state. IDs are opaque revision tokens, not replay offsets. Stream closes after five minutes; reconnect to continue. Reading never starts execution.
+*/
+var watchTaskConversation = (options) => (options.client ?? client).sse.get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}/attempts/{n}/conversations/{conversationId}/events",
+	...options
 });
 /**
 * Mark an attempt as failed with error details.
@@ -6754,341 +7002,6 @@ function createRuntimeProfilesNamespace(context) {
 	};
 }
 //#endregion
-//#region ../../libs/sdk/src/namespaces/runtime-sessions.ts
-function createRuntimeSessionsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async getForAttempt(path, options) {
-			try {
-				return unwrapResult(await getRuntimeSession({
-					client,
-					auth,
-					headers: requiredTeamHeaders(options),
-					path
-				}));
-			} catch (err) {
-				if (err instanceof MoltNetError && err.statusCode === 404) return null;
-				throw err;
-			}
-		},
-		async upload(path, body, query, options) {
-			return unwrapResult(await uploadRuntimeSession({
-				auth,
-				body,
-				client,
-				duplex: "half",
-				headers: {
-					...requiredTeamHeaders(options),
-					"content-type": "application/octet-stream"
-				},
-				path,
-				query
-			}));
-		},
-		async download(path, options) {
-			const stream = unwrapResult(await client.request({
-				auth,
-				headers: requiredTeamHeaders(options),
-				method: "GET",
-				parseAs: "stream",
-				path,
-				security: [{
-					scheme: "bearer",
-					type: "http"
-				}],
-				url: "/runtime-sessions/{taskId}/{attemptN}/content"
-			}));
-			if (stream instanceof Readable) return stream;
-			if (stream instanceof ReadableStream) return Readable.fromWeb(stream);
-			throw new MoltNetError("Unexpected runtime session download response stream", { code: "INVALID_RESPONSE" });
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/runtime-slots.ts
-function createRuntimeSlotsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async begin(body, options) {
-			return unwrapResult(await beginRuntimeSlot({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				body
-			}));
-		},
-		async finish(body, options) {
-			return unwrapResult(await finishRuntimeSlot({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				body
-			}));
-		},
-		async findLatestForAttempt(query, options) {
-			try {
-				return unwrapResult(await findLatestRuntimeSlotForAttempt({
-					client,
-					auth,
-					headers: requiredTeamHeaders(options),
-					query
-				}));
-			} catch (err) {
-				if (err instanceof MoltNetError && err.statusCode === 404) return null;
-				throw err;
-			}
-		},
-		async list(query, options) {
-			return unwrapResult(await listRuntimeSlots({
-				auth,
-				client,
-				headers: requiredTeamHeaders(options),
-				query: stripUndefinedQuery(query)
-			})).items;
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/signing-credentials.ts
-function createSigningCredentialsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(query, options) {
-			return unwrapResult(await listSigningCredentials({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				query
-			}));
-		},
-		async get(id, options) {
-			return unwrapResult(await getSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		},
-		async startRegistration(body, options) {
-			return unwrapResult(await beginSigningCredentialRegistration({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				body
-			}));
-		},
-		async completeRegistration(id, body, options) {
-			return unwrapResult(await completeSigningCredentialRegistration({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		},
-		async approve(id, options) {
-			return unwrapResult(await approveSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		},
-		async suspend(id, options) {
-			return unwrapResult(await suspendSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		},
-		async revoke(id, options) {
-			return unwrapResult(await revokeSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/signing-requests.ts
-function createSigningRequestsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(query) {
-			return unwrapResult(await listSigningRequests({
-				client,
-				auth,
-				query
-			}));
-		},
-		async create(body) {
-			return unwrapResult(await createSigningRequest({
-				client,
-				auth,
-				body
-			}));
-		},
-		async get(id) {
-			return unwrapResult(await getSigningRequest({
-				client,
-				auth,
-				path: { id }
-			}));
-		},
-		async submit(id, body) {
-			return unwrapResult(await submitSignature({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async claim(id, body, options) {
-			return unwrapResult(await claimSigningRequest({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		},
-		async complete(id, body, options) {
-			return unwrapResult(await completeSigningRequest({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		},
-		async reject(id, body, options) {
-			return unwrapResult(await rejectSigningRequest({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/task-grants.ts
-function createTaskGrantsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async create(taskId, body, options) {
-			return unwrapResult(await createTaskGrant({
-				client,
-				auth,
-				path: { id: taskId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async list(taskId, options) {
-			return unwrapResult(await listTaskGrants({
-				client,
-				auth,
-				path: { id: taskId },
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async revoke(taskId, body, options) {
-			return unwrapResult(await revokeTaskGrant({
-				client,
-				auth,
-				path: { id: taskId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/tasks/src/output-contract-schema.ts
-function isObject(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** Reject unsupported or oversized task-supplied schemas before execution. */
-function validateOutputContractSchema(schema) {
-	if (!isObject(schema) || schema.type !== "object") return "outputContract.schema must be a JSON Schema object with type \"object\"";
-	let encoded;
-	try {
-		encoded = JSON.stringify(schema);
-	} catch {
-		return "outputContract.schema must be JSON serializable";
-	}
-	if (encoded.length > 16384) return "outputContract.schema must be at most 16 KiB";
-	let nodes = 0;
-	const visit = (node, path, depth) => {
-		if (!isObject(node) || depth > 10 || ++nodes > 200) return `${path} must be a schema object within the depth and size limits`;
-		const nullable = Array.isArray(node.type) && node.type.length === 2 && node.type.includes("null") && node.type.filter((value) => value !== "null").length === 1;
-		const type = nullable ? node.type.find((value) => value !== "null") : node.type;
-		if (![
-			"object",
-			"array",
-			"string",
-			"number",
-			"integer",
-			"boolean"
-		].includes(type) || nullable && (type === "object" || type === "array")) return `${path}.type must be object, array, string, number, integer, boolean, or a nullable primitive`;
-		const common = [
-			"type",
-			"description",
-			"title",
-			"enum"
-		];
-		const specific = type === "object" ? [
-			"properties",
-			"required",
-			"additionalProperties"
-		] : type === "array" ? [
-			"items",
-			"minItems",
-			"maxItems"
-		] : type === "string" ? ["minLength", "maxLength"] : type === "number" || type === "integer" ? ["minimum", "maximum"] : [];
-		const unknownKey = Object.keys(node).find((key) => !common.includes(key) && !specific.includes(key));
-		if (unknownKey) return `${path}.${unknownKey} is not supported`;
-		if (node.description !== void 0 && typeof node.description !== "string") return `${path}.description must be a string`;
-		if (node.title !== void 0 && typeof node.title !== "string") return `${path}.title must be a string`;
-		if (node.enum !== void 0 && (type === "object" || type === "array" || !Array.isArray(node.enum) || node.enum.length === 0 || node.enum.some((value) => value === null && nullable ? false : type === "integer" ? !Number.isInteger(value) : typeof value !== type))) return `${path}.enum must contain values of the declared primitive type`;
-		if (type === "object") {
-			if (!isObject(node.properties) || node.additionalProperties !== false) return `${path} needs properties and additionalProperties: false`;
-			const keys = Object.keys(node.properties);
-			if (keys.length > 50 || keys.some((key) => [
-				"__proto__",
-				"prototype",
-				"constructor"
-			].includes(key))) return `${path}.properties has too many or reserved keys`;
-			if (!Array.isArray(node.required) || node.required.some((key) => typeof key !== "string" || !keys.includes(key)) || new Set(node.required).size !== node.required.length) return `${path}.required must list unique declared properties`;
-			for (const key of keys) {
-				const error = visit(node.properties[key], `${path}.properties.${key}`, depth + 1);
-				if (error) return error;
-			}
-		} else if (type === "array") {
-			if (!isObject(node.items)) return `${path}.items must be a schema object`;
-			for (const key of ["minItems", "maxItems"]) if (node[key] !== void 0 && (!Number.isInteger(node[key]) || node[key] < 0 || node[key] > 100)) return `${path}.${key} must be an integer between 0 and 100`;
-			if (typeof node.minItems === "number" && typeof node.maxItems === "number" && node.minItems > node.maxItems) return `${path}.minItems must not exceed maxItems`;
-			return visit(node.items, `${path}.items`, depth + 1);
-		} else {
-			const bounds = type === "string" ? ["minLength", "maxLength"] : ["minimum", "maximum"];
-			for (const key of bounds) if (node[key] !== void 0 && (typeof node[key] !== "number" || !Number.isFinite(node[key]) || type === "string" && (!Number.isInteger(node[key]) || node[key] < 0))) return `${path}.${key} must be a valid number`;
-			const [minKey, maxKey] = bounds;
-			if (typeof node[minKey] === "number" && typeof node[maxKey] === "number" && node[minKey] > node[maxKey]) return `${path}.${minKey} must not exceed ${maxKey}`;
-		}
-		return null;
-	};
-	return visit(schema, "outputContract.schema", 0);
-}
-function outputContractResultSchema(input) {
-	if (!isObject(input) || !isObject(input.outputContract) || input.outputContract.version !== 1 || validateOutputContractSchema(input.outputContract.schema)) return null;
-	return Unsafe(input.outputContract.schema);
-}
-//#endregion
 //#region ../../libs/runtime-profiles/src/context.ts
 /**
 * How an executor delivers a context entry to its underlying LLM.
@@ -7145,6 +7058,51 @@ var ContextRef = _Object_({
 var TaskContext = _Array_(ContextRef, {
 	$id: "TaskContext",
 	maxItems: 5
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/conversations.ts
+var id = String$1({ pattern: "^[1-9][0-9]*$" });
+var json = Record(String$1(), Unknown());
+var ConversationMessage = _Object_({
+	id: String$1(),
+	entryId: Union([id, Null()]),
+	entryKind: String$1(),
+	inherited: Boolean$1(),
+	status: Union([
+		Literal("completed"),
+		Literal("streaming"),
+		Literal("interrupted"),
+		Literal("failed")
+	]),
+	/** Pi's already assembled user/assistant/toolResult message; never storage operations. */
+	message: json
+});
+var ConversationSummary = _Object_({
+	conversationId: id,
+	parentConversationId: Union([id, Null()]),
+	kind: Union([Literal("main"), Literal("subagent")])
+});
+_Object_({ items: _Array_(ConversationSummary) });
+var ConversationSnapshot = _Object_({
+	conversationId: id,
+	cursor: String$1(),
+	attemptStatus: String$1(),
+	messages: _Array_(ConversationMessage),
+	nextBeforeEntryId: Union([id, Null()]),
+	/** Persisted tool progress, retry/deferred state and compaction status from pi.live. */
+	live: json
+});
+_Object_({
+	id: String$1({ format: "uuid" }),
+	n: Integer({ minimum: 1 }),
+	conversationId: id
+});
+_Object_({
+	beforeEntryId: Optional(id),
+	limit: Optional(Integer({
+		minimum: 1,
+		maximum: 100
+	}))
 });
 //#endregion
 //#region ../../libs/runtime-profiles/src/runtime-models.ts
@@ -8563,11 +8521,7 @@ var RuntimeProfileMaxBashTimeouts = Integer({
 	minimum: 0,
 	maximum: 1e3
 });
-_Object_({
-	id: String$1({ format: "uuid" }),
-	teamId: String$1({ format: "uuid" }),
-	name: RuntimeProfileName,
-	description: Union([String$1({ maxLength: 4096 }), Null()]),
+var RuntimeProfileModelSelection = _Object_({
 	provider: String$1({
 		minLength: 1,
 		maxLength: 100
@@ -8575,12 +8529,29 @@ _Object_({
 	model: String$1({
 		minLength: 1,
 		maxLength: 200
-	}),
-	thinkingLevel: RuntimeProfileNullableThinkingLevel,
-	temperature: RuntimeProfileNullableTemperature,
-	topP: RuntimeProfileNullableTopP,
-	topK: RuntimeProfileNullableTopK,
-	maxOutputTokens: RuntimeProfileNullableMaxOutputTokens,
+	})
+}, { additionalProperties: false });
+var RuntimeProfileGeneration = _Object_({
+	...RuntimeProfileModelSelection.properties,
+	thinkingLevel: Optional(RuntimeProfileNullableThinkingLevel),
+	temperature: Optional(RuntimeProfileNullableTemperature),
+	topP: Optional(RuntimeProfileNullableTopP),
+	topK: Optional(RuntimeProfileNullableTopK),
+	maxOutputTokens: Optional(RuntimeProfileNullableMaxOutputTokens)
+}, { additionalProperties: false });
+var RuntimeProfileModels = _Object_({
+	generation: Optional(RuntimeProfileGeneration),
+	classification: Optional(RuntimeProfileModelSelection)
+}, {
+	additionalProperties: false,
+	minProperties: 1
+});
+_Object_({
+	id: String$1({ format: "uuid" }),
+	teamId: String$1({ format: "uuid" }),
+	name: RuntimeProfileName,
+	description: Union([String$1({ maxLength: 4096 }), Null()]),
+	models: RuntimeProfileModels,
 	runtimeKind: RuntimeProfileRuntimeKind,
 	sandbox: RuntimeProfileSandbox,
 	defaultWorkspaceMode: Union([RuntimeProfileWorkspaceMode, Null()]),
@@ -8801,6 +8772,551 @@ _Object_({
 	$id: "ListRuntimeSlotsQuery",
 	additionalProperties: false
 });
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-stores.ts
+var uuid = String$1({ format: "uuid" });
+var integer = Integer({
+	minimum: 0,
+	maximum: Number.MAX_SAFE_INTEGER
+});
+var strict$1 = { additionalProperties: false };
+var RuntimeStoreAuthority = _Object_({
+	taskId: uuid,
+	attemptN: Integer({ minimum: 1 }),
+	leaseId: uuid,
+	executorFingerprint: String$1({ minLength: 1 })
+}, {
+	$id: "RuntimeStoreAuthority",
+	...strict$1
+});
+var RuntimeStoreWriter = _Object_({
+	...RuntimeStoreAuthority.properties,
+	writerToken: uuid
+}, {
+	$id: "RuntimeStoreWriter",
+	...strict$1
+});
+_Object_({
+	storeId: uuid,
+	format: Literal("pi-durable.v1"),
+	headSeq: integer,
+	writerToken: uuid,
+	writerExpiresAt: String$1({ format: "date-time" })
+}, {
+	$id: "RuntimeStoreHandle",
+	...strict$1
+});
+_Object_({ storeId: uuid }, strict$1);
+_Object_({
+	...RuntimeStoreWriter.properties,
+	commitId: uuid,
+	expectedSeq: integer,
+	writes: _Array_(Record(String$1(), Unknown()))
+}, {
+	$id: "AppendRuntimeStoreCommit",
+	...strict$1
+});
+var RuntimeStoreCommit = _Object_({
+	seq: integer,
+	commitId: uuid,
+	sha256: String$1({ pattern: "^[0-9a-f]{64}$" }),
+	writes: _Array_(Record(String$1(), Unknown()))
+}, {
+	$id: "RuntimeStoreCommit",
+	...strict$1
+});
+_Object_({ seq: integer }, strict$1);
+_Object_({ id: integer }, strict$1);
+_Object_({
+	afterSeq: Optional(integer),
+	limit: Optional(Integer({
+		minimum: 1,
+		maximum: 100
+	}))
+}, strict$1);
+_Object_({
+	taskId: uuid,
+	attemptN: Integer({ minimum: 1 })
+}, strict$1);
+var RuntimeStoreInfo = _Object_({
+	storeId: uuid,
+	format: Literal("pi-durable.v1"),
+	headSeq: integer
+}, {
+	$id: "RuntimeStoreInfo",
+	...strict$1
+});
+Union([RuntimeStoreInfo, Null()]);
+//#endregion
+//#region ../../libs/sdk/src/namespaces/runtime-sessions.ts
+function createRuntimeSessionsNamespace(context) {
+	const { client, auth } = context;
+	const request = (options) => ({
+		client,
+		auth,
+		signal: options.signal,
+		headers: requiredTeamHeaders(options)
+	});
+	const retryRequest = (options) => ({
+		...request(options),
+		fetch: createRetryFetch$1({
+			baseFetch: client.getConfig().fetch ?? globalThis.fetch,
+			retryMethods: ["GET", "POST"],
+			retryStatuses: [
+				408,
+				500,
+				502,
+				503,
+				504
+			],
+			maxRetries: 3,
+			baseDelay: 250,
+			maxDelay: 1e3
+		})
+	});
+	return {
+		async getDurableForAttempt(taskId, attemptN, options) {
+			return unwrapResult(await getRuntimeStoreForAttempt({
+				...request(options),
+				query: {
+					taskId,
+					attemptN
+				}
+			}));
+		},
+		async open(body, options) {
+			return unwrapResult(await openRuntimeStore({
+				...request(options),
+				body
+			}));
+		},
+		async renew(storeId, body, options) {
+			return unwrapResult(await renewRuntimeStore({
+				...retryRequest(options),
+				path: { storeId },
+				body
+			}));
+		},
+		async release(storeId, body, options) {
+			const result = await releaseRuntimeStore({
+				...request(options),
+				path: { storeId },
+				body
+			});
+			if (result.error) unwrapResult(result);
+		},
+		async mintId(storeId, body, options) {
+			return unwrapResult(await mintRuntimeStoreId({
+				...request(options),
+				path: { storeId },
+				body
+			}));
+		},
+		async append(storeId, body, options) {
+			return unwrapResult(await appendRuntimeStoreCommit({
+				...retryRequest(options),
+				path: { storeId },
+				body
+			}));
+		},
+		async read(storeId, afterSeq, options) {
+			const body = unwrapResult(await client.request({
+				...retryRequest(options),
+				method: "GET",
+				parseAs: "stream",
+				security: [{
+					scheme: "bearer",
+					type: "http"
+				}],
+				url: "/runtime-sessions/durable/{storeId}/commits",
+				path: { storeId },
+				query: { afterSeq }
+			}));
+			const stream = body instanceof Readable ? body : body instanceof ReadableStream ? Readable.fromWeb(body) : null;
+			if (!stream) throw invalidStoreResponse();
+			const lines = storeLines(stream);
+			try {
+				const first = await lines.next();
+				if (first.done) throw invalidStoreResponse();
+				const header = JSON.parse(first.value);
+				if (!Number.isSafeInteger(header.headSeq) || header.headSeq < afterSeq || !Number.isSafeInteger(header.count) || header.count < 0 || header.count > 100 || header.count > header.headSeq - afterSeq) throw invalidStoreResponse();
+				async function* items() {
+					let count = 0;
+					try {
+						for await (const line of lines) {
+							const commit = JSON.parse(line);
+							if (!Check(RuntimeStoreCommit, commit) || commit.seq !== afterSeq + count + 1 || count >= header.count) throw invalidStoreResponse();
+							count++;
+							yield commit;
+						}
+						if (count !== header.count) throw invalidStoreResponse();
+					} finally {
+						stream.destroy();
+					}
+				}
+				return {
+					headSeq: header.headSeq,
+					items: items(),
+					close: () => stream.destroy()
+				};
+			} catch (error) {
+				await lines.return(void 0);
+				stream.destroy();
+				throw error;
+			}
+		},
+		async getForAttempt(path, options) {
+			try {
+				return unwrapResult(await getRuntimeSession({
+					...request(options),
+					path
+				}));
+			} catch (err) {
+				if (err instanceof MoltNetError && err.statusCode === 404) return null;
+				throw err;
+			}
+		},
+		async upload(path, body, query, options) {
+			return unwrapResult(await uploadRuntimeSession({
+				...request(options),
+				body,
+				client,
+				duplex: "half",
+				headers: {
+					...requiredTeamHeaders(options),
+					"content-type": "application/octet-stream"
+				},
+				path,
+				query
+			}));
+		},
+		async download(path, options) {
+			const stream = unwrapResult(await client.request({
+				...request(options),
+				method: "GET",
+				parseAs: "stream",
+				path,
+				security: [{
+					scheme: "bearer",
+					type: "http"
+				}],
+				url: "/runtime-sessions/{taskId}/{attemptN}/content"
+			}));
+			if (stream instanceof Readable) return stream;
+			if (stream instanceof ReadableStream) return Readable.fromWeb(stream);
+			throw new MoltNetError("Unexpected runtime session download response stream", { code: "INVALID_RESPONSE" });
+		}
+	};
+}
+function invalidStoreResponse() {
+	return new MoltNetError("Invalid or incomplete runtime store stream", { code: "INVALID_RESPONSE" });
+}
+/** Bound unfinished records and preserve UTF-8 across arbitrary network chunks. */
+async function* storeLines(stream) {
+	const decoder = new TextDecoder("utf-8", { fatal: true });
+	let pending = "";
+	try {
+		for await (const chunk of stream) {
+			pending += decoder.decode(chunk, { stream: true });
+			let newline;
+			while ((newline = pending.indexOf("\n")) !== -1) {
+				if (newline > 2097152) throw invalidStoreResponse();
+				const line = pending.slice(0, newline);
+				pending = pending.slice(newline + 1);
+				yield line;
+			}
+			if (pending.length > 2097152) throw invalidStoreResponse();
+		}
+		pending += decoder.decode();
+		if (pending.length) throw invalidStoreResponse();
+	} finally {
+		stream.destroy();
+	}
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/runtime-slots.ts
+function createRuntimeSlotsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async begin(body, options) {
+			return unwrapResult(await beginRuntimeSlot({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async finish(body, options) {
+			return unwrapResult(await finishRuntimeSlot({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async findLatestForAttempt(query, options) {
+			try {
+				return unwrapResult(await findLatestRuntimeSlotForAttempt({
+					client,
+					auth,
+					headers: requiredTeamHeaders(options),
+					query
+				}));
+			} catch (err) {
+				if (err instanceof MoltNetError && err.statusCode === 404) return null;
+				throw err;
+			}
+		},
+		async list(query, options) {
+			return unwrapResult(await listRuntimeSlots({
+				auth,
+				client,
+				headers: requiredTeamHeaders(options),
+				query: stripUndefinedQuery(query)
+			})).items;
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/signing-credentials.ts
+function createSigningCredentialsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(query, options) {
+			return unwrapResult(await listSigningCredentials({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				query
+			}));
+		},
+		async get(id, options) {
+			return unwrapResult(await getSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		},
+		async startRegistration(body, options) {
+			return unwrapResult(await beginSigningCredentialRegistration({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async completeRegistration(id, body, options) {
+			return unwrapResult(await completeSigningCredentialRegistration({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		},
+		async approve(id, options) {
+			return unwrapResult(await approveSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		},
+		async suspend(id, options) {
+			return unwrapResult(await suspendSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		},
+		async revoke(id, options) {
+			return unwrapResult(await revokeSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/signing-requests.ts
+function createSigningRequestsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(query) {
+			return unwrapResult(await listSigningRequests({
+				client,
+				auth,
+				query
+			}));
+		},
+		async create(body) {
+			return unwrapResult(await createSigningRequest({
+				client,
+				auth,
+				body
+			}));
+		},
+		async get(id) {
+			return unwrapResult(await getSigningRequest({
+				client,
+				auth,
+				path: { id }
+			}));
+		},
+		async submit(id, body) {
+			return unwrapResult(await submitSignature({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async claim(id, body, options) {
+			return unwrapResult(await claimSigningRequest({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		},
+		async complete(id, body, options) {
+			return unwrapResult(await completeSigningRequest({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		},
+		async reject(id, body, options) {
+			return unwrapResult(await rejectSigningRequest({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/task-grants.ts
+function createTaskGrantsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(taskId, body, options) {
+			return unwrapResult(await createTaskGrant({
+				client,
+				auth,
+				path: { id: taskId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async list(taskId, options) {
+			return unwrapResult(await listTaskGrants({
+				client,
+				auth,
+				path: { id: taskId },
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async revoke(taskId, body, options) {
+			return unwrapResult(await revokeTaskGrant({
+				client,
+				auth,
+				path: { id: taskId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/tasks/src/output-contract-schema.ts
+function isObject(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Reject unsupported or oversized task-supplied schemas before execution. */
+function validateOutputContractSchema(schema) {
+	if (!isObject(schema) || schema.type !== "object") return "outputContract.schema must be a JSON Schema object with type \"object\"";
+	let encoded;
+	try {
+		encoded = JSON.stringify(schema);
+	} catch {
+		return "outputContract.schema must be JSON serializable";
+	}
+	if (encoded.length > 16384) return "outputContract.schema must be at most 16 KiB";
+	let nodes = 0;
+	const visit = (node, path, depth) => {
+		if (!isObject(node) || depth > 10 || ++nodes > 200) return `${path} must be a schema object within the depth and size limits`;
+		const nullable = Array.isArray(node.type) && node.type.length === 2 && node.type.includes("null") && node.type.filter((value) => value !== "null").length === 1;
+		const type = nullable ? node.type.find((value) => value !== "null") : node.type;
+		if (![
+			"object",
+			"array",
+			"string",
+			"number",
+			"integer",
+			"boolean"
+		].includes(type) || nullable && (type === "object" || type === "array")) return `${path}.type must be object, array, string, number, integer, boolean, or a nullable primitive`;
+		const common = [
+			"type",
+			"description",
+			"title",
+			"enum"
+		];
+		const specific = type === "object" ? [
+			"properties",
+			"required",
+			"additionalProperties"
+		] : type === "array" ? [
+			"items",
+			"minItems",
+			"maxItems"
+		] : type === "string" ? ["minLength", "maxLength"] : type === "number" || type === "integer" ? ["minimum", "maximum"] : [];
+		const unknownKey = Object.keys(node).find((key) => !common.includes(key) && !specific.includes(key));
+		if (unknownKey) return `${path}.${unknownKey} is not supported`;
+		if (node.description !== void 0 && typeof node.description !== "string") return `${path}.description must be a string`;
+		if (node.title !== void 0 && typeof node.title !== "string") return `${path}.title must be a string`;
+		if (node.enum !== void 0 && (type === "object" || type === "array" || !Array.isArray(node.enum) || node.enum.length === 0 || node.enum.some((value) => value === null && nullable ? false : type === "integer" ? !Number.isInteger(value) : typeof value !== type))) return `${path}.enum must contain values of the declared primitive type`;
+		if (type === "object") {
+			if (!isObject(node.properties) || node.additionalProperties !== false) return `${path} needs properties and additionalProperties: false`;
+			const keys = Object.keys(node.properties);
+			if (keys.length > 50 || keys.some((key) => [
+				"__proto__",
+				"prototype",
+				"constructor"
+			].includes(key))) return `${path}.properties has too many or reserved keys`;
+			if (!Array.isArray(node.required) || node.required.some((key) => typeof key !== "string" || !keys.includes(key)) || new Set(node.required).size !== node.required.length) return `${path}.required must list unique declared properties`;
+			for (const key of keys) {
+				const error = visit(node.properties[key], `${path}.properties.${key}`, depth + 1);
+				if (error) return error;
+			}
+		} else if (type === "array") {
+			if (!isObject(node.items)) return `${path}.items must be a schema object`;
+			for (const key of ["minItems", "maxItems"]) if (node[key] !== void 0 && (!Number.isInteger(node[key]) || node[key] < 0 || node[key] > 100)) return `${path}.${key} must be an integer between 0 and 100`;
+			if (typeof node.minItems === "number" && typeof node.maxItems === "number" && node.minItems > node.maxItems) return `${path}.minItems must not exceed maxItems`;
+			return visit(node.items, `${path}.items`, depth + 1);
+		} else {
+			const bounds = type === "string" ? ["minLength", "maxLength"] : ["minimum", "maximum"];
+			for (const key of bounds) if (node[key] !== void 0 && (typeof node[key] !== "number" || !Number.isFinite(node[key]) || type === "string" && (!Number.isInteger(node[key]) || node[key] < 0))) return `${path}.${key} must be a valid number`;
+			const [minKey, maxKey] = bounds;
+			if (typeof node[minKey] === "number" && typeof node[maxKey] === "number" && node[minKey] > node[maxKey]) return `${path}.${minKey} must not exceed ${maxKey}`;
+		}
+		return null;
+	};
+	return visit(schema, "outputContract.schema", 0);
+}
+function outputContractResultSchema(input) {
+	if (!isObject(input) || !isObject(input.outputContract) || input.outputContract.version !== 1 || validateOutputContractSchema(input.outputContract.schema)) return null;
+	return Unsafe(input.outputContract.schema);
+}
 //#endregion
 //#region ../../libs/tasks/src/rubric.ts
 /**
@@ -9666,6 +10182,92 @@ async function validateAssessBriefInputAsync(input, ctx) {
 	return errors;
 }
 //#endregion
+//#region ../../libs/tasks/src/task-types/classify.ts
+var CLASSIFY_TYPE = "classify";
+var text = String$1({ minLength: 1 });
+var probability = Number$1({
+	minimum: 0,
+	maximum: 1
+});
+var strict = { additionalProperties: false };
+var ClassificationQuestion = Union([
+	_Object_({
+		type: Literal("choice"),
+		instructions: text,
+		criteria: Record(text, text, { minProperties: 2 })
+	}, strict),
+	_Object_({
+		type: Literal("score"),
+		instructions: text,
+		criteria: _Array_(text, { minItems: 2 })
+	}, strict),
+	_Object_({
+		type: Literal("bool"),
+		instructions: text,
+		criteria: _Object_({
+			true: text,
+			false: text
+		}, strict)
+	}, strict)
+]);
+var ClassifyInput = _Object_({
+	version: Literal(1),
+	state: Record(String$1(), Unknown()),
+	questions: Record(text, ClassificationQuestion, { minProperties: 1 })
+}, {
+	$id: "ClassifyInput",
+	...strict
+});
+var ClassificationAnswer = Union([
+	_Object_({
+		type: Literal("choice"),
+		choice: text,
+		probabilities: Record(text, probability),
+		confidence: probability
+	}, strict),
+	_Object_({
+		type: Literal("score"),
+		score: Number$1({ minimum: 0 }),
+		confidence: probability
+	}, strict),
+	_Object_({
+		type: Literal("bool"),
+		probability
+	}, strict)
+]);
+var ClassifyOutput = _Object_({
+	version: Literal(1),
+	provider: text,
+	model: text,
+	answers: Record(text, ClassificationAnswer),
+	usage: Optional(_Object_({
+		inputTokens: Integer({ minimum: 0 }),
+		outputTokens: Integer({ minimum: 0 })
+	}, strict))
+}, {
+	$id: "ClassifyOutput",
+	...strict
+});
+/** Runs after structural validation, on both executor and server. */
+function validateClassifyOutput(output, input) {
+	if (!input) return "Classification requires its question contract";
+	const { questions } = input;
+	const { answers } = output;
+	if (Object.keys(questions).length !== Object.keys(answers).length) return "Classification must answer exactly the requested questions";
+	for (const [key, question] of Object.entries(questions)) {
+		const answer = answers[key];
+		if (!answer || answer.type !== question.type) return `Invalid answer type for ${key}`;
+		if (question.type === "choice" && answer.type === "choice") {
+			const choices = Object.keys(question.criteria);
+			if (!choices.includes(answer.choice) || choices.length !== Object.keys(answer.probabilities).length || choices.some((choice) => !Object.hasOwn(answer.probabilities, choice))) return `Invalid choices for ${key}`;
+			const sum = Object.values(answer.probabilities).reduce((a, b) => a + b, 0);
+			if (Math.abs(sum - 1) > .001) return `Probabilities must sum to one for ${key}`;
+		}
+		if (question.type === "score" && answer.type === "score" && answer.score > question.criteria.length - 1) return `Score out of range for ${key}`;
+	}
+	return null;
+}
+//#endregion
 //#region ../../libs/tasks/src/task-types/curate-pack.ts
 /**
 * `curate_pack` — select and rank diary entries into a context pack.
@@ -10455,6 +11057,15 @@ function requireVerificationWhenCriteriaPresent(output, input) {
 * / claiming a task.
 */
 var BUILT_IN_TASK_TYPES = {
+	[CLASSIFY_TYPE]: {
+		name: CLASSIFY_TYPE,
+		inputSchema: ClassifyInput,
+		outputSchema: ClassifyOutput,
+		outputKind: "artifact",
+		sessionScope: "none",
+		requiresReferences: false,
+		validateOutput: validateClassifyOutput
+	},
 	[FREEFORM_TYPE]: {
 		name: FREEFORM_TYPE,
 		inputSchema: FreeformInput,
@@ -11950,6 +12561,61 @@ function createTasksNamespace(context) {
 		return teamId ? requiredTeamHeaders({ teamId }) : void 0;
 	};
 	return {
+		conversations: {
+			async list(id, n, options) {
+				return unwrapResult(await listTaskConversations({
+					client,
+					auth,
+					path: {
+						id,
+						n
+					},
+					headers: requiredTeamHeaders(options),
+					signal: options.signal
+				}));
+			},
+			async get(id, n, conversationId, options, query) {
+				return unwrapResult(await getTaskConversation({
+					client,
+					auth,
+					path: {
+						id,
+						n,
+						conversationId
+					},
+					headers: requiredTeamHeaders(options),
+					signal: options.signal,
+					query
+				}));
+			},
+			async *watch(id, n, conversationId, options) {
+				const cancellation = new AbortController();
+				const signal = options.signal ? AbortSignal.any([options.signal, cancellation.signal]) : cancellation.signal;
+				try {
+					const { stream } = await watchTaskConversation({
+						client,
+						auth,
+						path: {
+							id,
+							n,
+							conversationId
+						},
+						headers: requiredTeamHeaders(options),
+						signal,
+						sseMaxRetryAttempts: 1,
+						onSseError(error) {
+							throw error;
+						}
+					});
+					for await (const snapshot of stream) {
+						if (!Check(ConversationSnapshot, snapshot)) throw new Error("Invalid conversation snapshot");
+						yield snapshot;
+					}
+				} finally {
+					cancellation.abort();
+				}
+			}
+		},
 		async schemas() {
 			return unwrapResult(await listTaskSchemas({
 				client,

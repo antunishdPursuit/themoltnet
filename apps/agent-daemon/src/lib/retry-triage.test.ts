@@ -112,6 +112,15 @@ describe('retry triage classification', () => {
     ).toBe('non_retryable');
   });
 
+  it('classifies the bash-timeout cap non-retryable', () => {
+    expect(
+      classifyDeterministically({
+        code: 'max_bash_timeouts_exceeded',
+        message: 'Aborted after 3 bash timeouts in this attempt (cap 3).',
+      }),
+    ).toBe('non_retryable');
+  });
+
   it('classifies max-turn caps non-retryable without LLM triage', async () => {
     let called = false;
     const result = await classifyAttemptFailure({

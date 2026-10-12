@@ -13,13 +13,18 @@ const profile = {
   teamId: 'team-1',
   runtimeKind: 'gondolin_pi',
   definitionCid: 'bafkreiprofile',
-  provider: 'anthropic',
-  model: 'claude-sonnet-4-5',
-  thinkingLevel: 'high' as const,
-  temperature: 0.2,
-  topP: 0.9,
-  topK: 40,
-  maxOutputTokens: 12_000,
+  models: {
+    generation: {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      thinkingLevel: 'high' as const,
+      temperature: 0.2,
+      topP: 0.9,
+      topK: 40,
+      maxOutputTokens: 12_000,
+    },
+  },
+
   maxTurns: 30,
   maxBashTimeouts: 2,
   defaultWorkspaceMode: 'dedicated_worktree' as const,
@@ -69,18 +74,24 @@ describe('resolveRuntimeProfile', () => {
 
     expect(get).toHaveBeenCalledWith(profile.id);
     expect(result).toEqual({
+      toolEnforcement: undefined,
       id: profile.id,
       name: profile.name,
       teamId: 'team-1',
       runtimeKind: 'gondolin_pi',
       definitionCid: 'bafkreiprofile',
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-5',
-      thinkingLevel: 'high',
-      temperature: 0.2,
-      topP: 0.9,
-      topK: 40,
-      maxOutputTokens: 12_000,
+      models: {
+        generation: {
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5',
+          thinkingLevel: 'high',
+          temperature: 0.2,
+          topP: 0.9,
+          topK: 40,
+          maxOutputTokens: 12_000,
+        },
+      },
+
       maxTurns: 30,
       maxBashTimeouts: 2,
       defaultWorkspaceMode: 'dedicated_worktree',

@@ -1,8 +1,9 @@
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   applyPiModelOptions,
-  createPiModelOptionsExtension,
+  configureDurableModelOptions,
 } from './model-options-extension.js';
 
 describe('applyPiModelOptions', () => {
@@ -117,62 +118,36 @@ describe('applyPiModelOptions', () => {
       applyPiModelOptions({ model: 'gpt-5.2', messages: [] }, {}),
     ).toBeUndefined();
   });
+});
 
-  it('omits unsupported Codex options and warns once per session', () => {
-    let beforeRequest: (event: { payload: unknown }) => unknown;
-    const warn = vi.fn();
-    createPiModelOptionsExtension(
-      { maxOutputTokens: 4000, temperature: 0.2 },
-      'openai-codex',
-      'gpt-5.6-terra',
-      warn,
-    )({
-      on: (_event: string, handler: (event: { payload: unknown }) => unknown) =>
-        (beforeRequest = handler),
-    } as never);
-
-    const payload = { model: 'gpt-5.6-terra', input: [] };
-    expect(beforeRequest!({ payload })).toBeUndefined();
-    expect(beforeRequest!({ payload })).toBeUndefined();
-    expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        option: 'maxOutputTokens',
-        provider: 'openai-codex',
-        model: 'gpt-5.6-terra',
-      }),
-      expect.any(String),
-    );
+it('applies profile sampling to Durable provider payloads while preserving an existing transform', async () => {
+  const stream = vi.fn();
+  const models = { streamSimple: stream } as unknown as ModelRuntime;
+  const warn = vi.fn();
+  configureDurableModelOptions(
+    models,
+    { temperature: 0.2, topP: 0.9, topK: 40, maxOutputTokens: 4000 },
+    'ollama-cloud',
+    'gpt-oss:120b',
+    warn,
+  );
+  const model = { provider: 'ollama-cloud', id: 'gpt-oss:120b' };
+  models.streamSimple(model as never, {} as never, {
+    onPayload: () => ({ model: 'gpt-oss:120b', messages: [], existing: true }),
   });
-
-  it('keeps supported Ollama sampling and output caps while warning about top-k', () => {
-    let beforeRequest: (event: { payload: unknown }) => unknown;
-    const warn = vi.fn();
-    createPiModelOptionsExtension(
-      { temperature: 0.2, topP: 0.9, topK: 40, maxOutputTokens: 4000 },
-      'ollama-cloud',
-      'gpt-oss:120b',
-      warn,
-    )({
-      on: (_event: string, handler: (event: { payload: unknown }) => unknown) =>
-        (beforeRequest = handler),
-    } as never);
-
-    expect(
-      beforeRequest!({
-        payload: { model: 'gpt-oss:120b', messages: [] },
-      }),
-    ).toEqual({
-      model: 'gpt-oss:120b',
-      messages: [],
-      temperature: 0.2,
-      top_p: 0.9,
-      max_tokens: 4000,
-    });
-    expect(warn).toHaveBeenCalledOnce();
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({ option: 'topK', provider: 'ollama-cloud' }),
-      expect.any(String),
-    );
+  const request = stream.mock.calls[0][2] as {
+    onPayload: (payload: unknown, model: unknown) => Promise<unknown>;
+  };
+  expect(await request.onPayload({}, model)).toEqual({
+    model: 'gpt-oss:120b',
+    messages: [],
+    existing: true,
+    temperature: 0.2,
+    top_p: 0.9,
+    max_tokens: 4000,
   });
+  expect(warn).toHaveBeenCalledWith(
+    expect.objectContaining({ option: 'topK' }),
+    expect.any(String),
+  );
 });

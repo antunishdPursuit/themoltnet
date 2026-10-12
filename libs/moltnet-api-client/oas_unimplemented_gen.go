@@ -51,6 +51,13 @@ func (UnimplementedHandler) AddGroupMember(ctx context.Context, req *AddGroupMem
 	return r, ht.ErrNotImplemented
 }
 
+// AppendRuntimeStoreCommit implements appendRuntimeStoreCommit operation.
+//
+// POST /runtime-sessions/durable/{storeId}/commits
+func (UnimplementedHandler) AppendRuntimeStoreCommit(ctx context.Context, req *AppendRuntimeStoreCommitReq, params AppendRuntimeStoreCommitParams) (r AppendRuntimeStoreCommitRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // AppendTaskMessages implements appendTaskMessages operation.
 //
 // Append messages to a task attempt.
@@ -712,6 +719,13 @@ func (UnimplementedHandler) GetRuntimeSession(ctx context.Context, params GetRun
 	return r, ht.ErrNotImplemented
 }
 
+// GetRuntimeStoreForAttempt implements getRuntimeStoreForAttempt operation.
+//
+// GET /runtime-sessions/durable/attempt
+func (UnimplementedHandler) GetRuntimeStoreForAttempt(ctx context.Context, params GetRuntimeStoreForAttemptParams) (r GetRuntimeStoreForAttemptRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // GetSigningCredential implements getSigningCredential operation.
 //
 // GET /crypto/signing-credentials/{id}
@@ -744,6 +758,13 @@ func (UnimplementedHandler) GetTask(ctx context.Context, params GetTaskParams) (
 //
 // GET /tasks/analytics/activity
 func (UnimplementedHandler) GetTaskActivityAnalytics(ctx context.Context, params GetTaskActivityAnalyticsParams) (r GetTaskActivityAnalyticsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// GetTaskConversation implements getTaskConversation operation.
+//
+// GET /tasks/{id}/attempts/{n}/conversations/{conversationId}
+func (UnimplementedHandler) GetTaskConversation(ctx context.Context, params GetTaskConversationParams) (r GetTaskConversationRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -952,6 +973,13 @@ func (UnimplementedHandler) ListRuntimeSlots(ctx context.Context, params ListRun
 	return r, ht.ErrNotImplemented
 }
 
+// ListRuntimeStoreCommits implements listRuntimeStoreCommits operation.
+//
+// GET /runtime-sessions/durable/{storeId}/commits
+func (UnimplementedHandler) ListRuntimeStoreCommits(ctx context.Context, params ListRuntimeStoreCommitsParams) (r ListRuntimeStoreCommitsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ListSigningCredentials implements listSigningCredentials operation.
 //
 // GET /crypto/signing-credentials
@@ -983,6 +1011,13 @@ func (UnimplementedHandler) ListTaskArtifacts(ctx context.Context, params ListTa
 //
 // GET /tasks/{id}/attempts
 func (UnimplementedHandler) ListTaskAttempts(ctx context.Context, params ListTaskAttemptsParams) (r ListTaskAttemptsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// ListTaskConversations implements listTaskConversations operation.
+//
+// GET /tasks/{id}/attempts/{n}/conversations
+func (UnimplementedHandler) ListTaskConversations(ctx context.Context, params ListTaskConversationsParams) (r ListTaskConversationsRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1047,6 +1082,20 @@ func (UnimplementedHandler) ListTeamMembers(ctx context.Context, params ListTeam
 //
 // GET /teams
 func (UnimplementedHandler) ListTeams(ctx context.Context, params ListTeamsParams) (r ListTeamsRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// MintRuntimeStoreId implements mintRuntimeStoreId operation.
+//
+// POST /runtime-sessions/durable/{storeId}/ids
+func (UnimplementedHandler) MintRuntimeStoreId(ctx context.Context, req *MintRuntimeStoreIdReq, params MintRuntimeStoreIdParams) (r MintRuntimeStoreIdRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// OpenRuntimeStore implements openRuntimeStore operation.
+//
+// POST /runtime-sessions/durable/open
+func (UnimplementedHandler) OpenRuntimeStore(ctx context.Context, req *OpenRuntimeStoreReq, params OpenRuntimeStoreParams) (r OpenRuntimeStoreRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1123,6 +1172,13 @@ func (UnimplementedHandler) RejectTransfer(ctx context.Context, params RejectTra
 	return r, ht.ErrNotImplemented
 }
 
+// ReleaseRuntimeStore implements releaseRuntimeStore operation.
+//
+// POST /runtime-sessions/durable/{storeId}/release
+func (UnimplementedHandler) ReleaseRuntimeStore(ctx context.Context, req *ReleaseRuntimeStoreReq, params ReleaseRuntimeStoreParams) (r ReleaseRuntimeStoreRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // RemoveGroupMember implements removeGroupMember operation.
 //
 // Remove a member from a group. Requires manage_members permission.
@@ -1148,6 +1204,13 @@ func (UnimplementedHandler) RemoveTeamMember(ctx context.Context, params RemoveT
 //
 // POST /packs/{id}/render
 func (UnimplementedHandler) RenderContextPack(ctx context.Context, req *RenderContextPackReq, params RenderContextPackParams) (r RenderContextPackRes, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// RenewRuntimeStore implements renewRuntimeStore operation.
+//
+// POST /runtime-sessions/durable/{storeId}/renew
+func (UnimplementedHandler) RenewRuntimeStore(ctx context.Context, req *RenewRuntimeStoreReq, params RenewRuntimeStoreParams) (r RenewRuntimeStoreRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

@@ -17,6 +17,10 @@ type AddGroupMemberRes interface {
 	addGroupMemberRes()
 }
 
+type AppendRuntimeStoreCommitRes interface {
+	appendRuntimeStoreCommitRes()
+}
+
 type AppendTaskMessagesRes interface {
 	appendTaskMessagesRes()
 }
@@ -293,6 +297,10 @@ type GetRuntimeSessionRes interface {
 	getRuntimeSessionRes()
 }
 
+type GetRuntimeStoreForAttemptRes interface {
+	getRuntimeStoreForAttemptRes()
+}
+
 type GetSigningCredentialRes interface {
 	getSigningCredentialRes()
 }
@@ -303,6 +311,10 @@ type GetSigningRequestRes interface {
 
 type GetTaskActivityAnalyticsRes interface {
 	getTaskActivityAnalyticsRes()
+}
+
+type GetTaskConversationRes interface {
+	getTaskConversationRes()
 }
 
 type GetTaskRes interface {
@@ -393,6 +405,10 @@ type ListRuntimeSlotsRes interface {
 	listRuntimeSlotsRes()
 }
 
+type ListRuntimeStoreCommitsRes interface {
+	listRuntimeStoreCommitsRes()
+}
+
 type ListSigningCredentialsRes interface {
 	listSigningCredentialsRes()
 }
@@ -407,6 +423,10 @@ type ListTaskArtifactsRes interface {
 
 type ListTaskAttemptsRes interface {
 	listTaskAttemptsRes()
+}
+
+type ListTaskConversationsRes interface {
+	listTaskConversationsRes()
 }
 
 type ListTaskGrantsRes interface {
@@ -435,6 +455,14 @@ type ListTeamMembersRes interface {
 
 type ListTeamsRes interface {
 	listTeamsRes()
+}
+
+type MintRuntimeStoreIdRes interface {
+	mintRuntimeStoreIdRes()
+}
+
+type OpenRuntimeStoreRes interface {
+	openRuntimeStoreRes()
 }
 
 type PreviewDiaryCustomPackRes interface {
@@ -469,6 +497,10 @@ type RejectTransferRes interface {
 	rejectTransferRes()
 }
 
+type ReleaseRuntimeStoreRes interface {
+	releaseRuntimeStoreRes()
+}
+
 type RemoveGroupMemberRes interface {
 	removeGroupMemberRes()
 }
@@ -479,6 +511,10 @@ type RemoveTeamMemberRes interface {
 
 type RenderContextPackRes interface {
 	renderContextPackRes()
+}
+
+type RenewRuntimeStoreRes interface {
+	renewRuntimeStoreRes()
 }
 
 type RequestRecoveryChallengeRes interface {

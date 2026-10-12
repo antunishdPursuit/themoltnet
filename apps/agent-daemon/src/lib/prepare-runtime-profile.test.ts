@@ -22,13 +22,18 @@ const profile = {
   teamId: 'bbbbbbbb-0000-4000-8000-000000000002',
   runtimeKind: 'gondolin_pi',
   definitionCid: 'bafyprofile',
-  provider: 'anthropic',
-  model: 'claude-sonnet-4-5',
-  thinkingLevel: null,
-  temperature: null,
-  topP: null,
-  topK: null,
-  maxOutputTokens: null,
+  models: {
+    generation: {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      thinkingLevel: null,
+      temperature: null,
+      topP: null,
+      topK: null,
+      maxOutputTokens: null,
+    },
+  },
+
   maxTurns: 20,
   maxBashTimeouts: 3,
   defaultWorkspaceMode: null,
@@ -79,10 +84,7 @@ function prepare(
     runtimeAdapter,
     runtimeInstanceId: 'worker-1',
     signingPrivateKey: 'unused-by-mock',
-    slotRegistry: {} as never,
-    runtimeSessionStore: {} as never,
     sourceAttemptResolver: {} as never,
-    warmRetentionSec: 1800,
   });
 }
 

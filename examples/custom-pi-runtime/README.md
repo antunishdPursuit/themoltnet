@@ -287,9 +287,14 @@ the runtime kind and capability requirements unchanged:
   "allowedWorkspaceModes": ["none"],
   "defaultWorkspaceMode": "none",
   "description": "Disposable profile for the custom Pi runtime smoke test.",
-  "model": "kimi-k2.7-code:cloud",
+  "models": {
+    "generation": {
+      "model": "kimi-k2.7-code:cloud",
+      "provider": "ollama-cloud"
+    }
+  },
   "name": "custom-pi-github-reader-smoke",
-  "provider": "ollama-cloud",
+
   "requiredEnv": [],
   "requiredExecutables": ["git", "node", "npm"],
   "requiredTools": ["github_issue_read"],
@@ -449,3 +454,8 @@ After the task reaches a terminal state:
 The five-minute profile TTL expires its local runtime session automatically.
 Do not delete `.pi` wholesale: this example has tracked `.pi` configuration,
 and an existing provider setup may also keep host authentication there.
+
+The standalone example pins a compatible set of **published** MoltNet and Pi
+packages. Upgrade their versions together after release; changing only Pi's
+peers can install incompatible runtime type definitions. The workspace's Pi
+1.0 pilot is documented in [custom Pi runtimes](../../docs/contribute/custom-pi-runtimes.md).

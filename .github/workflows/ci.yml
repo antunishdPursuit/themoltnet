@@ -431,7 +431,7 @@ jobs:
             echo "e2e-node=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # The agent-daemon Core lane also runs the live Gondolin VM tests,
+          # The agent-daemon Runtime lane also runs the live Gondolin VM tests,
           # including the execution integration boundary.
           if contains "@themoltnet/agent-daemon-e2e" || contains "@themoltnet/sandbox-gondolin" || contains "@moltnet/execution-integrations"; then
             echo "e2e-agent-daemon=true" >> "$GITHUB_OUTPUT"
@@ -1434,7 +1434,7 @@ jobs:
           retention-days: 3
 
   e2e-agent-daemon:
-    name: E2E Tests (Agent Daemon / ${{ matrix.lane.name }})
+    name: E2E Tests (Agent Daemon / ${{ matrix.lane.check_name }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -1444,18 +1444,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Explicit suites keep both live-eval partitions on different runners.
+        # Vitest file sharding put both partitions and VM integration in one job.
+        # Runtime is the catch-all for new suites; the other lanes select files.
         lane:
-          - name: Shard 1
-            configuration: shard-1
-            cache_key: shard-1
+          - name: Runtime
+            check_name: Shard 1
+            configuration: runtime
+            cache_key: runtime
             vm_integration: true
-          - name: Shard 2
-            configuration: shard-2
-            cache_key: shard-2
+          - name: Control
+            check_name: Shard 2
+            configuration: control
+            cache_key: control
             vm_integration: false
-          - name: Shard 3
-            configuration: shard-3
-            cache_key: shard-3
+          - name: Live Evals 1
+            check_name: Live Evals 1
+            configuration: live-evals-0
+            cache_key: live-evals-0
+            vm_integration: false
+          - name: Live Evals 2
+            check_name: Live Evals 2
+            configuration: live-evals-1
+            cache_key: live-evals-1
             vm_integration: false
     env:
       # Per-image: ci-<sha> if affected this run, else the moving :ci-main
@@ -1476,6 +1487,7 @@ jobs:
       ORY_ACTION_API_KEY: local-dev-webhook-key
       MOLTNET_AGENT_DAEMON_LIVE_LLM_E2E: '1'
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     steps:
       - name: Skip if Agent Daemon E2E not affected
         if: needs.affected.outputs.e2e-agent-daemon != 'true'
@@ -1564,6 +1576,21 @@ jobs:
       - name: Docker Compose logs
         if: failure() && needs.affected.outputs.e2e-agent-daemon == 'true'
         run: docker compose -f docker-compose.e2e.yaml logs --tail=50
+
+  # Preserve the third required check while gating every named lane. Shards 1
+  # and 2 above also retain their required check names (Runtime and Control).
+  e2e-agent-daemon-status:
+    name: E2E Tests (Agent Daemon / Shard 3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: [e2e-agent-daemon]
+    if: always()
+    permissions: {}
+    steps:
+      - name: Require all agent-daemon lanes to pass
+        env:
+          RESULT: ${{ needs.e2e-agent-daemon.result }}
+        run: test "$RESULT" = success
 
   e2e-browser:
     name: E2E Tests (Browser)

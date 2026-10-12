@@ -432,14 +432,22 @@ func runTaskTailCmd(opts taskTailOpts) error {
 	if opts.format != "human" && opts.format != "json" {
 		return fmt.Errorf("--format: unsupported value %q (one of: human, json)", opts.format)
 	}
-	if opts.intervalSec < 1 {
-		return fmt.Errorf("--interval must be >= 1, got %d", opts.intervalSec)
+	if err := validatePollInterval(opts.intervalSec); err != nil {
+		return err
 	}
 	client, err := newAuthenticatedClient(opts.apiURL, opts.credPath, opts.teamID)
 	if err != nil {
 		return err
 	}
 	return runTaskTailWithClient(context.Background(), client, opts)
+}
+
+// validatePollInterval checks a polling --interval in seconds.
+func validatePollInterval(sec int) error {
+	if sec < 1 {
+		return fmt.Errorf("--interval must be >= 1, got %d", sec)
+	}
+	return nil
 }
 
 // runTaskTailWithClient is the testable inner loop. The cobra wrapper
@@ -531,10 +539,8 @@ func runTaskTailWithClient(ctx context.Context, client *moltnetapi.Client, opts 
 			return nil
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(interval):
+		if err := retrySleep(ctx, interval); err != nil {
+			return err
 		}
 	}
 }
@@ -543,6 +549,9 @@ func runTaskTailWithClient(ctx context.Context, client *moltnetapi.Client, opts 
 // Returns the attempt number as an int (the wire schema uses float64 for
 // historical reasons; we coerce on the boundary).
 func resolveAttempt(ctx context.Context, client *moltnetapi.Client, taskID uuid.UUID, teamID moltnetapi.OptUUID, requested int) (int, error) {
+	if requested < 0 {
+		return 0, fmt.Errorf("--attempt must be >= 1, got %d", requested)
+	}
 	if requested > 0 {
 		return requested, nil
 	}

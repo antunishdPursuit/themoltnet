@@ -1,13 +1,15 @@
 import { executionCapabilityOfferFromPiManifest } from '@moltnet/execution-integrations/pi';
 import {
   agentSigningCapability,
+  buildPiClassifierExecutorManifest,
   buildPiExecutorManifest,
-  createPiTaskExecutor,
+  createGondolinDurableTaskExecutor,
   defineGondolinTemplate,
   definePiRuntime,
   GONDOLIN_BASE_EXECUTABLES,
   GONDOLIN_TOOL_NAMES,
   MOLTNET_TOOL_NAMES,
+  type PiExecutorManifest,
   type PiRuntimeDefinition,
 } from '@themoltnet/pi-runtime';
 
@@ -47,37 +49,69 @@ export function createPiDaemonAdapter(
             `but this daemon adapter provides "${runtime.runtimeKind}".`,
         );
       }
-      const resolvedTemplate = await resolveTemplate(input.onProgress);
-      const manifest = await buildPiExecutorManifest({
-        runtime,
-        profile: input.profile,
-        template: resolvedTemplate,
-        builtInToolNames: PI_KERNEL_TOOL_NAMES,
-      });
-      const extensionTools = runtime.extensions.flatMap(
-        (extension) => extension.declaredTools,
-      );
+      if (
+        runtime.extensions.some(
+          (extension) => extension.kind !== 'durable_extension',
+        )
+      ) {
+        throw new Error(
+          'Migrate coding-agent session extensions to definePiExtension({ extension: nativeDurableExtension })',
+        );
+      }
+      const builtInToolNames = [
+        ...(input.profile.models.generation ? PI_KERNEL_TOOL_NAMES : []),
+        ...(input.profile.models.generation &&
+        input.profile.models.classification
+          ? ['classify']
+          : []),
+      ];
+      const resolvedTemplate = input.profile.models.generation
+        ? await resolveTemplate(input.onProgress)
+        : null;
+      let manifest: PiExecutorManifest;
+      if (resolvedTemplate) {
+        manifest = await buildPiExecutorManifest({
+          runtime,
+          profile: input.profile,
+          template: resolvedTemplate,
+          builtInToolNames,
+        });
+      } else if (input.profile.models.classification) {
+        manifest = buildPiClassifierExecutorManifest({
+          runtime,
+          profile: input.profile,
+          classifier: input.profile.models.classification,
+        });
+      } else {
+        throw new Error('Runtime profile has no model configured');
+      }
+      const extensionTools = resolvedTemplate
+        ? runtime.extensions.flatMap((extension) => extension.declaredTools)
+        : [];
       const prepared: PreparedDaemonRuntime = {
         runtimeKind: runtime.runtimeKind,
-        manifest: manifest as unknown as Record<string, unknown>,
+        manifest: {
+          ...manifest,
+          durability: {
+            format: 'pi-durable.v1',
+            recovery: 'same-agent-valid-lease',
+            workspace: 'persistent-mount',
+          },
+        },
         tools: [
-          ...PI_KERNEL_TOOL_NAMES,
-          ...runtime.tools.map((tool) => tool.descriptor.name),
+          ...builtInToolNames,
+          ...(resolvedTemplate
+            ? runtime.tools.map((tool) => tool.descriptor.name)
+            : []),
           ...extensionTools,
         ],
-        executables: resolvedTemplate.executables,
+        executables: resolvedTemplate?.executables ?? [],
         createTaskExecutor: (options) =>
-          createPiTaskExecutor({
+          createGondolinDurableTaskExecutor({
             ...options,
-            sandboxConfig: {
-              ...options.sandboxConfig,
-              // VM construction and resume provisioning are operator-owned.
-              // Never execute legacy profile-supplied provisioning fields.
-              snapshot: undefined,
-              resumeCommands: undefined,
-            },
             runtimeDefinition: runtime,
-            resolvedVmTemplate: resolvedTemplate,
+            template: resolvedTemplate,
+            runtimeKind: runtime.runtimeKind,
           }),
       };
       registerRuntimeExecutionOffer(prepared, (executorFingerprint) =>
@@ -92,7 +126,7 @@ export function createPiDaemonAdapter(
 
 export const defaultPiRuntimeDefinition = definePiRuntime({
   id: 'moltnet-default-pi',
-  version: '1',
+  version: '2',
   vm: defineGondolinTemplate({
     id: 'moltnet-default-gondolin',
     version: '1',

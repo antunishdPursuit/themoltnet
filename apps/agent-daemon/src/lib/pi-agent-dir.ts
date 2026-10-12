@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { ProviderFailureProfileContext } from '@themoltnet/pi-runtime';
+import type { RuntimeProfileModels } from '@moltnet/runtime-profiles';
 import {
   parseSecretReferenceString,
   type SecretProviderRegistry,
@@ -30,8 +30,7 @@ import {
   resolveAgentServerRoot,
 } from './agent-server/store.js';
 
-export type PiAgentDirSource =
-  ProviderFailureProfileContext['piAgentDirSource'];
+export type PiAgentDirSource = 'env' | 'store' | 'repo';
 
 export interface PiAgentDir {
   path: string;
@@ -50,7 +49,12 @@ export interface ResolvePiAgentDirOptions {
 }
 
 interface PiModelsDocument {
-  providers: Record<string, { models?: Array<{ id: string }> }>;
+  providers: Record<
+    string,
+    {
+      models?: Array<{ id: string; type?: string }>;
+    }
+  >;
 }
 
 /**
@@ -68,7 +72,7 @@ export async function resolvePiAgentDir(
     'piCodingAgentDir' | 'agentServerRoot' | 'profilePrerequisiteEnv'
   >,
   agentRoot: string,
-  profiles: ReadonlyArray<{ provider: string }>,
+  profiles: ReadonlyArray<{ models: RuntimeProfileModels }>,
   options: ResolvePiAgentDirOptions = {},
 ): Promise<PiAgentDir> {
   const noop = () => undefined;
@@ -128,7 +132,11 @@ export async function resolvePiAgentDir(
         new FileSecretProvider({ root: store.secretsDir }),
       );
     const env: Record<string, string> = {};
-    for (const providerId of new Set(profiles.map((p) => p.provider))) {
+    for (const providerId of new Set(
+      profiles.flatMap((p) =>
+        Object.values(p.models).map((model) => model.provider),
+      ),
+    )) {
       const provider = providers[providerId];
       if (!provider?.apiKeyRef) continue;
       if (cfg.profilePrerequisiteEnv[provider.envName]) continue;
@@ -173,15 +181,28 @@ function mergePiModels(
 ): PiModelsDocument {
   const providers = { ...repo.providers, ...store.providers };
   for (const [id, storeProvider] of Object.entries(store.providers)) {
-    const repoModels = repo.providers[id]?.models ?? [];
-    const known = new Set((storeProvider.models ?? []).map((m) => m.id));
     providers[id] = {
       ...storeProvider,
-      models: [
-        ...(storeProvider.models ?? []),
-        ...repoModels.filter((m) => !known.has(m.id)),
-      ],
+      models: mergeModelEntries(
+        storeProvider.models,
+        repo.providers[id]?.models,
+      ),
     };
   }
   return { providers };
+}
+
+function mergeModelEntries<T extends { id: string; type?: string }>(
+  store: T[] | undefined,
+  repo: T[] | undefined,
+): T[] {
+  const known = new Set(
+    (store ?? []).map((model) => `${model.type ?? 'chat'}:${model.id}`),
+  );
+  return [
+    ...(store ?? []),
+    ...(repo ?? []).filter(
+      (model) => !known.has(`${model.type ?? 'chat'}:${model.id}`),
+    ),
+  ];
 }

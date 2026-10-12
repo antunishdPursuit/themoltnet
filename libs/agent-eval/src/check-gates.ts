@@ -79,6 +79,27 @@ export interface GateArtifactDownload {
  */
 export interface GateAgent {
   tasks: {
+    conversations?: {
+      list(
+        taskId: string,
+        attemptN: number,
+        options: { teamId: string },
+      ): Promise<{ items: Array<{ conversationId: string }> }>;
+      get(
+        taskId: string,
+        attemptN: number,
+        conversationId: string,
+        options: { teamId: string },
+        query?: { beforeEntryId?: string },
+      ): Promise<{
+        messages: Array<{
+          inherited: boolean;
+          entryId: string | null;
+          message: Record<string, unknown>;
+        }>;
+        nextBeforeEntryId: string | null;
+      }>;
+    };
     listMessages(
       taskId: string,
       attemptN: number,
@@ -199,9 +220,10 @@ function finalMessageSubmits(messages: GateTaskMessage[]): {
 function submitCallResults(
   messages: GateTaskMessage[],
   toolName: string,
-): { succeeded: number; failed: number } {
+): { succeeded: number; failed: number; errors: string[] } {
   let succeeded = 0;
   let failed = 0;
+  const errors: string[] = [];
   for (const message of messages) {
     if (
       message.kind !== 'tool_call_end' ||
@@ -211,11 +233,81 @@ function submitCallResults(
     }
     if (message.payload.is_error === true) {
       failed += 1;
+      if (Array.isArray(message.payload.result) && errors.length < 3) {
+        for (const part of message.payload.result as Array<{
+          type?: string;
+          text?: string;
+        }>) {
+          if (errors.length >= 3) break;
+          if (part.type === 'text' && typeof part.text === 'string')
+            errors.push(part.text.slice(0, 500));
+        }
+      }
     } else if (message.payload.is_error === false) {
       succeeded += 1;
     }
   }
-  return { succeeded, failed };
+  return { succeeded, failed, errors };
+}
+
+/** Conversation reads are bounded by the attempt; inherited context is not its evidence. */
+async function durableToolEvents(
+  agent: GateAgent,
+  taskId: string,
+  attemptN: number,
+  teamId: string | undefined,
+): Promise<GateTaskMessage[] | null> {
+  const events: GateTaskMessage[] = [];
+  const reader = agent.tasks.conversations;
+  if (!reader) return null;
+  if (!teamId) throw new Error('Conversation evidence requires a team');
+  const { items } = await reader.list(taskId, attemptN, { teamId });
+  for (const { conversationId } of items) {
+    let beforeEntryId: string | undefined;
+    const cursors = new Set<string>();
+    do {
+      const page = await reader.get(
+        taskId,
+        attemptN,
+        conversationId,
+        { teamId },
+        { beforeEntryId },
+      );
+      for (const item of page.messages) {
+        if (item.inherited || item.entryId === null) continue;
+        const message = item.message;
+        if (message.role === 'assistant' && Array.isArray(message.content)) {
+          for (const part of message.content as Array<{
+            type?: string;
+            name?: string;
+          }>) {
+            if (part.type === 'toolCall' && typeof part.name === 'string')
+              events.push({
+                kind: 'tool_call_start',
+                payload: { tool_name: part.name },
+              });
+          }
+        } else if (
+          message.role === 'toolResult' &&
+          typeof message.toolName === 'string'
+        ) {
+          events.push({
+            kind: 'tool_call_end',
+            payload: {
+              tool_name: message.toolName,
+              is_error: message.isError === true,
+              result: message.content,
+            },
+          });
+        }
+      }
+      beforeEntryId = page.nextBeforeEntryId ?? undefined;
+      if (beforeEntryId && cursors.has(beforeEntryId))
+        throw new Error('Conversation pagination did not advance');
+      if (beforeEntryId) cursors.add(beforeEntryId);
+    } while (beforeEntryId);
+  }
+  return events;
 }
 
 /** Decode an artifact byte stream to text, capped so a hostile large upload
@@ -266,7 +358,28 @@ export async function checkGates(
     schemaName,
     responseField,
   } = TASK_TYPE_OUTPUT[expected.taskType ?? 'run_eval'];
-  const messages = await listAllMessages(agent, taskId, attemptN);
+  let messages = await listAllMessages(agent, taskId, attemptN);
+  try {
+    const evidence = await durableToolEvents(
+      agent,
+      taskId,
+      attemptN,
+      expected.teamId,
+    );
+    if (evidence !== null) {
+      // Operational tool progress mirrors the committed results. Count the
+      // authoritative history once, preserving distinct repeated tool calls.
+      messages = messages.filter(
+        ({ kind }) => kind !== 'tool_call_start' && kind !== 'tool_call_end',
+      );
+      messages.push(...evidence);
+    }
+  } catch (error) {
+    failures.push({
+      gate: 'runtime_evidence',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // Gate: a prompt_build_failure short-circuits everything else.
   const buildError = messages.find(
@@ -375,7 +488,7 @@ export async function checkGates(
     if (submitCalls.failed > 0) {
       failures.push({
         gate: 'submit_clean',
-        detail: `${submitToolName} had ${submitCalls.failed} invalid call(s)`,
+        detail: `${submitToolName} had ${submitCalls.failed} invalid call(s)${submitCalls.errors.length ? `: ${submitCalls.errors.join(' | ')}` : ''}`,
       });
     }
     if (finalMessage.invalid > 0) {

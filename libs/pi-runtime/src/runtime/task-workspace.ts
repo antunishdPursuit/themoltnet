@@ -23,10 +23,20 @@ export interface PreparedTaskWorkspace {
   cleanup: () => void;
 }
 
+export interface PrepareTaskWorkspaceOptions {
+  /**
+   * Resume work in the workspace a previous run of the same attempt prepared.
+   * The workspace must still exist; it is never seeded, reset or checked
+   * against the planned revision, because the agent may have changed it.
+   */
+  reuseExisting?: boolean;
+}
+
 export function prepareTaskWorkspace(
   task: ClaimedTask['task'],
   requestedMountPath: string,
   executionPlan: PiTaskExecutionPlan | null,
+  { reuseExisting = false }: PrepareTaskWorkspaceOptions = {},
 ): PreparedTaskWorkspace {
   const branch = executionPlan?.worktreeBranch ?? null;
   const revision = executionPlan?.workspaceRevision ?? null;
@@ -47,6 +57,18 @@ export function prepareTaskWorkspace(
   if (workspaceMode === 'scratch_mount') {
     const workspaceId = executionPlan?.workspaceId ?? `task-${task.id}`;
     const scratchDir = resolveTaskScratchPath(requestedMountPath, workspaceId);
+    if (reuseExisting) {
+      if (!existsSync(scratchDir))
+        throw new Error(`Scratch workspace is missing: ${scratchDir}`);
+      return {
+        mountPath: scratchDir,
+        cwdPath: scratchDir,
+        mode: 'scratch_mount',
+        branch: null,
+        revision: null,
+        cleanup: () => {},
+      };
+    }
     const keepWorkspace =
       executionPlan?.workspaceScope === 'session' &&
       executionPlan.sessionKey !== null;
@@ -77,7 +99,7 @@ export function prepareTaskWorkspace(
   }
 
   if (workspaceMode === 'shared_mount') {
-    if (revision) {
+    if (revision && !reuseExisting) {
       assertWorkspaceRevision(requestedMountPath, revision);
     }
     return {
@@ -109,6 +131,18 @@ export function prepareTaskWorkspace(
     executionPlan.sessionKey !== null;
 
   const baseRefOverride = executionPlan?.worktreeBaseRef ?? null;
+  if (reuseExisting) {
+    if (!isRegisteredWorktree(mainRepo, worktreeDir))
+      throw new Error(`Task worktree is missing: ${worktreeDir}`);
+    return {
+      mountPath: mainRepo,
+      cwdPath,
+      mode: 'dedicated_worktree',
+      branch,
+      revision,
+      cleanup: () => {},
+    };
+  }
   if (revision) {
     if (keepWorkspace) {
       ensureReusableRevisionWorktree(mainRepo, worktreeDir, revision);

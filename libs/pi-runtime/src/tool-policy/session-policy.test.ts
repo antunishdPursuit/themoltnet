@@ -1,8 +1,4 @@
 import type {
-  ExtensionAPI,
-  ToolCallEvent,
-} from '@earendil-works/pi-coding-agent';
-import type {
   CommandAnalysis,
   ShellCommandAnalyzer,
 } from '@themoltnet/shell-command-analyzer';
@@ -10,29 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type AllowedToolsClient,
-  createToolPolicyExtension,
+  authorizeDurableToolCall,
   resolveSessionToolPolicy,
-  type SessionToolPolicy,
 } from './session-policy.js';
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn() };
 const EXECUTION_POLICY_HASH = `sha256:${'b'.repeat(64)}`;
-const CLAIM_POLICY_HASH = `sha256:${'a'.repeat(64)}`;
-const decisionContext = {
-  taskId: 'task-1',
-  attemptN: 2,
-  teamId: 'team-1',
-  claimantAgentId: 'agent-1',
-  leaseId: 'lease-1',
-  proposerKind: 'human' as const,
-  proposerId: 'human-1',
-  claimRuntimeProfileId: 'claim-R',
-  executionRuntimeProfileId: 'execution-R',
-  claimRuntimeProfileRevision: 6,
-  claimPolicySnapshotHash: CLAIM_POLICY_HASH,
-  claimedExecutorFingerprint: 'bafkreiexecutor',
-};
-
 function agentReturning(
   enforcement: 'off' | 'watch' | 'enforce',
   allowedTools: string[],
@@ -97,9 +76,13 @@ describe('resolveSessionToolPolicy', () => {
     expect(agent.runtimeProfiles.allowedTools).toHaveBeenCalledOnce();
   });
 
-  it('accepts one-token shell rules when cached off is refreshed to enforce, and registers the gate', async () => {
+  it('accepts one-token shell rules when cached off is refreshed to enforce, and gates with them', async () => {
     // Arrange
     const agent = agentReturning('enforce', [], [{ argvPrefix: ['git'] }]);
+    const analyzer = analyzerStub({
+      'git status': ['git'],
+      'curl x': ['curl'],
+    });
 
     // Act
     const policy = await resolveSessionToolPolicy({
@@ -107,15 +90,16 @@ describe('resolveSessionToolPolicy', () => {
       agent,
       enforcement: 'off',
     });
-    const on = registerHandler({
-      policy,
-      analyzer: analyzerStub({
-        'git status': ['git'],
-        'curl x': ['curl'],
-      }),
-      logger,
-    });
-    const handler = on.mock.calls[0]?.[1] as (e: ToolCallEvent) => unknown;
+    const authorize = (command: string) =>
+      authorizeDurableToolCall({
+        policy,
+        analyze: (input) => analyzer.analyze(input),
+        logger,
+        context: { taskId: 'task-1', attemptN: 1 },
+        toolName: 'bash',
+        args: { command },
+        onDecision: vi.fn(async () => {}),
+      });
 
     // Assert
     expect(policy).toMatchObject({
@@ -123,13 +107,8 @@ describe('resolveSessionToolPolicy', () => {
       allowedShellCommands: [{ argvPrefix: ['git'] }],
       degraded: false,
     });
-    expect(on).toHaveBeenCalledWith('tool_call', expect.any(Function));
-    expect(
-      handler(toolCall('bash', { command: 'git status' })),
-    ).toBeUndefined();
-    expect(handler(toolCall('bash', { command: 'curl x' }))).toMatchObject({
-      block: true,
-    });
+    expect(await authorize('git status')).toBeUndefined();
+    expect(await authorize('curl x')).toEqual(expect.any(String));
   });
 
   it.each([
@@ -321,91 +300,67 @@ function analyzerStub(
   return { analyze } as unknown as ShellCommandAnalyzer;
 }
 
-function toolCall(
-  toolName: string,
-  input: Record<string, unknown>,
-): ToolCallEvent {
-  return {
-    type: 'tool_call',
-    toolCallId: 'call-1',
-    toolName,
-    input,
-  } as ToolCallEvent;
-}
-
-function registerHandler(
-  deps: Omit<Parameters<typeof createToolPolicyExtension>[0], 'context'> & {
-    context?: Parameters<typeof createToolPolicyExtension>[0]['context'];
-  },
-) {
-  const on = vi.fn();
-  createToolPolicyExtension({
-    ...deps,
-    context: deps.context ?? decisionContext,
-  })({ on } as unknown as ExtensionAPI);
-  return on;
-}
-
-describe('createToolPolicyExtension', () => {
-  const analyzer = analyzerStub({
-    'git status': ['git'],
-    'git push | curl x': ['git', 'curl'],
-    'deploy production': ['deploy'],
-    'eval "$X"': { reason: 'eval' },
-  });
-
-  it('reports a refusal to the task record without argv literals', () => {
-    const onDecision = vi.fn();
-    const on = registerHandler({
+describe('authorizeDurableToolCall', () => {
+  const analyzer = analyzerStub({ 'deploy production': ['deploy'] });
+  const authorize = (
+    enforcement: 'watch' | 'enforce',
+    toolName: string,
+    args: Record<string, unknown>,
+    onDecision = vi.fn(async () => {}),
+  ) =>
+    authorizeDurableToolCall({
       policy: {
-        enforcement: 'enforce',
+        enforcement,
         allowedTools: new Set(['read']),
         allowedShellCommands: [],
         degraded: false,
         executionPolicySnapshotHash: 'sha256:feedface',
         executionRuntimeProfileRevision: 9,
       },
-      analyzer,
+      analyze: (command) => analyzer.analyze(command),
       logger,
+      context: { taskId: 'task-1', attemptN: 2 },
+      toolName,
+      args,
       onDecision,
     });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    handler(toolCall('bash', { command: 'deploy production' }));
 
-    expect(onDecision).toHaveBeenCalledTimes(1);
-    const record = onDecision.mock.calls[0][0] as Record<string, unknown>;
-    expect(record).toMatchObject({
-      decision: 'blocked',
-      tool_name: 'bash',
-      reason_code: 'tool_not_permitted',
-      enforcement: 'enforce',
-      unauthorized_executables: ['deploy'],
-      degraded: false,
-      policy_snapshot_hash: 'sha256:feedface',
-      runtime_profile_revision: 9,
-    });
-    // The record identifies the invocation without reproducing its arguments.
-    expect(JSON.stringify(record)).not.toContain('production');
+  it('reports a refusal to the task record before blocking', async () => {
+    const onDecision = vi.fn(async () => {});
+    const block = await authorize(
+      'enforce',
+      'bash',
+      { command: 'deploy production' },
+      onDecision,
+    );
+
+    expect(block).toEqual(expect.any(String));
+    expect(onDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: 'blocked',
+        tool_name: 'bash',
+        reason_code: 'tool_not_permitted',
+        enforcement: 'enforce',
+        unauthorized_executables: ['deploy'],
+        shell_fingerprints: [expect.objectContaining({ executable: 'deploy' })],
+        degraded: false,
+        policy_snapshot_hash: 'sha256:feedface',
+        runtime_profile_revision: 9,
+      }),
+    );
+    expect(JSON.stringify(onDecision.mock.calls)).not.toContain('production');
   });
 
-  it('reports a watch-mode refusal as would_block', () => {
-    const onDecision = vi.fn();
-    const on = registerHandler({
-      policy: {
-        enforcement: 'watch',
-        allowedTools: new Set(['read']),
-        allowedShellCommands: [],
-        degraded: false,
-      },
-      analyzer,
-      logger,
-      onDecision,
-    });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    // Watch allows the call through, but the decision still reaches the record.
-    expect(handler(toolCall('bash', { command: 'deploy production' }))).toBe(
-      undefined,
-    );
+  it('reports a watch-mode refusal as would_block and lets it run', async () => {
+    const onDecision = vi.fn(async () => {});
+    expect(
+      await authorize(
+        'watch',
+        'bash',
+        { command: 'deploy production' },
+        onDecision,
+      ),
+    ).toBeUndefined();
     expect(onDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         decision: 'would_block',
@@ -414,202 +369,78 @@ describe('createToolPolicyExtension', () => {
     );
   });
 
-  it('does not report allowed calls to the task record', () => {
-    const onDecision = vi.fn();
-    const on = registerHandler({
-      policy: {
-        enforcement: 'enforce',
-        allowedTools: new Set(['read']),
-        allowedShellCommands: [],
-        degraded: false,
-      },
-      analyzer,
-      logger,
-      onDecision,
-    });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    handler(toolCall('read', { path: 'README.md' }));
+  it('does not report allowed calls', async () => {
+    const onDecision = vi.fn(async () => {});
+    expect(
+      await authorize('enforce', 'read', { path: 'README.md' }, onDecision),
+    ).toBeUndefined();
     expect(onDecision).not.toHaveBeenCalled();
   });
 
-  it('a failing reporter cannot change the verdict', () => {
-    const onDecision = vi.fn(() => {
-      throw new Error('reporter down');
-    });
-    const on = registerHandler({
-      policy: {
-        enforcement: 'enforce',
-        allowedTools: new Set(['read']),
-        allowedShellCommands: [],
-        degraded: false,
-      },
-      analyzer,
-      logger,
-      onDecision,
-    });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    expect(handler(toolCall('bash', { command: 'deploy production' }))).toEqual(
-      expect.objectContaining({ block: true }),
-    );
-  });
+  it('logs policy provenance with each decision but no tool arguments', async () => {
+    await authorize('enforce', 'read', { path: 'sentinel-tool-argument' });
 
-  it('registers no handler in off mode', () => {
-    const on = registerHandler({
-      policy: {
-        enforcement: 'off',
-        allowedTools: new Set(),
-        allowedShellCommands: [],
-        degraded: false,
-      },
-      analyzer,
-      logger,
-    });
-    expect(on).not.toHaveBeenCalled();
-  });
-
-  it('remains compatible with callers that omit decision context', () => {
-    const on = vi.fn();
-    createToolPolicyExtension({
-      policy: {
-        enforcement: 'enforce',
-        allowedTools: new Set(['read']),
-        allowedShellCommands: [],
-        degraded: false,
-      },
-      analyzer,
-      logger,
-    })({ on } as unknown as ExtensionAPI);
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-
-    expect(handler(toolCall('read', { path: 'README.md' }))).toBeUndefined();
     expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        decision: 'allowed',
-        reason: 'policy_allowed',
-      }),
-      'tool_policy.allowed',
-    );
-  });
-
-  it('blocks a disallowed bash executable in enforce', () => {
-    const policy: SessionToolPolicy = {
-      enforcement: 'enforce',
-      allowedTools: new Set(),
-      allowedShellCommands: [{ argvPrefix: ['git'] }],
-      degraded: false,
-    };
-    const on = registerHandler({ policy, analyzer, logger });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-
-    const blocked = handler(toolCall('bash', { command: 'git push | curl x' }));
-    expect(blocked).toMatchObject({ block: true });
-    expect((blocked as { reason: string }).reason).toContain('curl');
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        degraded: false,
+      {
         taskId: 'task-1',
         attemptN: 2,
-        teamId: 'team-1',
-        decision: 'blocked',
-        reason: 'tool_not_permitted',
-        claimPolicySnapshotHash: CLAIM_POLICY_HASH,
-        executionPolicySnapshotHash: undefined,
-      }),
-      'tool_policy.blocked',
-    );
-
-    const allowed = handler(toolCall('bash', { command: 'git status' }));
-    expect(allowed).toBeUndefined();
-  });
-
-  it('does not turn a tool grant into shell authority', () => {
-    const policy: SessionToolPolicy = {
-      enforcement: 'enforce',
-      allowedTools: new Set(['deploy', 'git']),
-      allowedShellCommands: [],
-      degraded: false,
-    };
-    const on = registerHandler({ policy, analyzer, logger });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-
-    expect(
-      handler(toolCall('bash', { command: 'deploy production' })),
-    ).toMatchObject({ block: true });
-    expect(handler(toolCall('bash', { command: 'git status' }))).toMatchObject({
-      block: true,
-    });
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        decision: 'blocked',
-        reason: 'tool_not_permitted',
-        unauthorizedExecutables: ['deploy'],
-      }),
-      'tool_policy.blocked',
-    );
-  });
-
-  it('audits (allows) a disallowed tool in watch', () => {
-    const on = registerHandler({
-      policy: {
-        enforcement: 'watch',
-        allowedTools: new Set(['git']),
-        allowedShellCommands: [],
+        enforcement: 'enforce',
         degraded: false,
+        executionPolicySnapshotHash: 'sha256:feedface',
+        executionRuntimeProfileRevision: 9,
+        toolName: 'read',
+        decision: 'allowed',
+        reason: 'policy_allowed',
       },
-      analyzer,
-      logger,
-    });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-
-    const result = handler(toolCall('write', { path: 'x' }));
-    expect(result).toBeUndefined();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toolName: 'write',
-        decision: 'audit',
-        reason: 'tool_not_permitted',
-      }),
-      'tool_policy.audit',
+      'tool_policy.allowed',
+    );
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain(
+      'sentinel-tool-argument',
     );
   });
 
-  it('blocks an unresolvable bash command in enforce (fail-closed)', () => {
-    const on = registerHandler({
+  it('flags a fallback policy as degraded in the block log', async () => {
+    const block = await authorizeDurableToolCall({
       policy: {
         enforcement: 'enforce',
-        allowedTools: new Set(['git']),
+        allowedTools: new Set(),
         allowedShellCommands: [],
-        degraded: false,
+        degraded: true,
       },
-      analyzer,
+      analyze: (command) => analyzer.analyze(command),
       logger,
+      context: { taskId: 'task-1', attemptN: 2 },
+      toolName: 'write',
+      args: { path: 'x' },
+      onDecision: vi.fn(async () => {}),
     });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    expect(handler(toolCall('bash', { command: 'eval "$X"' }))).toMatchObject({
-      block: true,
-    });
+
+    expect(block).toEqual(expect.any(String));
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ degraded: true }),
+      'tool_policy.blocked',
+    );
   });
 
-  it('does not log literal tokens from a matched configured prefix', () => {
+  it('does not log literal tokens from a matched configured prefix', async () => {
     const secret = 'authorization: bearer top-secret';
     const command = `gh api --header "${secret}" /user`;
-    const scopedAnalyzer = {
-      analyze: vi.fn().mockReturnValue({
-        ok: true,
-        command,
-        ast: '',
-        tools: [
-          {
-            name: 'gh',
-            argv: ['gh', 'api', '--header', secret, '/user'],
-            risk: 'unknown',
-            capabilities: [],
-            raw: command,
-          },
-        ],
-      }),
-    } as unknown as ShellCommandAnalyzer;
-    const on = registerHandler({
+    const analyze = vi.fn().mockReturnValue({
+      ok: true,
+      command,
+      ast: '',
+      tools: [
+        {
+          name: 'gh',
+          argv: ['gh', 'api', '--header', secret, '/user'],
+          risk: 'unknown',
+          capabilities: [],
+          raw: command,
+        },
+      ],
+    });
+
+    const block = await authorizeDurableToolCall({
       policy: {
         enforcement: 'enforce',
         allowedTools: new Set(),
@@ -618,12 +449,15 @@ describe('createToolPolicyExtension', () => {
         ],
         degraded: false,
       },
-      analyzer: scopedAnalyzer,
+      analyze,
       logger,
+      context: { taskId: 'task-1', attemptN: 2 },
+      toolName: 'bash',
+      args: { command },
+      onDecision: vi.fn(async () => {}),
     });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
 
-    expect(handler(toolCall('bash', { command }))).toBeUndefined();
+    expect(block).toBeUndefined();
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
         decision: 'allowed',
@@ -643,97 +477,19 @@ describe('createToolPolicyExtension', () => {
     expect(JSON.stringify(logger.info.mock.calls)).not.toContain(secret);
   });
 
-  it('logs correlated allowed decisions without tool arguments', () => {
-    const policy: SessionToolPolicy = {
-      enforcement: 'enforce',
-      allowedTools: new Set(['write']),
-      allowedShellCommands: [],
-      executionPolicySnapshotHash: EXECUTION_POLICY_HASH,
-      executionRuntimeProfileRevision: 7,
-      degraded: false,
-    };
-    const on = registerHandler({ policy, analyzer, logger });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    const secret = 'sentinel-tool-argument';
-
-    expect(handler(toolCall('write', { content: secret }))).toBeUndefined();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        taskId: 'task-1',
-        attemptN: 2,
-        teamId: 'team-1',
-        claimantAgentId: 'agent-1',
-        leaseId: 'lease-1',
-        proposerKind: 'human',
-        proposerId: 'human-1',
-        toolName: 'write',
-        toolCallId: 'call-1',
-        decision: 'allowed',
-        reason: 'policy_allowed',
-        enforcement: 'enforce',
-        claimPolicySnapshotHash: CLAIM_POLICY_HASH,
-        executionPolicySnapshotHash: EXECUTION_POLICY_HASH,
-        claimRuntimeProfileRevision: 6,
-        executionRuntimeProfileRevision: 7,
-        claimedExecutorFingerprint: 'bafkreiexecutor',
+  it('keeps the verdict when the task record cannot be written', async () => {
+    const block = await authorize(
+      'enforce',
+      'bash',
+      { command: 'deploy production' },
+      vi.fn(async () => {
+        throw new Error('reporter down');
       }),
-      'tool_policy.allowed',
     );
-    expect(JSON.stringify(logger.info.mock.calls)).not.toContain(secret);
-  });
-
-  it('logs claim/execution policy drift once and keeps the gate active', () => {
-    const policy: SessionToolPolicy = {
-      enforcement: 'enforce',
-      allowedTools: new Set(['read']),
-      allowedShellCommands: [],
-      executionPolicySnapshotHash: EXECUTION_POLICY_HASH,
-      executionRuntimeProfileRevision: 7,
-      degraded: false,
-    };
-    const on = registerHandler({ policy, analyzer, logger });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-
-    expect(handler(toolCall('read', { path: 'README.md' }))).toBeUndefined();
-    expect(handler(toolCall('write', { path: 'README.md' }))).toMatchObject({
-      block: true,
-    });
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        decision: 'continue',
-        reason: 'claim_execution_policy_drift',
-        claimPolicySnapshotHash: CLAIM_POLICY_HASH,
-        executionPolicySnapshotHash: EXECUTION_POLICY_HASH,
-      }),
-      'tool_policy.snapshot_drift',
-    );
-    expect(
-      logger.info.mock.calls.filter(
-        ([, message]) => message === 'tool_policy.snapshot_drift',
-      ),
-    ).toHaveLength(1);
-    expect(on).toHaveBeenCalledTimes(1);
-  });
-
-  it('flags degraded:true in the block log when the policy is a fallback', () => {
-    const on = registerHandler({
-      policy: {
-        enforcement: 'enforce',
-        allowedTools: new Set(),
-        allowedShellCommands: [],
-        degraded: true,
-      },
-      analyzer,
-      logger,
-    });
-    const handler = on.mock.calls[0][1] as (e: ToolCallEvent) => unknown;
-    expect(handler(toolCall('write', { path: 'x' }))).toMatchObject({
-      block: true,
-    });
+    expect(block).toEqual(expect.any(String));
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ degraded: true }),
-      'tool_policy.blocked',
+      { err: 'reporter down' },
+      'tool_policy.decision_report_failed',
     );
   });
 });

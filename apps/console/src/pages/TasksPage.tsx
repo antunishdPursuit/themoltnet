@@ -51,6 +51,7 @@ import { useDiarySummaries } from '../diaries/hooks.js';
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js';
 import { getTaskStatusQuery, TASK_STATUS_FILTERS } from '../tasks/status.js';
 import { useLaneQueries } from '../tasks/useLaneQueries.js';
+import { useTaskConversations } from '../tasks/useTaskConversations.js';
 import { useTeam } from '../team/useTeam.js';
 
 const PAGE_SIZE = 30;
@@ -207,8 +208,7 @@ export function TasksPage() {
       (runtimeProfilesQuery.data?.items ?? []).map((profile) => ({
         id: profile.id,
         name: profile.name,
-        provider: profile.provider,
-        model: profile.model,
+        models: profile.models,
       })),
     [runtimeProfilesQuery.data],
   );
@@ -372,6 +372,16 @@ export function TasksPage() {
           ? 3_000
           : 1_000
         : false,
+  });
+
+  // Durable attempts keep assistant text and tool results in conversations;
+  // task messages above remain the source of operational events.
+  const selectedConversations = useTaskConversations({
+    client: getApiClient(),
+    teamId: selectedTask?.teamId,
+    taskId: selectedTaskId ?? undefined,
+    attemptN: latestAttempt?.attemptN,
+    attemptStatus: latestAttempt?.status,
   });
 
   function setStatus(next: TaskStatus | undefined) {
@@ -610,6 +620,10 @@ export function TasksPage() {
                       task={selectedTask}
                       attempt={latestAttempt}
                       messages={selectedMessagesQuery.data ?? []}
+                      conversation={selectedConversations.threads}
+                      conversationLoading={selectedConversations.loading}
+                      conversationError={selectedConversations.error}
+                      onRetryConversation={selectedConversations.retry}
                       learnMoreHref={AGENT_DAEMON_DOCS_HREF}
                       presentation="dialog"
                     />

@@ -1,0 +1,835 @@
+import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
+import {
+  createModels,
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxToolCall,
+  Type,
+} from '@earendil-works/pi-ai';
+import {
+  defineExtension,
+  defineTool,
+  type Extension,
+  type ToolRegistration,
+} from '@earendil-works/pi-durable';
+import {
+  type ClaimedTask,
+  createSubagentContractRegistry,
+  TaskExecutionInterrupted,
+  type TaskReporter,
+} from '@themoltnet/agent-runtime';
+import { describe, expect, it, type Mock, vi } from 'vitest';
+
+import { remoteLog } from '../__tests__/durable-log.js';
+import { createDurableTaskExecutor } from './durable-executor.js';
+import { ApiDurableStorage } from './durable-storage.js';
+
+function task(
+  id = 'aaaaaaaa-0000-4000-8000-000000000001',
+  input: object = { brief: 'Do it' },
+): ClaimedTask {
+  return {
+    task: {
+      id,
+      teamId: 'team',
+      taskType: 'freeform',
+      input,
+      inputCid: 'bafy-input',
+    },
+    attemptN: 1,
+    traceHeaders: {},
+  } as ClaimedTask;
+}
+function reporter(): TaskReporter & {
+  record: Mock<TaskReporter['record']>;
+  close: Mock<TaskReporter['close']>;
+} {
+  return {
+    open: vi.fn(),
+    record: vi.fn<TaskReporter['record']>(),
+    finalize: vi.fn(),
+    close: vi.fn<TaskReporter['close']>(),
+    cancelReason: null,
+    cancelSignal: new AbortController().signal,
+  };
+}
+function recorded(events: ReturnType<typeof reporter>) {
+  return events.record.mock.calls.map(([message]) => message);
+}
+function setup(
+  subagents = false,
+  maxTurns?: number,
+  subagentExtensions?: readonly Extension[],
+  overrides: {
+    maxBashTimeouts?: number;
+    tools?: readonly ToolRegistration[];
+  } = {},
+) {
+  const allowed = new Set([
+    'subagent',
+    ...(overrides.tools ?? []).map((tool) => tool.name),
+  ]);
+  const remote = remoteLog();
+  const faux = fauxProvider({ tokensPerSecond: 0 });
+  const models = createModels();
+  models.setProvider(faux.provider);
+  const prepare = vi.fn(async () => ({
+    authorizeTool: vi.fn(async (name: string) =>
+      allowed.has(name) ? undefined : 'blocked',
+    ),
+    ...(overrides.tools ? { tools: overrides.tools } : {}),
+    ...(subagents ? { subagentTools: [] } : {}),
+    subagentExtensions,
+    close: vi.fn(),
+  }));
+  const execute = createDurableTaskExecutor({
+    models,
+    maxTurns,
+    maxBashTimeouts: overrides.maxBashTimeouts,
+    subagentContracts: createSubagentContractRegistry([
+      {
+        name: 'verdict',
+        description: 'Return a verdict',
+        parametersSchema: Type.Object({ verdict: Type.String() }),
+      },
+    ]),
+    model: { provider: faux.provider.id, modelId: faux.models[0].id },
+    open: async (_claimed, signal) => ({
+      storage: await ApiDurableStorage.open(
+        remote.transport,
+        BACKGROUND_CONTEXT,
+      ),
+      signal,
+      check: () => signal.throwIfAborted(),
+      prepare,
+    }),
+  });
+  return { ...remote, faux, execute, prepare };
+}
+/** A `bash` stand-in that fails the way the Durable bash tool does. */
+function failingBash(message: string) {
+  const execute = vi.fn(async (): Promise<never> => {
+    throw new Error(message);
+  });
+  return {
+    execute,
+    tool: defineTool({
+      name: 'bash',
+      description: 'Run a command',
+      parameters: Type.Object({ command: Type.String() }),
+      execute,
+    }),
+  };
+}
+const bashCall = (command: string) =>
+  fauxAssistantMessage(fauxToolCall('bash', { command }), {
+    stopReason: 'toolUse',
+  });
+const submitted = () =>
+  fauxAssistantMessage(
+    fauxToolCall('submit_freeform_output', { summary: 'Done' }),
+    { stopReason: 'toolUse' },
+  );
+
+describe('Durable task integration', () => {
+  it.each([
+    ['503 Service unavailable', 'llm_api_error', true],
+    ['401 Unauthorized', 'llm_auth_error', false],
+    ['400 Unsupported parameter: temperature', 'llm_request_rejected', false],
+  ])(
+    'preserves the terminal provider verdict for %s',
+    async (message, code, retryable) => {
+      vi.useFakeTimers();
+      try {
+        const { faux, execute } = setup();
+        faux.setResponses(
+          Array.from({ length: 20 }, () =>
+            fauxAssistantMessage('', {
+              stopReason: 'error',
+              errorMessage: message,
+            }),
+          ),
+        );
+        const pending = execute(task(), reporter());
+        await vi.runAllTimersAsync();
+        const result = await pending;
+        expect(result.error).toMatchObject({ code, retryable, message });
+        const calls = faux.state.callCount;
+        if (retryable) expect(calls).toBeGreaterThan(1);
+        expect(await execute(task(), reporter())).toEqual(result);
+        expect(faux.state.callCount).toBe(calls);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it('includes submission schema and finality guidance in the model prompt', async () => {
+    const { faux, execute } = setup();
+    let prompt = '';
+    faux.setResponses([
+      (context) => {
+        prompt = context.messages
+          .filter((message) => message.role === 'system')
+          .map((message) =>
+            [message.content, ...Object.values(message.sections ?? {})].join(
+              '\n',
+            ),
+          )
+          .join('\n');
+        return submitted();
+      },
+    ]);
+    expect((await execute(task(), reporter())).status).toBe('completed');
+    expect(prompt).toContain('Agent submission schema:');
+    expect(prompt).toContain('"summary"');
+    expect(prompt).toContain('The first valid submission is final');
+  });
+
+  it('normalizes strict-mode nulls and records submit-gate verification durably', async () => {
+    const { faux, execute } = setup();
+    faux.setResponses([
+      fauxAssistantMessage(
+        fauxToolCall('submit_freeform_output', {
+          summary: 'Done',
+          verification: null,
+        }),
+        { stopReason: 'toolUse' },
+      ),
+    ]);
+    const claimed = task(undefined, {
+      brief: 'Do it',
+      successCriteria: {
+        version: 1,
+        gates: [
+          {
+            id: 'submit-output',
+            kind: 'submit-tool-call',
+            description: 'Submit valid output',
+            required: true,
+          },
+        ],
+      },
+    });
+    const result = await execute(claimed, reporter());
+    expect(result.status).toBe('completed');
+    expect(result.output).toHaveProperty('verification.passed', true);
+    expect(result.output).toHaveProperty('verification.inputCid', 'bafy-input');
+    expect(await execute(claimed, reporter())).toEqual(result);
+    expect(faux.state.callCount).toBe(1);
+  });
+
+  it.each(['raw', 'fenced'])(
+    'accepts %s JSON and persists the normalized submission',
+    async (format) => {
+      const { faux, execute } = setup(false, 1);
+      const json = JSON.stringify({ summary: 'Done', verification: null });
+      faux.setResponses([
+        fauxAssistantMessage(
+          format === 'raw' ? json : '```json\n' + json + '\n```',
+        ),
+      ]);
+      const claimed = task(undefined, {
+        brief: 'Do it',
+        successCriteria: {
+          version: 1,
+          gates: [
+            {
+              id: 'submit-output',
+              kind: 'submit-tool-call',
+              description: 'Submit valid output',
+              required: true,
+            },
+          ],
+        },
+      });
+      const events = reporter();
+      const result = await execute(claimed, events);
+      expect(result.status).toBe('completed');
+      expect(result.output).toHaveProperty('summary', 'Done');
+      expect(result.output).toHaveProperty(
+        'verification.inputCid',
+        'bafy-input',
+      );
+      expect(recorded(events)).toContainEqual({
+        kind: 'info',
+        payload: { event: 'output_completion', output_source: 'final_message' },
+      });
+      expect(
+        recorded(events).some(({ kind }) => kind.startsWith('tool_')),
+      ).toBe(false);
+      expect(await execute(claimed, reporter())).toEqual(result);
+      expect(faux.state.callCount).toBe(1);
+    },
+  );
+
+  it('retries invalid JSON independently of the tool-turn limit and accepts correction', async () => {
+    const { faux, execute } = setup(false, 1);
+    faux.setResponses([
+      fauxAssistantMessage('{"summary":"Done","result":{}}'),
+      (context) => {
+        expect(JSON.stringify(context.messages)).toContain(
+          'invalid final message 1',
+        );
+        return fauxAssistantMessage(
+          '{"summary":"Corrected","result":{"answer":"yes"}}',
+        );
+      },
+    ]);
+    expect(
+      (
+        await execute(
+          task(undefined, {
+            brief: 'Do it',
+            outputContract: {
+              version: 1,
+              schema: {
+                type: 'object',
+                properties: { answer: { type: 'string' } },
+                required: ['answer'],
+                additionalProperties: false,
+              },
+            },
+          }),
+          reporter(),
+        )
+      ).output,
+    ).toHaveProperty('summary', 'Corrected');
+    expect(faux.state.callCount).toBe(2);
+  });
+
+  it.each([
+    '{"summary":"Done","result":{}}',
+    'Here is the output: {"summary":"Done"}',
+    '[{"summary":"Done"}]',
+  ])('bounds rejected final messages: %s', async (text) => {
+    const { faux, execute } = setup(false, 1);
+    faux.setResponses(
+      Array.from({ length: 4 }, () => fauxAssistantMessage(text)),
+    );
+    const claimed = task(undefined, {
+      brief: 'Do it',
+      outputContract: {
+        version: 1,
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+      },
+    });
+    const result = await execute(claimed, reporter());
+    expect(result.status).toBe('failed');
+    expect(result.error?.code).toBe(
+      text.startsWith('{')
+        ? 'output_validation_failed'
+        : 'submit_output_missing',
+    );
+    if (text.startsWith('{'))
+      expect(result.error?.message).toContain('output/result/answer');
+    expect(faux.state.callCount).toBe(4);
+    expect(await execute(claimed, reporter())).toEqual(result);
+    expect(faux.state.callCount).toBe(4);
+  });
+
+  it('reports the durable generation limit when no output was submitted', async () => {
+    const { faux, execute } = setup(false, 2);
+    faux.setResponses([bashCall('pwd'), bashCall('pwd')]);
+    const result = await execute(task(), reporter());
+    expect(result.error?.code).toBe('max_turns_exceeded');
+    expect(faux.state.callCount).toBe(2);
+    expect(await execute(task(), reporter())).toEqual(result);
+  });
+
+  it('ends the attempt once bash timeouts reach the cap', async () => {
+    const bash = failingBash('Command timed out after 5 seconds');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 2,
+      tools: [bash.tool],
+    });
+    faux.setResponses([
+      bashCall('sleep 60'),
+      bashCall('sleep 61'),
+      submitted(),
+    ]);
+    const events = reporter();
+
+    const result = await execute(task(), events);
+
+    expect(bash.execute).toHaveBeenCalledTimes(2);
+    expect(faux.state.callCount).toBe(2);
+    expect(result.status).toBe('failed');
+    expect(result.error).toEqual({
+      code: 'max_bash_timeouts_exceeded',
+      message: 'Aborted after 2 bash timeouts in this attempt (cap 2).',
+      retryable: false,
+    });
+    expect(recorded(events)).toContainEqual({
+      kind: 'error',
+      payload: {
+        phase: 'task_result',
+        code: 'max_bash_timeouts_exceeded',
+        message: 'Aborted after 2 bash timeouts in this attempt (cap 2).',
+      },
+    });
+    expect(await execute(task(), reporter())).toEqual(result);
+  });
+
+  it('counts only bash timeouts toward the cap', async () => {
+    const bash = failingBash('Command exited with code 1');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 1,
+      tools: [bash.tool],
+    });
+    faux.setResponses([bashCall('false'), bashCall('false'), submitted()]);
+
+    const result = await execute(task(), reporter());
+
+    expect(bash.execute).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('completed');
+  });
+
+  it('disables the bash-timeout cap at zero', async () => {
+    const bash = failingBash('Command timed out after 5 seconds');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 0,
+      tools: [bash.tool],
+    });
+    faux.setResponses([
+      bashCall('sleep 60'),
+      bashCall('sleep 61'),
+      bashCall('sleep 62'),
+      bashCall('sleep 63'),
+      submitted(),
+    ]);
+
+    const result = await execute(task(), reporter());
+
+    expect(bash.execute).toHaveBeenCalledTimes(4);
+    expect(result.status).toBe('completed');
+  });
+
+  it('enforces the generation limit inside delegated tool loops', async () => {
+    const { faux, execute } = setup(true, 1);
+    faux.setResponses([
+      fauxAssistantMessage(
+        fauxToolCall('subagent', {
+          task: 'Inspect the change',
+          output_schema: 'verdict',
+        }),
+        { stopReason: 'toolUse' },
+      ),
+      fauxAssistantMessage(
+        fauxToolCall('submit_subagent_output', { verdict: 42 }),
+        { stopReason: 'toolUse' },
+      ),
+    ]);
+    const result = await execute(task(), reporter());
+    expect(result.error?.code).toBe('max_turns_exceeded');
+    expect(faux.state.callCount).toBe(2);
+  });
+
+  it('installs child extensions and guards their tools', async () => {
+    const executeChildTool = vi.fn(async () => ({
+      content: [{ type: 'text' as const, text: 'unreachable' }],
+    }));
+    const extension = defineExtension({
+      name: 'child-probe',
+      tools: [
+        defineTool({
+          name: 'child_probe',
+          description: 'Probe a child tool',
+          parameters: Type.Object({}),
+          replay: 'safe',
+          executionMode: 'sequential',
+          execute: executeChildTool,
+        }),
+      ],
+    });
+    const { faux, execute } = setup(true, undefined, [extension]);
+    faux.setResponses([
+      fauxAssistantMessage(
+        fauxToolCall('subagent', {
+          task: 'Inspect the change',
+          output_schema: 'verdict',
+        }),
+        { stopReason: 'toolUse' },
+      ),
+      fauxAssistantMessage(fauxToolCall('child_probe', {}), {
+        stopReason: 'toolUse',
+      }),
+      fauxAssistantMessage(
+        fauxToolCall('submit_subagent_output', { verdict: 'safe' }),
+        { stopReason: 'toolUse' },
+      ),
+      submitted(),
+    ]);
+
+    expect((await execute(task(), reporter())).status).toBe('completed');
+    expect(executeChildTool).not.toHaveBeenCalled();
+    expect(faux.state.callCount).toBe(4);
+  });
+
+  it('persists the validated output and reconciles a fresh executor without another model call or VM', async () => {
+    const { faux, execute, prepare } = setup();
+    faux.setResponses([submitted()]);
+    const result = await execute(task(), reporter());
+    expect(result.status).toBe('completed');
+    expect(result.output).toEqual({ summary: 'Done' });
+    expect(result.outputCid).toBeTruthy();
+    expect(await execute(task(), reporter())).toEqual(result);
+    expect(faux.state.callCount).toBe(1);
+    expect(prepare).toHaveBeenCalledOnce();
+  });
+  it.each(['extend', 'fork'])(
+    'continues through %s with attempt-local usage and idempotent admission',
+    async (mode) => {
+      const { faux, execute } = setup();
+      faux.setResponses([submitted(), submitted()]);
+      const parent = await execute(task(), reporter());
+      const child = await execute(
+        task('aaaaaaaa-0000-4000-8000-000000000002', {
+          brief: 'Continue',
+          continueFrom: {
+            taskId: 'aaaaaaaa-0000-4000-8000-000000000001',
+            attemptN: 1,
+            mode,
+          },
+        }),
+        reporter(),
+      );
+      expect(parent.status).toBe('completed');
+      expect(child.status).toBe('completed');
+      expect(faux.state.callCount).toBe(2);
+      expect(child.usage.inputTokens).toBeGreaterThan(0);
+    },
+  );
+  it('bounds missing-output reminders and persists failure', async () => {
+    const { faux, execute } = setup();
+    faux.setResponses(
+      Array.from({ length: 4 }, () => fauxAssistantMessage('Finished')),
+    );
+    const result = await execute(task(), reporter());
+    expect(result.error?.code).toBe('submit_output_missing');
+    expect(faux.state.callCount).toBe(4);
+    expect(await execute(task(), reporter())).toEqual(result);
+  });
+});
+
+it('resumes after interrupted unsafe tool intent without executing the tool twice', async () => {
+  const remote = remoteLog();
+  const faux = fauxProvider({ tokensPerSecond: 0 });
+  const models = createModels();
+  models.setProvider(faux.provider);
+  let controller = new AbortController();
+  let executions = 0;
+  const execute = createDurableTaskExecutor({
+    models,
+    model: { provider: faux.provider.id, modelId: faux.models[0].id },
+    open: async () => ({
+      storage: await ApiDurableStorage.open(
+        remote.transport,
+        BACKGROUND_CONTEXT,
+      ),
+      signal: controller.signal,
+      check: () => controller.signal.throwIfAborted(),
+      prepare: async () => ({
+        authorizeTool: async () => undefined,
+        close: async () => {},
+        tools: [
+          {
+            name: 'side_effect',
+            description: 'An unsafe side effect',
+            parameters: { type: 'object', properties: {} },
+            replay: 'unsafe' as const,
+            async execute() {
+              executions++;
+              controller.abort(new Error('simulated process interruption'));
+              throw new Error('interrupted');
+            },
+          },
+        ],
+      }),
+    }),
+  });
+  faux.setResponses([
+    fauxAssistantMessage(fauxToolCall('side_effect', {}), {
+      stopReason: 'toolUse',
+    }),
+    submitted(),
+  ]);
+  await expect(execute(task(), reporter())).rejects.toBeInstanceOf(
+    TaskExecutionInterrupted,
+  );
+  controller = new AbortController();
+  const result = await execute(task(), reporter());
+  expect(result.status).toBe('completed');
+  expect(executions).toBe(1);
+  expect(faux.state.callCount).toBe(2);
+});
+
+it('persists child output with its parent and reconciles without spawning again', async () => {
+  const s = setup(true);
+  let childTranscript = '';
+  let parentTranscript = '';
+  s.faux.setResponses([
+    fauxAssistantMessage(
+      fauxToolCall('subagent', {
+        task: 'Inspect the change',
+        output_schema: 'verdict',
+      }),
+      { stopReason: 'toolUse' },
+    ),
+    (context) => {
+      childTranscript = JSON.stringify(context);
+      return fauxAssistantMessage(
+        fauxToolCall('submit_subagent_output', { verdict: 'approved' }),
+        { stopReason: 'toolUse' },
+      );
+    },
+    (context) => {
+      parentTranscript = JSON.stringify(context);
+      return submitted();
+    },
+  ]);
+  const result = await s.execute(task(), reporter());
+  expect(result.status).toBe('completed');
+  expect(childTranscript).toContain('Inspect the change');
+  expect(childTranscript).not.toContain('submit_freeform_output');
+  expect(childTranscript).not.toContain('Delegate a self-contained task');
+  expect(parentTranscript).toContain('approved');
+  expect(await s.execute(task(), reporter())).toEqual(result);
+  expect(s.faux.state.callCount).toBe(3);
+});
+
+it('installs native extension tools and checks their calls against the current policy', async () => {
+  const remote = remoteLog();
+  const faux = fauxProvider({ tokensPerSecond: 0 });
+  const models = createModels();
+  models.setProvider(faux.provider);
+  const allowed = vi.fn(async () => ({
+    content: [{ type: 'text' as const, text: 'native result' }],
+  }));
+  const blocked = vi.fn(allowed);
+  const authorizeTool = vi.fn(async (name: string) =>
+    name === 'blocked_native' ? 'policy denied' : undefined,
+  );
+  const execute = createDurableTaskExecutor({
+    models,
+    model: { provider: faux.provider.id, modelId: faux.models[0].id },
+    open: async (_claimed, signal) => ({
+      storage: await ApiDurableStorage.open(
+        remote.transport,
+        BACKGROUND_CONTEXT,
+      ),
+      signal,
+      check: () => signal.throwIfAborted(),
+      prepare: async () => ({
+        authorizeTool,
+        close: async () => {},
+        extensions: [
+          {
+            name: 'team-native',
+            tools: ['allowed_native', 'blocked_native'].map((name) => ({
+              name,
+              description: name,
+              parameters: { type: 'object' as const, properties: {} },
+              replay: 'safe' as const,
+              execute: name === 'allowed_native' ? allowed : blocked,
+            })),
+          },
+        ],
+      }),
+    }),
+  });
+  faux.setResponses([
+    fauxAssistantMessage(fauxToolCall('allowed_native', {}), {
+      stopReason: 'toolUse',
+    }),
+    fauxAssistantMessage(fauxToolCall('blocked_native', {}), {
+      stopReason: 'toolUse',
+    }),
+    submitted(),
+  ]);
+  const events = reporter();
+  expect((await execute(task(), events)).status).toBe('completed');
+  expect(allowed).toHaveBeenCalledOnce();
+  expect(blocked).not.toHaveBeenCalled();
+  expect(authorizeTool).toHaveBeenCalledWith(
+    'allowed_native',
+    {},
+    expect.anything(),
+  );
+  expect(
+    recorded(events).filter(({ kind }) => kind.startsWith('tool_')),
+  ).toEqual([
+    { kind: 'tool_call_start', payload: { tool_name: 'allowed_native' } },
+    {
+      kind: 'tool_call_end',
+      payload: {
+        tool_name: 'allowed_native',
+        is_error: false,
+      },
+    },
+    { kind: 'tool_call_start', payload: { tool_name: 'blocked_native' } },
+    {
+      kind: 'tool_call_end',
+      payload: {
+        tool_name: 'blocked_native',
+        is_error: true,
+      },
+    },
+    {
+      kind: 'tool_call_start',
+      payload: { tool_name: 'submit_freeform_output' },
+    },
+    {
+      kind: 'tool_call_end',
+      payload: {
+        tool_name: 'submit_freeform_output',
+        is_error: false,
+      },
+    },
+  ]);
+});
+
+describe('live task messages', () => {
+  it('records turn boundaries without duplicating conversation content', async () => {
+    const { faux, execute } = setup();
+    faux.setResponses([fauxAssistantMessage('Looking around'), submitted()]);
+    const events = reporter();
+    expect((await execute(task(), events)).status).toBe('completed');
+    expect(recorded(events).filter(({ kind }) => kind === 'turn_end')).toEqual([
+      { kind: 'turn_end', payload: { stop_reason: 'stop' } },
+      { kind: 'turn_end', payload: { stop_reason: 'toolUse' } },
+    ]);
+  });
+
+  it('records why a finished attempt failed', async () => {
+    const { faux, execute } = setup(false, 1);
+    faux.setResponses([bashCall('pwd')]);
+    const events = reporter();
+    const result = await execute(task(), events);
+    expect(result.error?.code).toBe('max_turns_exceeded');
+    expect(recorded(events).at(-1)).toEqual({
+      kind: 'error',
+      payload: {
+        phase: 'task_result',
+        code: 'max_turns_exceeded',
+        message: 'Durable task exceeded maxTurns without valid output',
+      },
+    });
+  });
+
+  it('keeps executing when the reporter cannot record', async () => {
+    const { faux, execute } = setup();
+    faux.setResponses([submitted()]);
+    const events = reporter();
+    events.record.mockRejectedValue(new Error('buffer closed'));
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
+    try {
+      expect((await execute(task(), events)).status).toBe('completed');
+      expect(stderr).toHaveBeenCalledWith(
+        expect.stringContaining('kind="tool_call_start": buffer closed'),
+      );
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+});
+
+describe('turn limits and cleanup', () => {
+  function executor(
+    prepared: Record<string, unknown>,
+    extra: { subagentContracts?: boolean } = {},
+  ) {
+    const remote = remoteLog();
+    const faux = fauxProvider({ tokensPerSecond: 0 });
+    const models = createModels();
+    models.setProvider(faux.provider);
+    const execute = createDurableTaskExecutor({
+      models,
+      model: { provider: faux.provider.id, modelId: faux.models[0].id },
+      ...(extra.subagentContracts === false
+        ? {}
+        : {
+            subagentContracts: createSubagentContractRegistry([
+              {
+                name: 'verdict',
+                description: 'Return a verdict',
+                parametersSchema: Type.Object({ verdict: Type.String() }),
+              },
+            ]),
+          }),
+      open: async (_claimed, signal) => ({
+        storage: await ApiDurableStorage.open(
+          remote.transport,
+          BACKGROUND_CONTEXT,
+        ),
+        signal,
+        check: () => signal.throwIfAborted(),
+        prepare: async () => ({
+          authorizeTool: async () => undefined,
+          close: async () => {},
+          ...prepared,
+        }),
+      }),
+    });
+    return { faux, execute };
+  }
+
+  it('treats a zero turn limit as unlimited, like the legacy executor', async () => {
+    const { faux, execute } = setup(false, 0);
+    faux.setResponses(
+      Array.from({ length: 4 }, () => fauxAssistantMessage('Finished')),
+    );
+    const result = await execute(task(), reporter());
+    expect(result.error?.code).toBe('submit_output_missing');
+    expect(faux.state.callCount).toBe(4);
+  });
+
+  it('interrupts a settled attempt whose environment cleanup fails and still closes the reporter', async () => {
+    const { faux, execute } = executor({
+      close: async () => {
+        throw new Error('vm stuck');
+      },
+    });
+    faux.setResponses([submitted()]);
+    const events = reporter();
+    const error = await execute(task(), events).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(TaskExecutionInterrupted);
+    expect((error as Error).message).toContain('environment cleanup');
+    expect((error as Error).cause).toEqual(new Error('vm stuck'));
+    expect(events.close).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the original failure when cleanup also fails', async () => {
+    const { execute } = executor(
+      {
+        subagentTools: [],
+        close: async () => {
+          throw new Error('vm stuck');
+        },
+      },
+      { subagentContracts: false },
+    );
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true);
+    try {
+      const error = await execute(task(), reporter()).catch((e: unknown) => e);
+      expect(error).not.toBeInstanceOf(TaskExecutionInterrupted);
+      expect((error as Error).message).toBe(
+        'Subagent contracts are required for delegation',
+      );
+      expect(stderr).toHaveBeenCalledWith(
+        expect.stringContaining('environment cleanup interrupted'),
+      );
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+});

@@ -56,8 +56,6 @@ Commands:
             processes. Binds 127.0.0.1 or a private native socket.
   providers Manage configured endpoints and Pi OAuth subscriptions without
             starting the Agent Server. See \`agent-daemon providers --help\`.
-  sync-sessions
-            Repair durable runtime-session checkpoints from local slot files.
   update check
             Check the stable MoltNet agent release without reading credentials.
 
@@ -134,6 +132,7 @@ ${COMMON_OPTIONAL_FLAGS}
 Example:
   agent-daemon once \\
     --task-id 26004a77-bc10-43ef-a79f-c8e62faf59b1 \\
+  --resume-attempt <n>  Reattach a Durable attempt with this agent and its original valid lease
     --agent legreffier \\
     --profile github-linear
 
@@ -173,36 +172,6 @@ Example:
     --task-types judge_pack \\
     --agent legreffier \\
     --profile eval-judge`;
-
-export const SYNC_SESSIONS_HELP = `\
-agent-daemon sync-sessions — repair durable runtime-session checkpoints.
-
-Usage:
-  agent-daemon sync-sessions --team <uuid> --agent <name> [...]
-
-Scans this daemon's team-scoped runtime slots, compares local Pi session files
-with durable runtime-session metadata, and uploads missing or stale checkpoints.
-
-Required:
-  --team <uuid>               Team whose runtime slots to inspect.
-  -a, --agent <name>          MoltNet agent identity. Reads credentials
-                              from <agent-root>/.moltnet/<name>/moltnet.json.
-
-Optional:
-  --runtime-profile-id <uuid> Limit repair to one runtime profile.
-  --state <active|idle>       Limit scanned slots by state. Default: all.
-  --limit <n>                 Max slots to scan, 1..200. Default: 100.
-  --dry-run                   Report missing/stale sessions without uploading.
-  --agent-root <path>         Explicit legacy identity bundle location.
-                              Omitted: use the central identity store.
-${PROJECT_RUN_FLAGS}
-  --debug                     Accepted for consistency; no extra output yet.
-
-Example:
-  agent-daemon sync-sessions \\
-    --team 6743b4b1-6b93-46e2-a048-19490f04f91a \\
-    --agent legreffier \\
-    --state idle`;
 
 export function isHelpFlag(args: readonly string[]): boolean {
   const separator = args.indexOf('--');
@@ -247,7 +216,8 @@ Usage:
   moltnet-agent providers list [--json] [--root <path>]
   moltnet-agent providers set <id> [--base-url <url>] [--api <pi-api-kind>]
     [--supports-developer-role true|false]
-    [--model <id> ... | --clear-models]
+    [--chat-model <id> ...] [--classifier-model <id>[=<context-window>] ...]
+    [--clear-models]
     [--model-input <id>=text,image ...]
     [--model-reasoning <id> ...]
     [--model-thinking-map <id>=off:none,low:low,... ...]
@@ -263,17 +233,21 @@ The default root is ~/.config/moltnet. MOLTNET_HOME selects another store.
 MOLTNET_AGENT_SERVER_ROOT is a legacy alias; conflicting values fail. API keys are accepted only from redirected stdin; they
 are stored separately and providers.json contains only a secret reference.
 
---model declares a text-only model. --model-input declares a model together
+--chat-model declares a chat model; --model is its compatibility alias. --model-input declares a model together
 with the input modalities it accepts, and is what makes a vision model usable:
 a model with no declared modalities is text-only to Pi, which drops image
 content parts before the request leaves the runtime.
+--classifier-model declares a typesafe-system-one classifier. The optional
+positive context window defaults to 8192. A classifier can share a provider
+and credentials with chat models when the endpoint supports both APIs.
 --model-reasoning marks a model as supporting reasoning. --model-thinking-map
 sets its Pi thinking-level to provider effort mapping and implies reasoning.
 --model-strict-mode explicitly sets Pi's strict JSON-schema tool mode for an
 existing model after confirming the provider accepts strict function
 definitions. Use =default to remove the override.
-Model capability flags update existing model metadata; --model replaces the
-model list.
+Model capability flags update existing model metadata; --chat-model (or --model) replaces the
+model list, including any classifiers. --classifier-model alone adds to the
+existing list. Discovery preserves declared classifiers.
 For existing Ollama providers, run providers discover <id> --save to detect
 thinking support from Ollama capabilities and refresh saved model metadata.
 `;

@@ -14,6 +14,7 @@ import {
   acceptTeamFounding,
   acceptTransfer,
   addGroupMember,
+  appendRuntimeStoreCommit,
   appendTaskMessages,
   approveSigningCredential,
   batchDeleteDiaryEntries,
@@ -87,10 +88,12 @@ import {
   getRuntimeProfileAllowedTools,
   getRuntimeProfilePolicies,
   getRuntimeSession,
+  getRuntimeStoreForAttempt,
   getSigningCredential,
   getSigningRequest,
   getTask,
   getTaskActivityAnalytics,
+  getTaskConversation,
   getTeam,
   getWhoami,
   initiateTransfer,
@@ -113,10 +116,12 @@ import {
   listRuntimePolicies,
   listRuntimeProfiles,
   listRuntimeSlots,
+  listRuntimeStoreCommits,
   listSigningCredentials,
   listSigningRequests,
   listTaskArtifacts,
   listTaskAttempts,
+  listTaskConversations,
   listTaskGrants,
   listTaskMessages,
   listTasks,
@@ -124,6 +129,8 @@ import {
   listTeamInvites,
   listTeamMembers,
   listTeams,
+  mintRuntimeStoreId,
+  openRuntimeStore,
   type Options,
   previewDiaryCustomPack,
   previewRenderedPack,
@@ -133,9 +140,11 @@ import {
   registerExecutorManifest,
   rejectSigningRequest,
   rejectTransfer,
+  releaseRuntimeStore,
   removeGroupMember,
   removeTeamMember,
   renderContextPack,
+  renewRuntimeStore,
   requestRecoveryChallenge,
   revokeAgentKey,
   revokeDiaryGrant,
@@ -185,6 +194,9 @@ import type {
   AddGroupMemberData,
   AddGroupMemberError,
   AddGroupMemberResponse,
+  AppendRuntimeStoreCommitData,
+  AppendRuntimeStoreCommitError,
+  AppendRuntimeStoreCommitResponse,
   AppendTaskMessagesData,
   AppendTaskMessagesError,
   AppendTaskMessagesResponse,
@@ -399,6 +411,9 @@ import type {
   GetRuntimeSessionData,
   GetRuntimeSessionError,
   GetRuntimeSessionResponse,
+  GetRuntimeStoreForAttemptData,
+  GetRuntimeStoreForAttemptError,
+  GetRuntimeStoreForAttemptResponse,
   GetSigningCredentialData,
   GetSigningCredentialError,
   GetSigningCredentialResponse,
@@ -408,6 +423,9 @@ import type {
   GetTaskActivityAnalyticsData,
   GetTaskActivityAnalyticsError,
   GetTaskActivityAnalyticsResponse,
+  GetTaskConversationData,
+  GetTaskConversationError,
+  GetTaskConversationResponse,
   GetTaskData,
   GetTaskError,
   GetTaskResponse,
@@ -476,6 +494,9 @@ import type {
   ListRuntimeSlotsData,
   ListRuntimeSlotsError,
   ListRuntimeSlotsResponse,
+  ListRuntimeStoreCommitsData,
+  ListRuntimeStoreCommitsError,
+  ListRuntimeStoreCommitsResponse,
   ListSigningCredentialsData,
   ListSigningCredentialsError,
   ListSigningCredentialsResponse,
@@ -488,6 +509,9 @@ import type {
   ListTaskAttemptsData,
   ListTaskAttemptsError,
   ListTaskAttemptsResponse,
+  ListTaskConversationsData,
+  ListTaskConversationsError,
+  ListTaskConversationsResponse,
   ListTaskGrantsData,
   ListTaskGrantsError,
   ListTaskGrantsResponse,
@@ -509,6 +533,12 @@ import type {
   ListTeamsData,
   ListTeamsError,
   ListTeamsResponse,
+  MintRuntimeStoreIdData,
+  MintRuntimeStoreIdError,
+  MintRuntimeStoreIdResponse,
+  OpenRuntimeStoreData,
+  OpenRuntimeStoreError,
+  OpenRuntimeStoreResponse,
   PreviewDiaryCustomPackData,
   PreviewDiaryCustomPackError,
   PreviewDiaryCustomPackResponse,
@@ -533,6 +563,9 @@ import type {
   RejectTransferData,
   RejectTransferError,
   RejectTransferResponse,
+  ReleaseRuntimeStoreData,
+  ReleaseRuntimeStoreError,
+  ReleaseRuntimeStoreResponse,
   RemoveGroupMemberData,
   RemoveGroupMemberError,
   RemoveGroupMemberResponse,
@@ -542,6 +575,9 @@ import type {
   RenderContextPackData,
   RenderContextPackError,
   RenderContextPackResponse,
+  RenewRuntimeStoreData,
+  RenewRuntimeStoreError,
+  RenewRuntimeStoreResponse,
   RequestRecoveryChallengeData,
   RequestRecoveryChallengeError,
   RequestRecoveryChallengeResponse,
@@ -4210,6 +4246,176 @@ export const setRuntimeProfilePoliciesMutation = (
   return mutationOptions;
 };
 
+export const getRuntimeStoreForAttemptQueryKey = (
+  options: Options<GetRuntimeStoreForAttemptData>,
+) => createQueryKey('getRuntimeStoreForAttempt', options);
+
+export const getRuntimeStoreForAttemptOptions = (
+  options: Options<GetRuntimeStoreForAttemptData>,
+) =>
+  queryOptions<
+    GetRuntimeStoreForAttemptResponse,
+    GetRuntimeStoreForAttemptError,
+    GetRuntimeStoreForAttemptResponse,
+    ReturnType<typeof getRuntimeStoreForAttemptQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getRuntimeStoreForAttempt({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getRuntimeStoreForAttemptQueryKey(options),
+  });
+
+export const openRuntimeStoreMutation = (
+  options?: Partial<Options<OpenRuntimeStoreData>>,
+): UseMutationOptions<
+  OpenRuntimeStoreResponse,
+  OpenRuntimeStoreError,
+  Options<OpenRuntimeStoreData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OpenRuntimeStoreResponse,
+    OpenRuntimeStoreError,
+    Options<OpenRuntimeStoreData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await openRuntimeStore({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const listRuntimeStoreCommitsQueryKey = (
+  options: Options<ListRuntimeStoreCommitsData>,
+) => createQueryKey('listRuntimeStoreCommits', options);
+
+export const listRuntimeStoreCommitsOptions = (
+  options: Options<ListRuntimeStoreCommitsData>,
+) =>
+  queryOptions<
+    ListRuntimeStoreCommitsResponse,
+    ListRuntimeStoreCommitsError,
+    ListRuntimeStoreCommitsResponse,
+    ReturnType<typeof listRuntimeStoreCommitsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listRuntimeStoreCommits({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listRuntimeStoreCommitsQueryKey(options),
+  });
+
+export const appendRuntimeStoreCommitMutation = (
+  options?: Partial<Options<AppendRuntimeStoreCommitData>>,
+): UseMutationOptions<
+  AppendRuntimeStoreCommitResponse,
+  AppendRuntimeStoreCommitError,
+  Options<AppendRuntimeStoreCommitData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    AppendRuntimeStoreCommitResponse,
+    AppendRuntimeStoreCommitError,
+    Options<AppendRuntimeStoreCommitData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await appendRuntimeStoreCommit({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const mintRuntimeStoreIdMutation = (
+  options?: Partial<Options<MintRuntimeStoreIdData>>,
+): UseMutationOptions<
+  MintRuntimeStoreIdResponse,
+  MintRuntimeStoreIdError,
+  Options<MintRuntimeStoreIdData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MintRuntimeStoreIdResponse,
+    MintRuntimeStoreIdError,
+    Options<MintRuntimeStoreIdData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await mintRuntimeStoreId({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const releaseRuntimeStoreMutation = (
+  options?: Partial<Options<ReleaseRuntimeStoreData>>,
+): UseMutationOptions<
+  ReleaseRuntimeStoreResponse,
+  ReleaseRuntimeStoreError,
+  Options<ReleaseRuntimeStoreData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReleaseRuntimeStoreResponse,
+    ReleaseRuntimeStoreError,
+    Options<ReleaseRuntimeStoreData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await releaseRuntimeStore({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const renewRuntimeStoreMutation = (
+  options?: Partial<Options<RenewRuntimeStoreData>>,
+): UseMutationOptions<
+  RenewRuntimeStoreResponse,
+  RenewRuntimeStoreError,
+  Options<RenewRuntimeStoreData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RenewRuntimeStoreResponse,
+    RenewRuntimeStoreError,
+    Options<RenewRuntimeStoreData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await renewRuntimeStore({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const getRuntimeSessionQueryKey = (
   options: Options<GetRuntimeSessionData>,
 ) => createQueryKey('getRuntimeSession', options);
@@ -4748,6 +4954,56 @@ export const completeTaskMutation = (
   };
   return mutationOptions;
 };
+
+export const listTaskConversationsQueryKey = (
+  options: Options<ListTaskConversationsData>,
+) => createQueryKey('listTaskConversations', options);
+
+export const listTaskConversationsOptions = (
+  options: Options<ListTaskConversationsData>,
+) =>
+  queryOptions<
+    ListTaskConversationsResponse,
+    ListTaskConversationsError,
+    ListTaskConversationsResponse,
+    ReturnType<typeof listTaskConversationsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listTaskConversations({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listTaskConversationsQueryKey(options),
+  });
+
+export const getTaskConversationQueryKey = (
+  options: Options<GetTaskConversationData>,
+) => createQueryKey('getTaskConversation', options);
+
+export const getTaskConversationOptions = (
+  options: Options<GetTaskConversationData>,
+) =>
+  queryOptions<
+    GetTaskConversationResponse,
+    GetTaskConversationError,
+    GetTaskConversationResponse,
+    ReturnType<typeof getTaskConversationQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getTaskConversation({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getTaskConversationQueryKey(options),
+  });
 
 /**
  * Mark an attempt as failed with error details.

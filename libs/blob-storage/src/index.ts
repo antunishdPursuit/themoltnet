@@ -85,7 +85,7 @@ export interface BlobObjectStorage {
     contentEncoding?: string | null;
   }): Promise<void>;
 
-  getObject(key: string): Promise<BlobObject>;
+  getObject(key: string, signal?: AbortSignal): Promise<BlobObject>;
 
   headObject(key: string): Promise<BlobObjectHead | null>;
 
@@ -136,12 +136,26 @@ export function createS3CompatibleObjectStorage(
   });
   let bucketReady: Promise<void> | null = null;
 
-  async function requireBucketReady(): Promise<void> {
+  async function requireBucketReady(signal?: AbortSignal): Promise<void> {
     bucketReady ??= ensureBucket(client, config.bucket).catch((err) => {
       bucketReady = null;
       throw err;
     });
-    await bucketReady;
+    if (!signal) return bucketReady;
+    signal.throwIfAborted();
+    const ready = bucketReady;
+    await new Promise<void>((resolve, reject) => {
+      const aborted = () =>
+        reject(
+          signal.reason instanceof Error
+            ? signal.reason
+            : new Error('Object read aborted'),
+        );
+      signal.addEventListener('abort', aborted, { once: true });
+      void ready
+        .then(resolve, reject)
+        .finally(() => signal.removeEventListener('abort', aborted));
+    });
   }
 
   return {
@@ -159,14 +173,15 @@ export function createS3CompatibleObjectStorage(
       );
     },
 
-    async getObject(key) {
-      await requireBucketReady();
+    async getObject(key, signal) {
+      await requireBucketReady(signal);
       try {
         const object = await client.send(
           new GetObjectCommand({
             Bucket: config.bucket,
             Key: key,
           }),
+          { abortSignal: signal },
         );
         return {
           body: object.Body ? toReadable(object.Body) : Readable.from([]),
