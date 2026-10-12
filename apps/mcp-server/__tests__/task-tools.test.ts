@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   TaskCancelSchema,
+  TaskConversationGetSchema,
   TaskCreateSchema,
   TasksSchemasInputSchema,
 } from '../src/schemas/task-schemas.js';
@@ -12,6 +13,8 @@ import {
   handleTaskArtifactDownload,
   handleTaskArtifactsList,
   handleTaskArtifactUpload,
+  handleTaskConversationGet,
+  handleTaskConversationsList,
   handleTasksAttemptsList,
   handleTasksCancel,
   handleTasksConsoleLink,
@@ -36,9 +39,11 @@ vi.mock('@moltnet/api-client', () => ({
   cancelTask: vi.fn(),
   createTask: vi.fn(),
   downloadTaskArtifact: vi.fn(),
+  getTaskConversation: vi.fn(),
   getTask: vi.fn(),
   listTaskArtifacts: vi.fn(),
   listTaskAttempts: vi.fn(),
+  listTaskConversations: vi.fn(),
   listTaskMessages: vi.fn(),
   listTasks: vi.fn(),
   listTaskSchemas: vi.fn(),
@@ -50,8 +55,10 @@ import {
   createTask,
   downloadTaskArtifact,
   getTask,
+  getTaskConversation,
   listTaskArtifacts,
   listTaskAttempts,
+  listTaskConversations,
   listTaskMessages,
   listTasks,
   listTaskSchemas,
@@ -702,6 +709,139 @@ describe('Task tools', () => {
         }),
       );
       expect(parseResult<{ items: unknown[] }>(result).items).toHaveLength(1);
+    });
+  });
+
+  describe('task conversations', () => {
+    it('lists root and subagent conversations for an attempt', async () => {
+      const conversations = {
+        items: [
+          { conversationId: '1', parentConversationId: null, kind: 'main' },
+          { conversationId: '2', parentConversationId: '1', kind: 'subagent' },
+        ],
+      };
+      vi.mocked(listTaskConversations).mockResolvedValue(
+        sdkOk(conversations) as never,
+      );
+
+      const result = await handleTaskConversationsList(
+        { task_id: TASK_ID, attempt_n: ATTEMPT_N, team_id: TEAM_ID },
+        deps,
+        context,
+      );
+
+      expect(listTaskConversations).toHaveBeenCalledWith({
+        client: deps.client,
+        auth: expect.any(Function),
+        headers: { 'x-moltnet-team-id': TEAM_ID },
+        path: { id: TASK_ID, n: ATTEMPT_N },
+      });
+      expect(parseResult(result)).toEqual(conversations);
+    });
+
+    it('reads assistant text and tool results with backward pagination', async () => {
+      const snapshot = {
+        conversationId: '2',
+        cursor: 'rev-4',
+        attemptStatus: 'running',
+        messages: [
+          {
+            id: 'entry-3',
+            entryId: '3',
+            entryKind: 'message',
+            inherited: false,
+            status: 'completed',
+            message: {
+              role: 'assistant',
+              content: [{ type: 'text', text: 'Done' }],
+            },
+          },
+          {
+            id: 'entry-4',
+            entryId: '4',
+            entryKind: 'message',
+            inherited: false,
+            status: 'completed',
+            message: {
+              role: 'toolResult',
+              content: [{ type: 'text', text: '42' }],
+            },
+          },
+        ],
+        nextBeforeEntryId: '3',
+        live: {},
+      };
+      vi.mocked(getTaskConversation).mockResolvedValue(
+        sdkOk(snapshot) as never,
+      );
+
+      const result = await handleTaskConversationGet(
+        {
+          task_id: TASK_ID,
+          attempt_n: ATTEMPT_N,
+          team_id: TEAM_ID,
+          conversation_id: '2',
+          before_entry_id: '5',
+          limit: 2,
+        },
+        deps,
+        context,
+      );
+
+      expect(getTaskConversation).toHaveBeenCalledWith({
+        client: deps.client,
+        auth: expect.any(Function),
+        headers: { 'x-moltnet-team-id': TEAM_ID },
+        path: { id: TASK_ID, n: ATTEMPT_N, conversationId: '2' },
+        query: { beforeEntryId: '5', limit: 2 },
+      });
+      expect(parseResult(result)).toEqual(snapshot);
+      expect(
+        Value.Check(TaskConversationGetSchema, {
+          task_id: TASK_ID,
+          attempt_n: ATTEMPT_N,
+          team_id: TEAM_ID,
+          conversation_id: '2',
+          before_entry_id: '5',
+          limit: 2,
+        }),
+      ).toBe(true);
+      expect(
+        Value.Check(TaskConversationGetSchema, {
+          task_id: TASK_ID,
+          attempt_n: ATTEMPT_N,
+          team_id: TEAM_ID,
+          conversation_id: 'invalid',
+          limit: 101,
+        }),
+      ).toBe(false);
+    });
+
+    it('requires authentication and preserves API authorization errors', async () => {
+      const args = {
+        task_id: TASK_ID,
+        attempt_n: ATTEMPT_N,
+        team_id: TEAM_ID,
+        conversation_id: '1',
+      };
+      const unauthenticated = await handleTaskConversationGet(
+        args,
+        deps,
+        createMockContext(null),
+      );
+      expect(unauthenticated.isError).toBe(true);
+      expect(getTaskConversation).not.toHaveBeenCalled();
+
+      vi.mocked(getTaskConversation).mockResolvedValue(
+        sdkErr({
+          error: 'forbidden',
+          message: 'Conversation access denied',
+          statusCode: 403,
+        }) as never,
+      );
+      const forbidden = await handleTaskConversationGet(args, deps, context);
+      expect(forbidden.isError).toBe(true);
+      expect(getTextContent(forbidden)).toContain('Conversation access denied');
     });
   });
 

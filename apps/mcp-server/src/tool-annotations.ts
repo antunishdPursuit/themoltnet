@@ -32,6 +32,8 @@ const READ_ONLY_TOOLS = new Set([
   'tasks_artifacts_list',
   'tasks_attempts_list',
   'tasks_console_link',
+  'tasks_conversations_get',
+  'tasks_conversations_list',
   'tasks_get',
   'tasks_list',
   'tasks_messages_list',
