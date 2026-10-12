@@ -32,7 +32,6 @@ import {
   makePrBodyAnchorWriter,
 } from '../lib/correlation.js';
 import { createRuntimeInstanceId } from '../lib/daemon-slot-identity.js';
-import { ProducerContextResolutionError } from '../lib/execution-plan-cache.js';
 import {
   resolveExecutorSigningPrivateKey,
   validateDaemonScopes,
@@ -70,19 +69,11 @@ import { runWithDaemonRuntimeContext } from '../lib/runtime-context.js';
 import { runtimeExecutionOffer } from '../lib/runtime-governance.js';
 import { createRuntimeProfileRetryTriage } from '../lib/runtime-profile-retry-triage.js';
 import { reapRuntimeSlotResources } from '../lib/runtime-resource-reaper.js';
-import {
-  applyRuntimeSessionUploadFailure,
-  createApiRuntimeSessionStore,
-  resolveParentRuntimeSession,
-  resolveRuntimeSessionKind,
-} from '../lib/runtime-sessions.js';
 import { createApiRuntimeSlotStore } from '../lib/runtime-slots.js';
 import { redactRequiredEnvValues } from '../lib/secret-redaction.js';
-import { resolveLatestPiSessionPath } from '../lib/session-files.js';
 import { installShutdownSignalHandlers } from '../lib/shutdown-signal.js';
 import { createApiSourceAttemptResolver } from '../lib/source-attempts.js';
 import { WorkspaceModeMismatchError } from '../lib/task-execution-plan.js';
-import { makeTurnEventHandlerFactory } from '../lib/turn-event-logger.js';
 import { defaultPiDaemonAdapter } from '../pi.js';
 import type { DaemonRuntimeAdapter } from '../runtime.js';
 
@@ -371,12 +362,6 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
     error: GuestEnvironmentBoundaryError;
   }> = [];
   const slotRegistry = createApiRuntimeSlotStore({ agent: ctx.agent });
-  const runtimeSessionStore = createApiRuntimeSessionStore({
-    agent: ctx.agent,
-    logger: {
-      warn: (context, message) => rootLogger.warn(context, message),
-    },
-  });
   const sourceAttemptResolver = createApiSourceAttemptResolver({
     agent: ctx.agent,
   });
@@ -393,10 +378,7 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
         runtimeAdapter,
         runtimeInstanceId,
         signingPrivateKey,
-        slotRegistry,
-        runtimeSessionStore,
         sourceAttemptResolver,
-        warmRetentionSec: operations.warmRetentionSec,
       });
       runtimes.set(profile.id, prepared);
       profiles.push(profile);
@@ -520,7 +502,6 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
           heartbeatIntervalMs: operations.heartbeatIntervalMs,
           maxTurns: profile.maxTurns,
           maxBashTimeouts: profile.maxBashTimeouts,
-          warmRetentionSec: operations.warmRetentionSec,
           defaultWorkspaceMode: profile.defaultWorkspaceMode,
           allowedWorkspaceModes: profile.allowedWorkspaceModes,
         };
@@ -536,8 +517,18 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
     if (reaperRunning) return;
     reaperRunning = true;
     try {
+      const sweptRoots = new Set<string>();
       for (const profile of profiles) {
         const selected = requireRuntime(runtimes, profile.id);
+        const input = {
+          mainWorktree: resolveMainWorktree(selected.sandbox.rootDir),
+          sessionRootDir: selected.stateDirs.piSessionsDir,
+          scratchRootDir: join(selected.stateDirs.rootDir, 'task-workspaces'),
+          teamId,
+        };
+        const rootsKey = JSON.stringify(input);
+        if (sweptRoots.has(rootsKey)) continue;
+        sweptRoots.add(rootsKey);
         const result = await reapRuntimeSlotResources(
           {
             onIssue: (issue) => {
@@ -549,15 +540,7 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             runtimeSlotStore: slotRegistry,
             taskReader: ctx.agent.tasks,
           },
-          {
-            agentName: identity.agent,
-            mainWorktree: resolveMainWorktree(selected.sandbox.rootDir),
-            runtimeInstanceId,
-            runtimeProfileId: profile.id,
-            sessionRootDir: selected.stateDirs.piSessionsDir,
-            scratchRootDir: join(selected.stateDirs.rootDir, 'task-workspaces'),
-            teamId,
-          },
+          input,
         );
         if (
           result.removedSessions > 0 ||
@@ -618,11 +601,22 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
               .fingerprint,
           ]),
         ),
-        // Warm-resume affinity: skip continuations whose source warm
-        // session is neither remotely durable nor locally available.
-        slotRegistry,
-        sessionRegistry: runtimeSessionStore,
-        sourceAttemptResolver,
+        // Conversation availability is determined by the committed Durable store.
+        isContinuationAvailable: async (task) => {
+          const parent = (
+            task.input as {
+              continueFrom?: { taskId: string; attemptN: number };
+            }
+          ).continueFrom;
+          if (!parent) return true;
+          return Boolean(
+            await ctx.agent.runtimeSessions.getDurableForAttempt(
+              parent.taskId,
+              parent.attemptN,
+              { teamId: task.teamId },
+            ),
+          );
+        },
       }),
       makeReporter: (claimedTask) => {
         return new ApiTaskReporter({
@@ -650,42 +644,11 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
           claimedTask.task.id,
           claimedTask.attemptN,
         );
-        let terminalOutput = redactRequiredEnvValues(
+        const terminalOutput = redactRequiredEnvValues(
           output,
           selected.profile.requiredEnv,
           cfg.profilePrerequisiteEnv,
         );
-        if (resolved?.session?.sessionDir) {
-          try {
-            const parentSession = await resolveParentRuntimeSession(
-              runtimeSessionStore,
-              claimedTask,
-            );
-            await runtimeSessionStore.uploadAttemptFinal({
-              attemptN: claimedTask.attemptN,
-              parentSessionId: parentSession?.id ?? null,
-              sessionDir: resolved.session.sessionDir,
-              sessionKind: resolveRuntimeSessionKind(claimedTask),
-              sourceRuntimeProfileId: resolved.slot.runtimeProfileId,
-              sourceSlotId: resolved.slot.id,
-              taskId: claimedTask.task.id,
-              teamId: claimedTask.task.teamId,
-            });
-          } catch (err) {
-            rootLogger.error(
-              {
-                err,
-                taskId: claimedTask.task.id,
-                attemptN: claimedTask.attemptN,
-              },
-              'agent-daemon.runtime_session_upload_failed',
-            );
-            terminalOutput = applyRuntimeSessionUploadFailure(
-              terminalOutput,
-              err,
-            );
-          }
-        }
         return finalizeTask(ctx.agent, terminalOutput, {
           task: claimedTask.task,
           slot: resolved ? { expiresAtMs: resolved.slot.expiresAtMs } : null,
@@ -770,28 +733,21 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             usage: { inputTokens: 0, outputTokens: 0 },
             durationMs: 0,
             error: {
-              code:
-                err instanceof ProducerContextResolutionError
-                  ? 'producer_context_missing'
-                  : 'execution_plan_failed',
+              code: 'execution_plan_failed',
               message,
               retryable: err instanceof WorkspaceModeMismatchError,
             },
           };
         }
-        const sessionDescriptor = executionPlan.descriptor;
         taskLogger.debug(
           {
             taskId: claimedTask.task.id,
             taskType: claimedTask.task.taskType,
-            resumable: sessionDescriptor.policy.resumable,
             workspaceMode: executionPlan.workspaceMode,
-            workspaceScope: sessionDescriptor.policy.workspaceScope,
-            sessionScope: sessionDescriptor.policy.sessionScope,
+            workspaceScope: executionPlan.workspaceScope,
             slotKey: executionPlan.slotKey,
             slotId: executionPlan.slotId,
             sessionKey: executionPlan.sessionKey,
-            piSessionDir: executionPlan.sessionPersistence?.sessionDir ?? null,
             workspaceId: executionPlan.workspaceId,
           },
           'agent-daemon.task_execution_policy',
@@ -845,7 +801,7 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             },
           };
         }
-        if (executionPlan.slotKey && executionPlan.sessionPersistence) {
+        if (executionPlan.slotKey) {
           await slotRegistry.beginSlot({
             ...slotIdentity,
             runtimeProfileId: profile.id,
@@ -854,10 +810,8 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             teamId: claimedTask.task.teamId,
             slotKey: executionPlan.slotKey,
             taskType: claimedTask.task.taskType,
-            sessionDir: executionPlan.sessionPersistence.sessionDir,
-            sessionPath: resolveLatestPiSessionPath(
-              executionPlan.sessionPersistence.sessionDir,
-            ),
+            sessionDir: null,
+            sessionPath: null,
             workspaceId: executionPlan.workspaceId,
             worktreePath: resolveRecordedWorkspacePath(
               stateDirs.rootDir,
@@ -887,11 +841,6 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
           topK: taskGeneration?.topK ?? null,
           maxOutputTokens: taskGeneration?.maxOutputTokens ?? null,
           classifier: profile.models.classification,
-          providerFailureContext: {
-            runtimeProfileId: profile.id,
-            runtimeProfileName: profile.name,
-            piAgentDirSource: piAgentDir.source,
-          },
 
           sandboxConfig: sandbox.config,
           forwardEnv: profile.requiredEnv,
@@ -912,7 +861,6 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
           runtimeProfileId: profile.id,
           toolEnforcement: profile.toolEnforcement,
           makeExecutionPlan: (task) => executionPlans.getOrCreate(task),
-          makeOnTurnEvent: makeTurnEventHandlerFactory(taskLogger),
           toolPolicyLogger: taskLogger,
           maxTurns: profile.maxTurns,
           maxBashTimeouts: profile.maxBashTimeouts,
@@ -922,7 +870,7 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             taskId: claimedTask.task.id,
             attemptN: claimedTask.attemptN,
           };
-          return await runWithDaemonRuntimeContext(
+          const output = await runWithDaemonRuntimeContext(
             {
               profileId: profile.id,
               profileName: profile.name,
@@ -936,9 +884,6 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
             },
             () => rawExecuteTask(claimedTask, reporter),
           );
-        } finally {
-          active = null;
-          executionPlans.delete(claimedTask);
           if (executionPlan.slotKey) {
             await slotRegistry.finishSlot(
               claimedTask.task.teamId,
@@ -948,14 +893,14 @@ export async function runPolling(opts: PollSharedArgs): Promise<number> {
               executionPlan.slotKey,
               taskModel.provider,
               taskModel.model,
-              executionPlan.sessionPersistence
-                ? resolveLatestPiSessionPath(
-                    executionPlan.sessionPersistence.sessionDir,
-                  )
-                : null,
+              null,
               operations.warmRetentionSec,
             );
           }
+          return output;
+        } finally {
+          active = null;
+          executionPlans.delete(claimedTask);
         }
       },
     });

@@ -27,7 +27,7 @@ import { remoteLog } from '../__tests__/durable-log.js';
 import { createGondolinDurableTaskExecutor } from './durable-gondolin.js';
 import { acquireDurableTransport } from './durable-transport.js';
 import { agentSigningCapability } from './host-capabilities/agent-signing.js';
-import type { ExecutePiTaskOptions } from './runtime/execute-pi-task.js';
+import type { GondolinDurableTaskOptions } from './runtime/durable-task-options.js';
 import {
   defineGondolinTemplate,
   definePiBrokeredHttpSecret,
@@ -112,7 +112,7 @@ function setup(granted: boolean, tools: string[] = []) {
   const close = vi.fn().mockResolvedValue(undefined);
   const revokeSecret = vi.fn();
   const resumeVm = vi
-    .fn<NonNullable<ExecutePiTaskOptions['resumeVm']>>()
+    .fn<NonNullable<GondolinDurableTaskOptions['resumeVm']>>()
     .mockResolvedValue({
       vm: { id: 'vm', fs: {}, close },
       credentials: { agentEnv: {} },
@@ -147,7 +147,7 @@ function setup(granted: boolean, tools: string[] = []) {
           allowedShellCommands: [],
         }),
       },
-    } as unknown as ExecutePiTaskOptions['moltnetAgent'],
+    } as unknown as GondolinDurableTaskOptions['moltnetAgent'],
     template: {
       id: 'vm',
       version: '1',
@@ -498,6 +498,36 @@ describe('tool policy', () => {
     expect(s.logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ toolName: 'bash', decision: 'blocked' }),
       'tool_policy.blocked',
+    );
+  });
+
+  it('logs when the execution policy differs from the claimed one', async () => {
+    const s = setup(false);
+    s.allowedTools.mockResolvedValue({
+      enforcement: 'enforce',
+      runtimeKind: 'gondolin_pi_durable',
+      allowedTools: [],
+      allowedShellCommands: [],
+      policySnapshotHash: 'sha256:execution',
+    } as never);
+    const claimed = {
+      ...s.claimed,
+      claimAuthority: { policySnapshotHash: 'sha256:claim' },
+    } as ClaimedTask;
+
+    const output = await createGondolinDurableTaskExecutor(s.options)(
+      claimed,
+      s.reporter,
+    );
+
+    expect(output.status).toBe('completed');
+    expect(s.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'claim_execution_policy_drift',
+        claimPolicySnapshotHash: 'sha256:claim',
+        executionPolicySnapshotHash: 'sha256:execution',
+      }),
+      'tool_policy.snapshot_drift',
     );
   });
 

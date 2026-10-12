@@ -1,8 +1,3 @@
-import type {
-  ExtensionAPI,
-  ToolCallEvent,
-  ToolCallEventResult,
-} from '@earendil-works/pi-coding-agent';
 import type { ShellCommandAnalyzer } from '@themoltnet/shell-command-analyzer';
 
 import {
@@ -225,42 +220,6 @@ async function withTimeout<T>(
 }
 
 /**
- * Map a pi `tool_call` event to a gate decision, extracting the shell command
- * for `bash` and delegating to {@link decideToolCall}.
- */
-export function decideForEvent(
-  event: ToolCallEvent,
-  policy: SessionToolPolicy,
-  analyze: ShellCommandAnalyzer['analyze'],
-): GateDecision {
-  const command =
-    event.toolName === 'bash'
-      ? (event.input as { command?: string }).command
-      : undefined;
-  return decideToolCall({
-    toolName: event.toolName,
-    command,
-    enforcement: policy.enforcement,
-    allowedTools: policy.allowedTools,
-    allowedShellCommands: policy.allowedShellCommands,
-    analyze,
-  });
-}
-
-export interface ToolPolicyExtensionDeps {
-  policy: SessionToolPolicy;
-  analyzer: ShellCommandAnalyzer;
-  logger: ToolPolicyLogger;
-  context?: ToolPolicyDecisionContext;
-  /**
-   * Called for every refusal so it reaches the task record, not only the
-   * daemon log. Pi's `tool_call` handler is synchronous, so this must not
-   * block: implementations fire and forget.
-   */
-  onDecision?: (decision: ToolPolicyDecisionRecord) => void;
-}
-
-/**
  * A refusal, shaped for the task record. Carries no argv literals: the
  * executables and the fingerprint identify an invocation without reproducing
  * its arguments, which is what lets this reach a persisted, readable record
@@ -282,155 +241,10 @@ export interface ToolPolicyDecisionRecord {
   runtime_profile_revision?: number;
 }
 
-/** Correlation and claim evidence repeated on every tool-policy decision. */
-export interface ToolPolicyDecisionContext {
-  taskId: string;
-  attemptN: number;
-  teamId: string;
-  claimantAgentId?: string;
-  leaseId?: string;
-  proposerKind?: 'agent' | 'human';
-  proposerId?: string;
-  claimRuntimeProfileId?: string;
-  executionRuntimeProfileId?: string;
-  claimRuntimeProfileRevision?: number;
-  claimPolicySnapshotHash?: string;
-  claimedExecutorFingerprint?: string;
-}
-
-/**
- * A pi extension factory that gates every `tool_call` against the resolved
- * policy. Blocks in `enforce`, audits (and allows) in `watch`, and is a no-op in
- * `off`. Register it in a session's `extensionFactories`.
- */
-export function createToolPolicyExtension(deps: ToolPolicyExtensionDeps) {
-  if (
-    deps.context?.claimPolicySnapshotHash &&
-    deps.policy.executionPolicySnapshotHash &&
-    deps.context.claimPolicySnapshotHash !==
-      deps.policy.executionPolicySnapshotHash
-  ) {
-    deps.logger.info(
-      {
-        ...decisionContext(deps),
-        decision: 'continue',
-        reason: 'claim_execution_policy_drift',
-      },
-      'tool_policy.snapshot_drift',
-    );
-  }
-
-  return (pi: ExtensionAPI): void => {
-    if (deps.policy.enforcement === 'off') return;
-
-    pi.on('tool_call', (event): ToolCallEventResult | void => {
-      const decision = decideForEvent(event, deps.policy, (command) =>
-        deps.analyzer.analyze(command),
-      );
-
-      if ('allow' in decision && decision.allow) {
-        deps.logger.info(
-          {
-            ...decisionContext(deps),
-            toolName: event.toolName,
-            toolCallId: event.toolCallId,
-            decision: 'allowed',
-            reason: decision.reasonCode,
-            ...(decision.matchedShellCommands?.length
-              ? { shellFingerprints: decision.matchedShellCommands }
-              : {}),
-          },
-          'tool_policy.allowed',
-        );
-        recordToolPolicyDecisionMetric({
-          decision: 'allowed',
-          reason: decision.reasonCode,
-          enforcement: deps.policy.enforcement,
-          degraded: deps.policy.degraded === true,
-        });
-        return;
-      }
-
-      if ('audit' in decision) {
-        deps.logger.info(
-          {
-            ...decisionContext(deps),
-            toolName: event.toolName,
-            toolCallId: event.toolCallId,
-            decision: 'audit',
-            reason: decision.reasonCode,
-            ...(decision.missing?.length
-              ? { unauthorizedExecutables: decision.missing }
-              : {}),
-            ...(decision.missingShellCommands?.length
-              ? { shellFingerprints: decision.missingShellCommands }
-              : {}),
-          },
-          'tool_policy.audit',
-        );
-        // The log says `audit`; the record says `would_block`, which states
-        // the consequence rather than the mode that produced it.
-        reportDecision(deps, 'would_block', event, decision);
-        return;
-      }
-
-      deps.logger.warn(
-        {
-          ...decisionContext(deps),
-          toolName: event.toolName,
-          toolCallId: event.toolCallId,
-          decision: 'blocked',
-          reason: decision.reasonCode,
-          ...(decision.missing?.length
-            ? { unauthorizedExecutables: decision.missing }
-            : {}),
-          ...(decision.missingShellCommands?.length
-            ? { shellFingerprints: decision.missingShellCommands }
-            : {}),
-        },
-        'tool_policy.blocked',
-      );
-      reportDecision(deps, 'blocked', event, decision);
-      return { block: true, reason: decision.reason };
-    });
-  };
-}
-
-/**
- * Hand a refusal to {@link ToolPolicyExtensionDeps.onDecision}, never letting a
- * reporting failure change the gate's verdict.
- */
-function reportDecision(
-  deps: ToolPolicyExtensionDeps,
-  decision: 'blocked' | 'would_block',
-  event: { toolName: string; toolCallId?: string },
-  gateDecision: GateDecision,
-): void {
-  recordToolPolicyDecisionMetric({
-    decision,
-    reason: gateDecision.reasonCode,
-    enforcement: deps.policy.enforcement,
-    degraded: deps.policy.degraded === true,
-  });
-  if (!deps.onDecision) {
-    return;
-  }
-  try {
-    deps.onDecision(
-      toolPolicyDecisionRecord(deps.policy, decision, event, gateDecision),
-    );
-  } catch (error) {
-    deps.logger.warn(
-      { err: error instanceof Error ? error.message : String(error) },
-      'tool_policy.decision_report_failed',
-    );
-  }
-}
-
 function toolPolicyDecisionRecord(
   policy: SessionToolPolicy,
   decision: 'blocked' | 'would_block',
-  event: { toolName: string; toolCallId?: string },
+  event: { toolName: string },
   gateDecision: GateDecision,
 ): ToolPolicyDecisionRecord {
   const missing = 'missing' in gateDecision ? gateDecision.missing : undefined;
@@ -441,7 +255,6 @@ function toolPolicyDecisionRecord(
   return {
     decision,
     tool_name: event.toolName,
-    ...(event.toolCallId ? { tool_call_id: event.toolCallId } : {}),
     reason_code: gateDecision.reasonCode,
     enforcement: policy.enforcement,
     ...(missing?.length ? { unauthorized_executables: missing } : {}),
@@ -487,9 +300,13 @@ export async function authorizeDurableToolCall(input: {
       : 'allow' in decision && !decision.allow
         ? 'blocked'
         : 'allowed';
-  // Same events and fields as the session extension, so dashboards keep working.
+  // Event names and fields predate Durable; dashboards depend on them.
   const fields = {
     ...input.context,
+    enforcement: policy.enforcement,
+    degraded: policy.degraded,
+    executionPolicySnapshotHash: policy.executionPolicySnapshotHash,
+    executionRuntimeProfileRevision: policy.executionRuntimeProfileRevision,
     toolName: input.toolName,
     decision: outcome === 'would_block' ? 'audit' : outcome,
     reason: decision.reasonCode,
@@ -531,17 +348,4 @@ export async function authorizeDurableToolCall(input: {
     }
   }
   return 'allow' in decision && !decision.allow ? decision.reason : undefined;
-}
-
-function decisionContext(
-  deps: ToolPolicyExtensionDeps,
-): Record<string, unknown> {
-  return {
-    ...(deps.context ?? {}),
-    enforcement: deps.policy.enforcement,
-    degraded: deps.policy.degraded,
-    executionPolicySnapshotHash: deps.policy.executionPolicySnapshotHash,
-    executionRuntimeProfileRevision:
-      deps.policy.executionRuntimeProfileRevision,
-  };
 }

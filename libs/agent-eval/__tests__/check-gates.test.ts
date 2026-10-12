@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   checkGates,
@@ -144,6 +144,191 @@ const completedAttempt: GateTaskAttempt = {
 };
 
 describe('checkGates', () => {
+  it.each([
+    [false, 1],
+    [true, 1],
+    [false, 2],
+  ] as const)(
+    'counts committed Durable evidence without operational mirrors (error=%s, count=%s)',
+    async (isError, count) => {
+      const entries = [
+        {
+          id: 1,
+          model: [
+            {
+              role: 'assistant',
+              content: [
+                { type: 'toolCall', name: 'moltnet_upload_task_artifact' },
+              ],
+            },
+          ],
+        },
+        {
+          id: 2,
+          model: [
+            {
+              role: 'toolResult',
+              toolName: 'submit_run_eval_output',
+              isError,
+              content: [{ type: 'text', text: 'Invalid submission shape' }],
+            },
+          ],
+        },
+      ];
+      if (count === 2) entries.push({ ...entries[1], id: 3 });
+      const refs = entries.map((entry) => ({
+        kind: 'info',
+        payload: {
+          event: 'runtime_entry',
+          format: 'pi-durable.v1',
+          storeId: 'store',
+          commitSeq: 4,
+          entryId: entry.id,
+        },
+      }));
+      const agent = fakeAgent(
+        [...messages(), ...refs, refs[1]],
+        completedAttempt,
+      );
+      const read = vi.fn().mockResolvedValue({
+        items: (async function* () {
+          yield {
+            seq: 4,
+            writes: entries.map((value) => ({ type: 'entry', value })),
+          };
+        })(),
+      });
+      agent.runtimeSessions = { read };
+      const result = await checkGates(
+        agent,
+        't1',
+        1,
+        { requireToolCalls: ['moltnet_upload_task_artifact'] },
+        EXPECTED_WITH_TEAM,
+      );
+      expect(read).toHaveBeenCalledExactlyOnceWith('store', 3, {
+        teamId: 'team-1',
+      });
+      expect(result.passed).toBe(!isError && count === 1);
+      if (count === 2)
+        expect(result.failures).toContainEqual({
+          gate: 'submit_clean',
+          detail:
+            'submit_run_eval_output had 2 successful call(s), expected exactly 1',
+        });
+      if (isError)
+        expect(result.failures).toContainEqual({
+          gate: 'submit_clean',
+          detail:
+            'submit_run_eval_output had 1 invalid call(s): Invalid submission shape',
+        });
+    },
+  );
+
+  it('shares bounded pages across out-of-order references and isolates stores', async () => {
+    const refs = ['store-a', 'store-b'].flatMap((storeId) =>
+      Array.from({ length: 99 }, (_, index) => ({
+        kind: 'info',
+        payload: {
+          event: 'runtime_entry',
+          format: 'pi-durable.v1',
+          storeId,
+          commitSeq: 99 - index,
+          entryId: 99 - index,
+        },
+      })),
+    );
+    const agent = fakeAgent([...messages(), ...refs], completedAttempt);
+    const read = vi.fn(async (storeId: string, afterSeq: number) => ({
+      items: (async function* () {
+        for (
+          let seq = afterSeq + 1;
+          seq <= Math.min(afterSeq + 50, 101);
+          seq++
+        ) {
+          yield {
+            seq,
+            writes: [
+              {
+                type: 'entry',
+                value: {
+                  id: seq,
+                  model: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        {
+                          type: 'toolCall',
+                          name: seq <= 99 ? storeId : 'unreferenced-tool',
+                        },
+                      ],
+                    },
+                    ...(storeId === 'store-a' && seq === 1
+                      ? [
+                          {
+                            role: 'toolResult',
+                            toolName: 'submit_run_eval_output',
+                            isError: false,
+                            content: [],
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              },
+            ],
+          };
+        }
+      })(),
+    }));
+    agent.runtimeSessions = { read };
+
+    const result = await checkGates(
+      agent,
+      't1',
+      1,
+      {
+        requireToolCalls: ['store-a', 'store-b'],
+        forbidToolCalls: ['unreferenced-tool'],
+      },
+      EXPECTED_WITH_TEAM,
+    );
+
+    expect(result.passed).toBe(true);
+    expect(read.mock.calls).toEqual([
+      ['store-a', 0, { teamId: 'team-1' }],
+      ['store-a', 50, { teamId: 'team-1' }],
+      ['store-b', 0, { teamId: 'team-1' }],
+      ['store-b', 50, { teamId: 'team-1' }],
+    ]);
+  });
+
+  it('fails closed when referenced Durable evidence is unavailable', async () => {
+    const agent = fakeAgent(
+      [
+        ...messages(),
+        {
+          kind: 'info',
+          payload: {
+            event: 'runtime_entry',
+            format: 'pi-durable.v1',
+            storeId: 'store',
+            commitSeq: 4,
+            entryId: 1,
+          },
+        },
+      ],
+      completedAttempt,
+    );
+    agent.runtimeSessions = { read: vi.fn().mockResolvedValue({ items: [] }) };
+    const result = await checkGates(agent, 't1', 1, {}, EXPECTED_WITH_TEAM);
+    expect(result.passed).toBe(false);
+    expect(result.failures).toContainEqual({
+      gate: 'runtime_evidence',
+      detail: 'Durable evidence commit is unavailable',
+    });
+  });
+
   it('passes a clean attempt against default gates', async () => {
     // Arrange
     const agent = fakeAgent(messages(), completedAttempt);

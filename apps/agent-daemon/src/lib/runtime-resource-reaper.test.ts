@@ -39,6 +39,25 @@ describe('reapRuntimeSlotResources', () => {
     expect(existsSync(fixture.workspacePath)).toBe(false);
   });
 
+  it('retains a checkout referenced by another daemon process', async () => {
+    const fixture = await makeFixture('idle', 1);
+    const other = {
+      ...fixture.slot,
+      slot: {
+        ...fixture.slot.slot,
+        id: 'other-slot',
+        slotKey: 'workspace:shared:worker:other-worker',
+        state: 'active' as const,
+      },
+    };
+    const result = await reapRuntimeSlotResources(
+      makeDeps([fixture.slot, other], []),
+      fixture.input,
+    );
+    expect(result.removedWorkspaces).toBe(0);
+    expect(existsSync(fixture.workspacePath)).toBe(true);
+  });
+
   it('retains an active running attempt even after its slot TTL', async () => {
     const fixture = await makeFixture('active', 1);
 
@@ -52,6 +71,30 @@ describe('reapRuntimeSlotResources', () => {
     expect(existsSync(fixture.sessionDir)).toBe(true);
     expect(existsSync(fixture.workspacePath)).toBe(true);
   });
+
+  it.each([false, true])(
+    'retains an active owner in another profile (admitted during sweep: %s)',
+    async (late) => {
+      const fixture = await makeFixture('idle', 1);
+      const other = structuredClone(fixture.slot);
+      other.slot.id = 'other-profile-slot';
+      other.slot.runtimeProfileId = 'other-profile';
+      other.slot.slotKey = 'workspace:shared:worker:other-worker';
+      other.slot.state = 'active';
+      other.slot.expiresAtMs = Date.now() + 60_000;
+      const deps = makeDeps([fixture.slot, other], []);
+      if (late) deps.runtimeSlotStore.listSlots.mockResolvedValueOnce([]);
+
+      const result = await reapRuntimeSlotResources(deps, fixture.input);
+
+      expect(result.removedWorkspaces).toBe(0);
+      expect(existsSync(fixture.workspacePath)).toBe(true);
+      for (const [query] of deps.runtimeSlotStore.listSlots.mock.calls) {
+        expect(query).not.toHaveProperty('runtimeProfileId');
+        expect(query).not.toHaveProperty('agentName');
+      }
+    },
+  );
 
   it('retains an active slot when its attempt row is missing', async () => {
     const fixture = await makeFixture('active', 1);
@@ -143,7 +186,7 @@ describe('reapRuntimeSlotResources', () => {
     expect(existsSync(join(outsideSession, 'keep.txt'))).toBe(true);
   });
 
-  it('does not reap slots owned by another runtime instance', async () => {
+  it('reclaims expired resources after their original runtime instance exits', async () => {
     const fixture = await makeFixture('idle', 1);
     fixture.slot.slot.slotKey =
       'freeform:correlation:test:worker:another-worker';
@@ -153,9 +196,10 @@ describe('reapRuntimeSlotResources', () => {
       fixture.input,
     );
 
-    expect(result.scanned).toBe(0);
-    expect(result.removedSessions).toBe(0);
-    expect(existsSync(fixture.sessionDir)).toBe(true);
+    expect(result.scanned).toBe(1);
+    expect(result.removedSessions).toBe(1);
+    expect(result.removedWorkspaces).toBe(1);
+    expect(existsSync(fixture.sessionDir)).toBe(false);
   });
 
   it('revalidates an expired slot and retains it when ownership changed', async () => {
@@ -370,14 +414,20 @@ async function makeLegacyFixture() {
 function makeDeps(slots: ListedRuntimeSlotContext[], attempts: TaskAttempt[]) {
   return {
     runtimeSlotStore: {
-      listSlots: vi.fn((input: { state?: 'active' | 'idle' }) =>
-        Promise.resolve(
-          slots.filter(
-            (slot) => !input.state || slot.slot.state === input.state,
+      listSlots: vi.fn(
+        (input: { state?: 'active' | 'idle'; runtimeProfileId?: string }) =>
+          Promise.resolve(
+            slots.filter(
+              (slot) =>
+                (!input.state || slot.slot.state === input.state) &&
+                (!input.runtimeProfileId ||
+                  slot.slot.runtimeProfileId === input.runtimeProfileId),
+            ),
           ),
-        ),
       ),
-    } as unknown as RuntimeSlotStore,
+    } as unknown as RuntimeSlotStore & {
+      listSlots: ReturnType<typeof vi.fn<RuntimeSlotStore['listSlots']>>;
+    },
     taskReader: {
       listAttempts: vi.fn().mockResolvedValue(attempts),
     },

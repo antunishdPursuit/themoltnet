@@ -19,6 +19,7 @@ import {
   hook,
   type JsonObject,
   type Storage,
+  type ToolExecutionResult,
   type ToolRegistration,
   ToolTask,
   type UsageState,
@@ -45,10 +46,11 @@ import { Value } from 'typebox/value';
 
 import { classifyProviderFailure } from './runtime/provider-error-classification.js';
 import { redactRetryTriageSecrets } from './runtime/retry-triage.js';
-import { SubagentToolParameters } from './runtime/subagent-tool.js';
+import { SubagentToolParameters } from './runtime/subagent-parameters.js';
 import {
   formatValidationErrors,
   normalizeSubmitArguments,
+  parseFinalMessageSubmission,
   submitOutputGuidance,
 } from './runtime/submit-output-tool.js';
 
@@ -76,8 +78,28 @@ const Attempts = defineDocFamily({
     environment: null as JsonObject | null,
     turns: 0,
     reminders: 0,
+    invalidFinalMessages: 0,
+    finalMessageError: null as string | null,
+    lastToolRound: null as string | null,
+    outputSource: null as 'submit_tool' | 'final_message' | null,
+    bashTimeouts: 0,
   }),
 });
+
+// The Durable `bash` tool throws this text on timeout, and the Harness keeps a
+// thrown message as the result's `tool_error` diagnostic.
+const BASH_TIMEOUT = /^Command timed out after /;
+
+function isBashTimeout(result: ToolExecutionResult): boolean {
+  return (
+    result.isError === true &&
+    (result.diagnostics ?? []).some(
+      (diagnostic) =>
+        diagnostic.code === 'tool_error' &&
+        BASH_TIMEOUT.test(diagnostic.message),
+    )
+  );
+}
 
 async function abortGeneration(
   harness: Harness,
@@ -123,6 +145,13 @@ export function createDurableTaskExecutor(options: {
   model: { provider: string; modelId: string };
   agent?: Omit<AgentChange, 'model'>;
   maxTurns?: number;
+  /**
+   * Bash timeouts allowed per attempt, counted across resumes and delegated
+   * conversations. The next model request after the cap is reached ends the
+   * attempt with `max_bash_timeouts_exceeded`. Defaults to 3, like the legacy
+   * executor; 0 or less disables the cap.
+   */
+  maxBashTimeouts?: number;
   subagentContracts?: SubagentContractRegistry;
   maxSubmitReminders?: number;
   open(
@@ -159,6 +188,11 @@ export function createDurableTaskExecutor(options: {
       options.maxTurns !== undefined && options.maxTurns > 0
         ? options.maxTurns
         : undefined;
+    const maxBashTimeouts = options.maxBashTimeouts ?? 3;
+    const bashTimeoutLimit = maxBashTimeouts > 0 ? maxBashTimeouts : undefined;
+    // Attempts persisted before the cap existed carry no counter.
+    const bashTimeoutsOf = (state?: { bashTimeouts?: number } | null) =>
+      state?.bashTimeouts ?? 0;
     const key = `${task.id}/${attemptN}`;
     const base = { taskId: task.id, attemptN };
     const contract = getSubmitOutputContract(task.taskType, task.input);
@@ -194,33 +228,43 @@ export function createDurableTaskExecutor(options: {
       const context = withAbortSignal(connected.signal, BACKGROUND_CONTEXT);
       const registry = createRegistry();
       let conversation: Conversation;
+      const normalizeSubmission = (args: unknown): JsonObject => {
+        let candidate = args;
+        try {
+          candidate = normalizeSubmitArguments(
+            task.taskType,
+            args,
+            contract.parametersSchema,
+            contract.toolName,
+            contract.description,
+            { input: task.input, inputCid: task.inputCid },
+          ).candidate;
+          const errors = validateAgentTaskSubmission(
+            task.taskType,
+            candidate,
+            task.input,
+            { inputCid: task.inputCid },
+          );
+          if (errors.length) throw new Error(formatValidationErrors(errors));
+          return candidate as JsonObject;
+        } catch (error) {
+          const errors = validateAgentTaskSubmission(
+            task.taskType,
+            candidate,
+            task.input,
+            { inputCid: task.inputCid },
+          );
+          throw new Error(
+            `Output failed validation: ${errors.length ? formatValidationErrors(errors) : String(error)}. Submit corrected output using the tool or a JSON-only final message.`,
+          );
+        }
+      };
       const submit = defineTool({
         name: contract.toolName,
         description: contract.description,
         parameters: contract.parametersSchema,
         constrainedSampling: { type: 'json_schema', strict: 'prefer' },
-        prepareArguments(args) {
-          try {
-            return normalizeSubmitArguments(
-              task.taskType,
-              args,
-              contract.parametersSchema,
-              contract.toolName,
-              contract.description,
-              { input: task.input, inputCid: task.inputCid },
-            ).candidate as JsonObject;
-          } catch (error) {
-            const errors = validateAgentTaskSubmission(
-              task.taskType,
-              args,
-              task.input,
-              { inputCid: task.inputCid },
-            );
-            throw new Error(
-              `Output failed validation: ${errors.length ? formatValidationErrors(errors) : String(error)}. Re-call this tool with corrected output.`,
-            );
-          }
-        },
+        prepareArguments: normalizeSubmission,
         replay: 'safe',
         executionMode: 'sequential',
         async execute(args, api, ctx) {
@@ -240,8 +284,10 @@ export function createDurableTaskExecutor(options: {
             };
           await api.commit(async (tx) => {
             const state = await tx.doc(Attempts, key, seed);
-            if (state.submission === null)
+            if (state.submission === null) {
               state.submission = args as JsonObject;
+              state.outputSource = 'submit_tool';
+            }
           }, ctx);
           return {
             content: [{ type: 'text', text: 'Output accepted.' }],
@@ -283,6 +329,17 @@ export function createDurableTaskExecutor(options: {
                 tool_name: call.name,
                 is_error: result.isError === true,
               });
+              if (
+                bashTimeoutLimit !== undefined &&
+                call.name === 'bash' &&
+                isBashTimeout(result)
+              ) {
+                // Count durably so a resumed attempt keeps its budget.
+                await harness!.commit(async (tx) => {
+                  const state = await tx.doc(Attempts, key, seed);
+                  state.bashTimeouts = bashTimeoutsOf(state) + 1;
+                }, context);
+              }
               return undefined;
             },
           }),
@@ -297,24 +354,67 @@ export function createDurableTaskExecutor(options: {
                 });
               await emit('turn_end', { stop_reason: message.stopReason });
             },
-            async beforeRequest(_request, api, ctx) {
-              connected.check();
-              let exhausted = false;
+            async afterTools(assistant, _results, _api, ctx) {
+              // Text-only validation has its own budget. The committed assistant
+              // entry also makes counting a tool round safe to replay on resume.
               await harness!.commit(async (tx) => {
                 const state = await tx.doc(Attempts, key, seed);
-                exhausted = turnLimit !== undefined && state.turns >= turnLimit;
-                if (!exhausted) state.turns += 1;
-              }, context);
+                if (state.lastToolRound !== String(assistant)) {
+                  state.turns += 1;
+                  state.lastToolRound = String(assistant);
+                }
+              }, ctx);
+            },
+            async beforeRequest(_request, api, ctx) {
+              connected.check();
+              const state = await harness!.snapshot(Attempts, key, ctx);
+              const exhausted =
+                (turnLimit !== undefined && (state?.turns ?? 0) >= turnLimit) ||
+                (bashTimeoutLimit !== undefined &&
+                  bashTimeoutsOf(state) >= bashTimeoutLimit);
               if (exhausted) {
                 await abortGeneration(harness!, api.taskId, ctx);
               }
               return undefined;
             },
-            async onYield() {
+            async onYield(answer, _api, ctx) {
               connected.check();
+              const current = await harness!.snapshot(Attempts, key, ctx);
+              if (current?.submission) return undefined;
+              const text = answer.content
+                .filter((part) => part.type === 'text')
+                .map((part) => part.text)
+                .join('\n');
+              const parsed = parseFinalMessageSubmission(text);
+              let validationError: string | undefined;
+              if (parsed) {
+                let candidate: JsonObject | undefined;
+                try {
+                  candidate = normalizeSubmission(parsed);
+                } catch (error) {
+                  validationError =
+                    error instanceof Error ? error.message : String(error);
+                }
+                if (candidate) {
+                  const submission = candidate;
+                  await harness!.commit(async (tx) => {
+                    const state = await tx.doc(Attempts, key, seed);
+                    state.submission ??= submission;
+                    state.outputSource = 'final_message';
+                  }, ctx);
+                  return undefined;
+                }
+              }
               let remind = false;
+              let invalidCount = 0;
               await harness!.commit(async (tx) => {
                 const state = await tx.doc(Attempts, key, seed);
+                if (validationError) {
+                  state.finalMessageError = validationError;
+                  state.invalidFinalMessages =
+                    (state.invalidFinalMessages ?? 0) + 1;
+                  invalidCount = state.invalidFinalMessages;
+                }
                 if (
                   !state.submission &&
                   state.reminders < (options.maxSubmitReminders ?? 3)
@@ -322,10 +422,17 @@ export function createDurableTaskExecutor(options: {
                   state.reminders += 1;
                   remind = true;
                 }
-              }, context);
+              }, ctx);
+              if (validationError)
+                await emit('info', {
+                  event: 'final_message_submit',
+                  result: 'invalid',
+                });
               return remind
                 ? {
-                    continue: `Remember: the only way to finish is to call the tool ${contract.toolName} with valid structured output.`,
+                    continue: validationError
+                      ? `invalid final message ${invalidCount}: ${validationError}`
+                      : `Submit valid structured output using ${contract.toolName} or a JSON-only final message matching its schema.`,
                   }
                 : undefined;
             },
@@ -671,6 +778,32 @@ export function createDurableTaskExecutor(options: {
         : [];
       const maxTurnsExceeded =
         turnLimit !== undefined && (state?.turns ?? 0) >= turnLimit;
+      const bashTimeouts = bashTimeoutsOf(state);
+      const maxBashTimeoutsExceeded =
+        bashTimeoutLimit !== undefined && bashTimeouts >= bashTimeoutLimit;
+      const failure =
+        output || state?.finalMessageError
+          ? {
+              code: 'output_validation_failed',
+              message: output
+                ? JSON.stringify(errors.slice(0, 3))
+                : state!.finalMessageError!,
+            }
+          : maxBashTimeoutsExceeded
+            ? {
+                code: 'max_bash_timeouts_exceeded',
+                message: `Aborted after ${bashTimeouts} bash timeouts in this attempt (cap ${bashTimeoutLimit}).`,
+              }
+            : maxTurnsExceeded
+              ? {
+                  code: 'max_turns_exceeded',
+                  message:
+                    'Durable task exceeded maxTurns without valid output',
+                }
+              : {
+                  code: 'submit_output_missing',
+                  message: 'No valid output was submitted',
+                };
       const providerMessage =
         settlement.status === 'unanswered' &&
         settlement.reason === 'model_error'
@@ -705,21 +838,9 @@ export function createDurableTaskExecutor(options: {
               usage,
               durationMs,
               error:
-                !output && providerFailure
+                !output && !maxBashTimeoutsExceeded && providerFailure
                   ? providerFailure
-                  : {
-                      code: output
-                        ? 'output_validation_failed'
-                        : maxTurnsExceeded
-                          ? 'max_turns_exceeded'
-                          : 'submit_output_missing',
-                      message: output
-                        ? JSON.stringify(errors.slice(0, 3))
-                        : maxTurnsExceeded
-                          ? 'Durable task exceeded maxTurns without valid output'
-                          : 'No valid output was submitted',
-                      retryable: false,
-                    },
+                  : { ...failure, retryable: false },
             };
       await harness.commit(async (tx) => {
         (await tx.doc(Attempts, key, seed)).result = JSON.parse(
@@ -727,6 +848,17 @@ export function createDurableTaskExecutor(options: {
         ) as JsonObject;
       }, context);
       terminalRecorded = true;
+      if (result.status === 'completed') {
+        if (state?.outputSource === 'final_message')
+          await emit('info', {
+            event: 'final_message_submit',
+            result: 'captured',
+          });
+        await emit('info', {
+          event: 'output_completion',
+          output_source: state?.outputSource ?? 'submit_tool',
+        });
+      }
       if (result.error)
         await emit('error', {
           phase: 'task_result',

@@ -2,14 +2,16 @@ import type {
   ResolvedRuntimeProfile,
   TaskExecutor,
 } from '@themoltnet/agent-runtime';
-import type { ExecutePiTaskOptions } from '@themoltnet/pi-runtime';
+import type { GondolinDurableTaskOptions } from '@themoltnet/pi-runtime';
 
 export interface PreparedDaemonRuntime {
   readonly runtimeKind: string;
   readonly manifest: Record<string, unknown>;
   readonly tools: readonly string[];
   readonly executables: readonly string[];
-  createTaskExecutor(options: ExecutePiTaskOptions): TaskExecutor;
+  createTaskExecutor(
+    options: Omit<GondolinDurableTaskOptions, 'template' | 'runtimeKind'>,
+  ): TaskExecutor;
 }
 
 export interface DaemonRuntimeAdapter {
@@ -20,7 +22,7 @@ export interface DaemonRuntimeAdapter {
       definitionCid: string;
       models: ResolvedRuntimeProfile['models'];
       runtimeKind: string;
-      sandboxConfig: ExecutePiTaskOptions['sandboxConfig'];
+      sandboxConfig: GondolinDurableTaskOptions['sandboxConfig'];
     };
     onProgress?: (message: string) => void;
   }): Promise<PreparedDaemonRuntime>;

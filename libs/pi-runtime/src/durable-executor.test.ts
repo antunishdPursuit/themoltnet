@@ -10,6 +10,7 @@ import {
   defineExtension,
   defineTool,
   type Extension,
+  type ToolRegistration,
 } from '@earendil-works/pi-durable';
 import {
   type ClaimedTask,
@@ -59,15 +60,24 @@ function setup(
   subagents = false,
   maxTurns?: number,
   subagentExtensions?: readonly Extension[],
+  overrides: {
+    maxBashTimeouts?: number;
+    tools?: readonly ToolRegistration[];
+  } = {},
 ) {
+  const allowed = new Set([
+    'subagent',
+    ...(overrides.tools ?? []).map((tool) => tool.name),
+  ]);
   const remote = remoteLog();
   const faux = fauxProvider({ tokensPerSecond: 0 });
   const models = createModels();
   models.setProvider(faux.provider);
   const prepare = vi.fn(async () => ({
     authorizeTool: vi.fn(async (name: string) =>
-      name === 'subagent' ? undefined : 'blocked',
+      allowed.has(name) ? undefined : 'blocked',
     ),
+    ...(overrides.tools ? { tools: overrides.tools } : {}),
     ...(subagents ? { subagentTools: [] } : {}),
     subagentExtensions,
     close: vi.fn(),
@@ -75,6 +85,7 @@ function setup(
   const execute = createDurableTaskExecutor({
     models,
     maxTurns,
+    maxBashTimeouts: overrides.maxBashTimeouts,
     subagentContracts: createSubagentContractRegistry([
       {
         name: 'verdict',
@@ -95,6 +106,25 @@ function setup(
   });
   return { ...remote, faux, execute, prepare };
 }
+/** A `bash` stand-in that fails the way the Durable bash tool does. */
+function failingBash(message: string) {
+  const execute = vi.fn(async (): Promise<never> => {
+    throw new Error(message);
+  });
+  return {
+    execute,
+    tool: defineTool({
+      name: 'bash',
+      description: 'Run a command',
+      parameters: Type.Object({ command: Type.String() }),
+      execute,
+    }),
+  };
+}
+const bashCall = (command: string) =>
+  fauxAssistantMessage(fauxToolCall('bash', { command }), {
+    stopReason: 'toolUse',
+  });
 const submitted = () =>
   fauxAssistantMessage(
     fauxToolCall('submit_freeform_output', { summary: 'Done' }),
@@ -189,16 +219,195 @@ describe('Durable task integration', () => {
     expect(faux.state.callCount).toBe(1);
   });
 
+  it.each(['raw', 'fenced'])(
+    'accepts %s JSON and persists the normalized submission',
+    async (format) => {
+      const { faux, execute } = setup(false, 1);
+      const json = JSON.stringify({ summary: 'Done', verification: null });
+      faux.setResponses([
+        fauxAssistantMessage(
+          format === 'raw' ? json : '```json\n' + json + '\n```',
+        ),
+      ]);
+      const claimed = task(undefined, {
+        brief: 'Do it',
+        successCriteria: {
+          version: 1,
+          gates: [
+            {
+              id: 'submit-output',
+              kind: 'submit-tool-call',
+              description: 'Submit valid output',
+              required: true,
+            },
+          ],
+        },
+      });
+      const events = reporter();
+      const result = await execute(claimed, events);
+      expect(result.status).toBe('completed');
+      expect(result.output).toHaveProperty('summary', 'Done');
+      expect(result.output).toHaveProperty(
+        'verification.inputCid',
+        'bafy-input',
+      );
+      expect(recorded(events)).toContainEqual({
+        kind: 'info',
+        payload: { event: 'output_completion', output_source: 'final_message' },
+      });
+      expect(
+        recorded(events).some(({ kind }) => kind.startsWith('tool_')),
+      ).toBe(false);
+      expect(await execute(claimed, reporter())).toEqual(result);
+      expect(faux.state.callCount).toBe(1);
+    },
+  );
+
+  it('retries invalid JSON independently of the tool-turn limit and accepts correction', async () => {
+    const { faux, execute } = setup(false, 1);
+    faux.setResponses([
+      fauxAssistantMessage('{"summary":"Done","result":{}}'),
+      (context) => {
+        expect(JSON.stringify(context.messages)).toContain(
+          'invalid final message 1',
+        );
+        return fauxAssistantMessage(
+          '{"summary":"Corrected","result":{"answer":"yes"}}',
+        );
+      },
+    ]);
+    expect(
+      (
+        await execute(
+          task(undefined, {
+            brief: 'Do it',
+            outputContract: {
+              version: 1,
+              schema: {
+                type: 'object',
+                properties: { answer: { type: 'string' } },
+                required: ['answer'],
+                additionalProperties: false,
+              },
+            },
+          }),
+          reporter(),
+        )
+      ).output,
+    ).toHaveProperty('summary', 'Corrected');
+    expect(faux.state.callCount).toBe(2);
+  });
+
+  it.each([
+    '{"summary":"Done","result":{}}',
+    'Here is the output: {"summary":"Done"}',
+    '[{"summary":"Done"}]',
+  ])('bounds rejected final messages: %s', async (text) => {
+    const { faux, execute } = setup(false, 1);
+    faux.setResponses(
+      Array.from({ length: 4 }, () => fauxAssistantMessage(text)),
+    );
+    const claimed = task(undefined, {
+      brief: 'Do it',
+      outputContract: {
+        version: 1,
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+      },
+    });
+    const result = await execute(claimed, reporter());
+    expect(result.status).toBe('failed');
+    expect(result.error?.code).toBe(
+      text.startsWith('{')
+        ? 'output_validation_failed'
+        : 'submit_output_missing',
+    );
+    if (text.startsWith('{'))
+      expect(result.error?.message).toContain('output/result/answer');
+    expect(faux.state.callCount).toBe(4);
+    expect(await execute(claimed, reporter())).toEqual(result);
+    expect(faux.state.callCount).toBe(4);
+  });
+
   it('reports the durable generation limit when no output was submitted', async () => {
     const { faux, execute } = setup(false, 2);
-    faux.setResponses([
-      fauxAssistantMessage('Finished'),
-      fauxAssistantMessage('Still finished'),
-    ]);
+    faux.setResponses([bashCall('pwd'), bashCall('pwd')]);
     const result = await execute(task(), reporter());
     expect(result.error?.code).toBe('max_turns_exceeded');
     expect(faux.state.callCount).toBe(2);
     expect(await execute(task(), reporter())).toEqual(result);
+  });
+
+  it('ends the attempt once bash timeouts reach the cap', async () => {
+    const bash = failingBash('Command timed out after 5 seconds');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 2,
+      tools: [bash.tool],
+    });
+    faux.setResponses([
+      bashCall('sleep 60'),
+      bashCall('sleep 61'),
+      submitted(),
+    ]);
+    const events = reporter();
+
+    const result = await execute(task(), events);
+
+    expect(bash.execute).toHaveBeenCalledTimes(2);
+    expect(faux.state.callCount).toBe(2);
+    expect(result.status).toBe('failed');
+    expect(result.error).toEqual({
+      code: 'max_bash_timeouts_exceeded',
+      message: 'Aborted after 2 bash timeouts in this attempt (cap 2).',
+      retryable: false,
+    });
+    expect(recorded(events)).toContainEqual({
+      kind: 'error',
+      payload: {
+        phase: 'task_result',
+        code: 'max_bash_timeouts_exceeded',
+        message: 'Aborted after 2 bash timeouts in this attempt (cap 2).',
+      },
+    });
+    expect(await execute(task(), reporter())).toEqual(result);
+  });
+
+  it('counts only bash timeouts toward the cap', async () => {
+    const bash = failingBash('Command exited with code 1');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 1,
+      tools: [bash.tool],
+    });
+    faux.setResponses([bashCall('false'), bashCall('false'), submitted()]);
+
+    const result = await execute(task(), reporter());
+
+    expect(bash.execute).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('completed');
+  });
+
+  it('disables the bash-timeout cap at zero', async () => {
+    const bash = failingBash('Command timed out after 5 seconds');
+    const { faux, execute } = setup(false, undefined, undefined, {
+      maxBashTimeouts: 0,
+      tools: [bash.tool],
+    });
+    faux.setResponses([
+      bashCall('sleep 60'),
+      bashCall('sleep 61'),
+      bashCall('sleep 62'),
+      bashCall('sleep 63'),
+      submitted(),
+    ]);
+
+    const result = await execute(task(), reporter());
+
+    expect(bash.execute).toHaveBeenCalledTimes(4);
+    expect(result.status).toBe('completed');
   });
 
   it('enforces the generation limit inside delegated tool loops', async () => {
@@ -491,9 +700,7 @@ describe('live task messages', () => {
     faux.setResponses([fauxAssistantMessage('Looking around'), submitted()]);
     const events = reporter();
     expect((await execute(task(), events)).status).toBe('completed');
-    expect(
-      recorded(events).filter(({ kind }) => !kind.startsWith('tool_')),
-    ).toEqual([
+    expect(recorded(events).filter(({ kind }) => kind === 'turn_end')).toEqual([
       { kind: 'turn_end', payload: { stop_reason: 'stop' } },
       { kind: 'turn_end', payload: { stop_reason: 'toolUse' } },
     ]);
@@ -501,7 +708,7 @@ describe('live task messages', () => {
 
   it('records why a finished attempt failed', async () => {
     const { faux, execute } = setup(false, 1);
-    faux.setResponses([fauxAssistantMessage('Finished')]);
+    faux.setResponses([bashCall('pwd')]);
     const events = reporter();
     const result = await execute(task(), events);
     expect(result.error?.code).toBe('max_turns_exceeded');

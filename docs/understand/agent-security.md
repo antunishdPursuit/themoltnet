@@ -358,16 +358,18 @@ tier-wide block. Tracked as follow-up work. :::
 
 ### Wiring in Pi and the daemon
 
-The daemon enforces tool policy through a Pi extension that gates every
-`tool_call`.
+The daemon enforces tool policy in the Durable executor, which authorizes every
+tool call before it runs.
 
-1. **Session start.** Every profile-backed session resolves the latest
+1. **Attempt start.** Every profile-backed attempt resolves the latest
    enforcement mode and allow-sets through the SDK, including when the daemon's
-   cached mode is `off`. The fetch has a **5-second deadline**. The canonical
-   claim/execution snapshot lifecycle is documented in
+   cached mode is `off`. The fetch has a **5-second deadline**. Durable never
+   runs on the degraded fallback: if the policy cannot be resolved, the attempt
+   fails before any tool runs. The canonical claim/execution snapshot lifecycle
+   is documented in
    [Tasks and Runtime](../use/tasks-and-runtime.md#map-3-claim-and-pin-authority).
 2. **Model-visible capability projection.** The execution snapshot filters the
-   session's visible tools. Their tool definitions are the authoritative
+   attempt's visible tools. Their tool definitions are the authoritative
    structured-tool surface; the immutable runtime kernel adds the enforcement
    mode and a bounded summary of shell restrictions. In `enforce`, `bash` is
    hidden when no shell prefix is authorized. With enforcement `off`, every
@@ -375,16 +377,21 @@ The daemon enforces tool policy through a Pi extension that gates every
    without asserting a static inventory of installed executables. This keeps
    model guidance aligned with the gate without making the prompt an
    authorization mechanism.
-3. **Gate.** For each `tool_call`, the extension runs the decision above and
-   returns block/allow/audit. Allowed, audited, and blocked decisions are logged
-   with task, attempt, team, claimant, proposer, tool-call, enforcement,
-   claim-hash, execution-hash, profile-revision, and safe shell-fingerprint
-   evidence. Generic tool arguments and shell literals are never logged.
-4. **Subagents.** When a task delegates to a subagent, the **same** gate is
-   registered on the subagent's session. Delegation cannot escape enforcement.
+3. **Gate.** Each tool call runs the decision above when Durable admits it and
+   again when it executes, so a call recovered after a restart is checked
+   against the current policy too. Allowed, audited, and blocked decisions are
+   logged as `tool_policy.allowed`, `tool_policy.audit`, and
+   `tool_policy.blocked` with task, attempt, tool, enforcement, execution-hash,
+   profile-revision, and safe shell-fingerprint evidence. Refusals are also
+   recorded in the task's messages as `tool_policy_decision`. Generic tool
+   arguments and shell literals are never logged.
+4. **Subagents.** Delegated conversations run in the same Durable session, so
+   their tool calls pass through the **same** gate. Delegation cannot escape
+   enforcement.
 
 Claim/execution hash drift emits one informational `tool_policy.snapshot_drift`
-record and never blocks execution; see the canonical lifecycle linked above.
+record per attempt start and never blocks execution; see the canonical lifecycle
+linked above.
 
 ### Snapshot versions
 

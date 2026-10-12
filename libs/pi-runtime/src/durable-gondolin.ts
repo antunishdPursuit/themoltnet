@@ -42,7 +42,7 @@ import {
   resolveAttemptBrokeredHttpSecrets,
 } from './runtime/attempt-vm.js';
 import { discoverGuestExecutables } from './runtime/capability-discovery.js';
-import type { ExecutePiTaskOptions } from './runtime/execute-pi-task.js';
+import type { GondolinDurableTaskOptions } from './runtime/durable-task-options.js';
 import { configureDurableModelOptions } from './runtime/model-options-extension.js';
 import {
   createClassifierTool,
@@ -64,7 +64,6 @@ import {
   filterModelVisibleTools,
   materializePiTools,
   PiBrokeredHttpSecretResolutionError,
-  type ResolvedGondolinTemplate,
 } from './runtime-definition.js';
 import {
   createGondolinToolLifecycle,
@@ -144,10 +143,7 @@ function verifyWorkspaceMarker(
 
 /** Mounted workspaces remain available independently of the daemon process. */
 export function createGondolinDurableTaskExecutor(
-  options: ExecutePiTaskOptions & {
-    template: ResolvedGondolinTemplate;
-    runtimeKind: string;
-  },
+  options: GondolinDurableTaskOptions,
 ) {
   return async (
     ...args: Parameters<ReturnType<typeof createDurableTaskExecutor>>
@@ -156,6 +152,9 @@ export function createGondolinDurableTaskExecutor(
     const startedAt = Date.now();
     if (claimedTask.task.taskType === 'classify')
       return executeProfileClassificationTask(options.classifier, ...args);
+    const template = options.template;
+    if (!template)
+      throw new Error('Generation task requires a Gondolin template');
     const agent = options.moltnetAgent;
     if (!agent || !options.runtimeProfileId)
       throw new Error(
@@ -201,6 +200,7 @@ export function createGondolinDurableTaskExecutor(
       models,
       model: { provider: options.provider, modelId: options.model },
       maxTurns: options.maxTurns,
+      maxBashTimeouts: options.maxBashTimeouts,
       subagentContracts: options.subagentContractRegistry,
       maxSubmitReminders: options.maxSubmitMissingReprompts,
       agent: { thinkingLevel: options.thinkingLevel ?? undefined },
@@ -251,6 +251,26 @@ export function createGondolinDurableTaskExecutor(
             if (policy.degraded)
               throw new Error(
                 `Durable runtime requires a resolved tool policy (runtime profile ${runtimeProfileId})`,
+              );
+            const claimPolicySnapshotHash =
+              claimed.claimAuthority?.policySnapshotHash;
+            if (
+              claimPolicySnapshotHash &&
+              policy.executionPolicySnapshotHash &&
+              claimPolicySnapshotHash !== policy.executionPolicySnapshotHash
+            )
+              // Informational: the gate always uses the execution snapshot.
+              logger.info(
+                {
+                  taskId: claimed.task.id,
+                  attemptN: claimed.attemptN,
+                  decision: 'continue',
+                  reason: 'claim_execution_policy_drift',
+                  claimPolicySnapshotHash,
+                  executionPolicySnapshotHash:
+                    policy.executionPolicySnapshotHash,
+                },
+                'tool_policy.snapshot_drift',
               );
             const plan = (await options.makeExecutionPlan?.(claimed)) ?? null;
             const resumed = previousEnvironment !== null;
@@ -332,7 +352,7 @@ export function createGondolinDurableTaskExecutor(
               { 'moltnet.workspace.mode': workspace.mode },
               () =>
                 (options.resumeVm ?? resumeVm)({
-                  checkpointPath: options.template.checkpointPath,
+                  checkpointPath: template.checkpointPath,
                   agentName: options.agentName,
                   agentRootDir: options.agentRootDir,
                   mountPath: workspace.mountPath,
@@ -341,7 +361,7 @@ export function createGondolinDurableTaskExecutor(
                     {
                       ...options.sandboxConfig,
                       snapshot: undefined,
-                      resumeCommands: [...options.template.resumeCommands],
+                      resumeCommands: [...template.resumeCommands],
                     },
                     plan,
                   ),
