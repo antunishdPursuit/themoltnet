@@ -27,6 +27,8 @@ import {
   updateRuntimePolicy,
   updateRuntimeProfile,
 } from '@moltnet/api-client';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Node E2E fixture setup.
+import { buildE2EExecutorManifest } from '@moltnet/bootstrap/testing/durable';
 import {
   buildExecutorRegistrationAttestationPayload,
   computeExecutorManifestCid,
@@ -36,6 +38,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createAgent, type TestAgent } from './helpers.js';
 import { createTestHarness, type TestHarness } from './setup.js';
+
+const CLAIM_LEASE_TTL_SEC = 30;
 
 describe('Runtime Profiles API', () => {
   let harness: TestHarness;
@@ -171,24 +175,10 @@ describe('Runtime Profiles API', () => {
     runtimeKind: string,
   ) {
     return {
-      schemaVersion: 'moltnet:executor-manifest:v1',
-      runtime: {
-        kind: runtimeKind,
-        engine: 'pi',
-        sandbox: 'gondolin',
-        id: 'runtime-profile-e2e',
-        version: '1',
-      },
-      profile: {
-        id: profile.id,
-        definitionCid: profile.definitionCid,
-      },
-      vm: {
-        templateId: 'runtime-profile-e2e',
-        templateVersion: '1',
-        templateFingerprint: 'bafyreie2e-template',
-        guestAssetBuildId: 'runtime-profile-e2e',
-      },
+      ...buildE2EExecutorManifest(
+        { ...profile, runtimeKind },
+        'runtime-profile',
+      ),
       tools: [{ name: 'linear.issue.get' }],
       extensions: [{ declaredTools: ['github.pr.create'] }],
       executables: ['git'],
@@ -565,7 +555,7 @@ describe('Runtime Profiles API', () => {
       auth: () => owner.accessToken,
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
-      body: { leaseTtlSec: 30 },
+      body: { leaseTtlSec: CLAIM_LEASE_TTL_SEC },
     });
     expect(missingProfileClaim.response?.status).toBe(403);
 
@@ -574,7 +564,7 @@ describe('Runtime Profiles API', () => {
       auth: () => owner.accessToken,
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
-      body: { leaseTtlSec: 30, profileId: otherProfile!.id },
+      body: { leaseTtlSec: CLAIM_LEASE_TTL_SEC, profileId: otherProfile!.id },
     });
     expect(wrongProfileClaim.response?.status).toBe(403);
 
@@ -583,7 +573,7 @@ describe('Runtime Profiles API', () => {
       auth: () => owner.accessToken,
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
-      body: { leaseTtlSec: 30, profileId: allowedProfile!.id },
+      body: { leaseTtlSec: CLAIM_LEASE_TTL_SEC, profileId: allowedProfile!.id },
     });
     expect(missingExecutorClaim.response?.status).toBe(400);
 
@@ -596,7 +586,7 @@ describe('Runtime Profiles API', () => {
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
       body: {
-        leaseTtlSec: 30,
+        leaseTtlSec: CLAIM_LEASE_TTL_SEC,
         profileId: allowedProfile!.id,
         executorFingerprint: incompatibleFingerprint,
       },
@@ -617,7 +607,7 @@ describe('Runtime Profiles API', () => {
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
       body: {
-        leaseTtlSec: 30,
+        leaseTtlSec: CLAIM_LEASE_TTL_SEC,
         profileId: allowedProfile!.id,
         executorFingerprint: staleRevisionFingerprint,
       },
@@ -639,7 +629,7 @@ describe('Runtime Profiles API', () => {
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
       body: {
-        leaseTtlSec: 30,
+        leaseTtlSec: CLAIM_LEASE_TTL_SEC,
         profileId: allowedProfile!.id,
         executorFingerprint: missingCapabilitiesFingerprint,
       },
@@ -656,7 +646,7 @@ describe('Runtime Profiles API', () => {
       headers: { 'x-moltnet-team-id': owner.personalTeamId },
       path: { id: task!.id },
       body: {
-        leaseTtlSec: 30,
+        leaseTtlSec: CLAIM_LEASE_TTL_SEC,
         profileId: allowedProfile!.id,
         executorFingerprint: compatibleFingerprint,
       },

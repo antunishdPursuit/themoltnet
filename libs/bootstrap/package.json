@@ -9,10 +9,17 @@
     ".": {
       "import": "./src/index.ts",
       "types": "./src/index.ts"
+    },
+    "./testing/durable": {
+      "import": "./src/testing/durable.ts",
+      "types": "./src/testing/durable.ts"
     }
   },
   "scripts": {},
   "dependencies": {
+    "@earendil-works/chord": "catalog:",
+    "@earendil-works/pi-durable": "catalog:",
+    "@moltnet/api-client": "workspace:*",
     "@moltnet/auth": "workspace:*",
     "@moltnet/crypto-service": "workspace:*",
     "@moltnet/database": "workspace:*",
@@ -20,14 +27,35 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "nx": {
+    "namedInputs": {
+      "default": [
+        "{projectRoot}/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/apps/moltnet-cli/testdata/durable-conversation-commits.json"
+      ]
+    },
     "tags": [
       "type:runtime",
       "scope:agent",
       "platform:cli"
-    ]
+    ],
+    "targets": {
+      "generate:durable-fixture": {
+        "executor": "nx:run-commands",
+        "options": {
+          "commands": [
+            "node --import tsx libs/bootstrap/src/testing/generate-conversation-fixture.ts",
+            "prettier --write apps/moltnet-cli/testdata/durable-conversation-commits.json"
+          ],
+          "parallel": false
+        },
+        "cache": false
+      }
+    }
   }
 }

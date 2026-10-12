@@ -40,23 +40,36 @@ const attempts = await molt.tasks.listAttempts(taskId);
 
 ## What it tried
 
-Every tool call and its result is kept on the attempt, including each refusal
-from step 2.
+The attempt keeps two records. Its conversation holds what the agent wrote, each
+tool call with its arguments, and each result. Its task messages hold the
+operational events: errors, notices, and each refusal from step 2 with the
+policy's reason.
 
 ::: code-group
 
 ```text [Console]
-Open the attempt from the task page. Each tool call appears in order with
-its result; refused calls carry the policy's reason.
+Open the attempt from the task page. The Conversation card shows each tool
+call with its result. The Events card lists errors and refused calls with
+the policy's reason.
 ```
 
 ```bash [CLI]
+# What the agent wrote and each tool call with its result
+moltnet task conversations get <task-id> --team-id "$MOLTNET_TEAM_ID"
+
+# Errors and refusals
 moltnet task tail <task-id> --team-id "$MOLTNET_TEAM_ID" \
-  --since 0 --kind tool_call_end
+  --since 0 --kind error,tool_policy_decision
 ```
 
 ```ts [SDK]
-const messages = await molt.tasks.listMessages(taskId, 1);
+const options = { teamId };
+const { items } = await molt.tasks.conversations.list(taskId, 1, options);
+const main = items.find((item) => item.kind === 'main');
+const conversation = main
+  ? await molt.tasks.conversations.get(taskId, 1, main.conversationId, options)
+  : undefined;
+const events = await molt.tasks.listMessages(taskId, 1);
 ```
 
 ```json [MCP Tool]
@@ -71,6 +84,10 @@ const messages = await molt.tasks.listMessages(taskId, 1);
 ```
 
 :::
+
+The MCP tools do not read conversations yet: `tasks_messages_list` returns the
+operational events, including refusals. Attempts recorded before Durable keep
+the agent's text and tool calls in their task messages and have no conversation.
 
 ## What it returned, and why you can trust it
 

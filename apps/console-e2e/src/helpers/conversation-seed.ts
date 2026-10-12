@@ -1,18 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
-// eslint-disable-next-line @nx/enforce-module-boundaries -- This Node-only fixture writes native Durable commits; Pi is never shipped to the browser.
 import {
-  createSession,
-  defineDocFamily,
-  defineTask,
-  type Id,
-  LiveDoc,
-  MemoryStorage,
-  type StorageWrite,
-} from '@earendil-works/pi-durable';
-import {
-  appendRuntimeStoreCommit,
   type Client,
   createClient,
   createDiary,
@@ -20,11 +8,13 @@ import {
   createRuntimeProfile,
   createTeam,
   getWhoami,
-  mintRuntimeStoreId,
-  openRuntimeStore,
-  releaseRuntimeStore,
-  renewRuntimeStore,
 } from '@moltnet/api-client';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Node-only browser E2E setup.
+import {
+  assistantMessage,
+  buildE2EExecutorManifest,
+  openDurableSeed,
+} from '@moltnet/bootstrap/testing/durable';
 import {
   computeExecutorManifestCid,
   computeJsonCid,
@@ -34,38 +24,8 @@ import { expect } from '@playwright/test';
 import { provisionAgent } from './agent-seed.js';
 import { REST_API_URL } from './env.js';
 
-const Attempts = defineDocFamily({
-  kind: 'moltnet.attempt',
-  version: 1,
-  scope: 'session',
-  family: true,
-  initial: (conversationId: number) => ({ conversationId }),
-});
-// Only the persisted ownership is needed: no model or task worker runs here.
-const Subagent = defineTask({
-  name: 'console-e2e.subagent',
-  version: 1,
-  initial: () => ({ phase: 'idle' as const }),
-  phases: { idle: async () => {} },
-  abort: async () => {},
-});
-const assistant = (text: string) => ({
-  role: 'assistant' as const,
-  content: [{ type: 'text' as const, text }],
-  timestamp: Date.now(),
-  api: 'anthropic-messages' as const,
-  provider: 'anthropic',
-  model: 'fixture',
-  usage: {
-    input: 0,
-    output: 0,
-    cacheRead: 0,
-    cacheWrite: 0,
-    totalTokens: 0,
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-  },
-  stopReason: 'stop' as const,
-});
+/** Claim lease the seed keeps alive; the writer lease never outlives it. */
+const LEASE_TTL_SEC = 120;
 
 /** Real cross-principal team: human reads in the console, agent writes Durable. */
 export async function provisionConversationTeam(human: Client) {
@@ -141,26 +101,7 @@ export async function seedConversation(
   count = 1,
 ) {
   const { agent, teamId, diaryId, profile } = env;
-  const manifest = {
-    schemaVersion: 'moltnet:executor-manifest:v1',
-    runtime: {
-      kind: profile.runtimeKind,
-      engine: 'pi',
-      sandbox: 'gondolin',
-      id: 'console-conversations-e2e',
-      version: '1',
-    },
-    profile: { id: profile.id, definitionCid: profile.definitionCid },
-    vm: {
-      templateId: 'console-e2e',
-      templateVersion: '1',
-      templateFingerprint: 'bafyreie2e-template',
-      guestAssetBuildId: 'console-e2e',
-    },
-    tools: [],
-    extensions: [],
-    executables: [],
-  };
+  const manifest = buildE2EExecutorManifest(profile, 'console-conversations');
   const executorFingerprint = computeExecutorManifestCid(manifest);
   const task = await agent.agent.tasks.create(
     {
@@ -173,76 +114,41 @@ export async function seedConversation(
     { teamId },
   );
   const claim = await agent.agent.tasks.claim(task.id, {
-    leaseTtlSec: 120,
+    leaseTtlSec: LEASE_TTL_SEC,
     profileId: profile.id,
     executorFingerprint,
     executorManifest: manifest,
   });
   const attemptN = claim.attempt.attemptN;
-  await agent.agent.tasks.heartbeat(task.id, attemptN, { leaseTtlSec: 120 });
-  const authority = {
-    taskId: task.id,
-    attemptN,
-    leaseId: claim.attempt.leaseId!,
-    executorFingerprint,
-  };
+  await agent.agent.tasks.heartbeat(task.id, attemptN, {
+    leaseTtlSec: LEASE_TTL_SEC,
+  });
+  const { leaseId } = claim.attempt;
+  if (!leaseId) throw new Error('A pinned claim must return a lease');
+  const authority = { taskId: task.id, attemptN, leaseId, executorFingerprint };
   const request = {
     client: createClient({ baseUrl: REST_API_URL }),
     auth: () => agent.genesis.accessToken,
     headers: { 'x-moltnet-team-id': teamId },
     throwOnError: true as const,
   };
-  const opened = await openRuntimeStore({ ...request, body: authority });
-  const { storeId, writerToken } = opened.data;
-  const writer = { ...authority, writerToken };
-  let head = opened.data.headSeq;
-  let stopped = false;
+  const seed = await openDurableSeed(
+    request,
+    authority,
+    Array.from({ length: count }, (_, i) => ({
+      kind: 'pi.assistant',
+      model: [assistantMessage(`Message ${String(i + 1).padStart(3, '0')}`)],
+    })),
+  );
+  // The writer lease is released exactly once: complete() hands it back before
+  // completing the task, and close() releases it only if complete() did not.
+  let released = false;
   async function renew() {
-    await agent.agent.tasks.heartbeat(task.id, attemptN, { leaseTtlSec: 120 });
-    await renewRuntimeStore({ ...request, path: { storeId }, body: writer });
+    await agent.agent.tasks.heartbeat(task.id, attemptN, {
+      leaseTtlSec: LEASE_TTL_SEC,
+    });
+    await seed.renew();
   }
-  class RemoteStorage extends MemoryStorage {
-    override async mintId<I extends Id<string>>(): Promise<I> {
-      const result = await mintRuntimeStoreId({
-        ...request,
-        path: { storeId },
-        body: writer,
-      });
-      return result.data.id as I;
-    }
-    override async commit(writes: readonly StorageWrite[]) {
-      const result = await appendRuntimeStoreCommit({
-        ...request,
-        path: { storeId },
-        body: {
-          ...writer,
-          commitId: randomUUID(),
-          expectedSeq: head,
-          writes: JSON.parse(JSON.stringify(writes)) as Record<
-            string,
-            unknown
-          >[],
-        },
-      });
-      head = result.data.seq;
-      return super.commit(writes, context);
-    }
-  }
-  const session = createSession(new RemoteStorage());
-  const root = (
-    await session.commit(
-      (tx) => tx.createConversation({ ownership: { kind: 'ownerless' } }),
-      context,
-    )
-  ).id;
-  await session.commit(async (tx) => {
-    await tx.doc(Attempts, `${task.id}/${attemptN}`, root);
-    for (let i = 1; i <= count; i++)
-      await tx.appendEntry(root, {
-        kind: 'pi.assistant',
-        model: [assistant(`Message ${String(i).padStart(3, '0')}`)],
-      });
-  }, context);
 
   let renewal = Promise.resolve();
   let renewalError: unknown;
@@ -259,48 +165,27 @@ export async function seedConversation(
   return {
     taskId: task.id,
     attemptN,
-    conversationId: String(root),
+    conversationId: seed.conversationId,
     async append(text: string) {
       await renew();
-      await session.commit(
-        (tx) =>
-          tx.appendEntry(root, {
-            kind: 'pi.assistant',
-            model: [assistant(text)],
-          }),
-        context,
-      );
+      await seed.append([
+        { kind: 'pi.assistant', model: [assistantMessage(text)] },
+      ]);
     },
     async partial(text: string) {
       await renew();
-      await session.commit(async (tx) => {
-        const live = await tx.doc(LiveDoc, root);
-        live.generation = text
-          ? { attempt: 1, message: assistant(text) }
-          : undefined;
-      }, context);
+      await seed.partial(text ? assistantMessage(text) : undefined);
     },
     async subagents(count: number) {
       await renew();
-      return session.commit(async (tx) => {
-        const ids: string[] = [];
-        for (let i = 0; i < count; i++) {
-          const taskId = await tx.createTask(
-            Subagent,
-            {},
-            { conversationId: root, ownership: { kind: 'conversation' } },
-          );
-          const child = await tx.createConversation({
-            ownership: { kind: 'task', taskId },
-          });
-          await tx.appendEntry(child.id, {
+      return seed.subagents(
+        Array.from({ length: count }, (_, i) => [
+          {
             kind: 'pi.assistant',
-            model: [assistant(`Subagent result ${i + 1}`)],
-          });
-          ids.push(String(child.id));
-        }
-        return ids;
-      }, context);
+            model: [assistantMessage(`Subagent result ${i + 1}`)],
+          },
+        ]),
+      );
     },
     async complete() {
       await stopRenewal();
@@ -308,12 +193,11 @@ export async function seedConversation(
         throw new Error('Runtime writer renewal failed', {
           cause: renewalError,
         });
-      await this.partial('');
-      await releaseRuntimeStore({
-        ...request,
-        path: { storeId },
-        body: writer,
-      });
+      // Clear the streaming partial under one last renewal, then hand back.
+      await renew();
+      await seed.partial();
+      await seed.release();
+      released = true;
       const output = {
         summary:
           'The console conversation integration fixture completed successfully.',
@@ -337,18 +221,11 @@ export async function seedConversation(
         outputCid: await computeJsonCid(output),
         usage: { inputTokens: 0, outputTokens: 0 },
       });
-      stopped = true;
     },
     async close() {
       await stopRenewal();
-      await session.close(context);
-      if (!stopped)
-        await releaseRuntimeStore({
-          ...request,
-          throwOnError: false,
-          path: { storeId },
-          body: writer,
-        });
+      await seed.close();
+      if (!released) await seed.release();
       if (renewalError)
         throw new Error('Runtime writer renewal failed', {
           cause: renewalError,
