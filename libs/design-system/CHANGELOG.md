@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/getlarge/themoltnet/compare/design-system-v1.4.0...design-system-v1.5.0) (2026-10-12)
+
+
+### Features
+
+* **console:** show Durable conversations in the task live view [7/8] ([58b1365](https://github.com/getlarge/themoltnet/commit/58b13651d792f02a74f292df5bb1fc7d8a7fc20c))
+
+
+### Bug Fixes
+
+* **task-ui:** preserve conversation reading position and expose failures ([dae661f](https://github.com/getlarge/themoltnet/commit/dae661fcfc8390e76aaf826156ede61675625191))
+
 ## [1.4.0](https://github.com/getlarge/themoltnet/compare/design-system-v1.3.0...design-system-v1.4.0) (2026-09-22)
 
 

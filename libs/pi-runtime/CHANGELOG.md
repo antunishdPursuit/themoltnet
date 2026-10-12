@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.23.0](https://github.com/getlarge/themoltnet/compare/pi-runtime-v0.22.0...pi-runtime-v0.23.0) (2026-10-12)
+
+
+### Features
+
+* **pi-runtime:** add API-backed Durable execution ([f5b0c52](https://github.com/getlarge/themoltnet/commit/f5b0c523f7996c47d2d31a021c684a0ae700ad89))
+* **pi-runtime:** add Durable storage and execution [3/8] ([1c66b3b](https://github.com/getlarge/themoltnet/commit/1c66b3bfd5bed20b0999f191d3c8b9e94cf68a52))
+* **pi-runtime:** count rejected submit repairs and bound repair telemetry ([964e6b4](https://github.com/getlarge/themoltnet/commit/964e6b4edc24536b7c9e03834b336042c1b760c0))
+* **pi-runtime:** integrate Durable with Gondolin ([a3acdaa](https://github.com/getlarge/themoltnet/commit/a3acdaaa81cde4ffeabd8a4a914a8a84cf16e648))
+* **pi-runtime:** integrate Durable with Gondolin [4/8] ([0761a1a](https://github.com/getlarge/themoltnet/commit/0761a1aa725fdcbf0b765cb69a81624ba4cdf576))
+* **pi-runtime:** upgrade Pi and share runtime capabilities ([9e8c68b](https://github.com/getlarge/themoltnet/commit/9e8c68b05bfc54dd2b35f7ad95646dc8f56be444))
+* **runtime:** upgrade Pi and share classifier capabilities [2/8] ([25c39b9](https://github.com/getlarge/themoltnet/commit/25c39b9b60f454d3b7807ca2e785dd736cd67a67))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* address review round 2 on classifier retries ([013ef25](https://github.com/getlarge/themoltnet/commit/013ef258222288d24b6890f8f621e768d9fa83a6))
+* **agent-daemon:** configure classifier providers for Pi ([a25bb7c](https://github.com/getlarge/themoltnet/commit/a25bb7c350d985ab289c3c53c0adf3416554fdda))
+* **agent-daemon:** skip Gondolin for classifier-only profiles ([77a3362](https://github.com/getlarge/themoltnet/commit/77a33626e3be7c4bc07566588431c8616f07e2cf))
+* **pi-runtime:** bound Durable retries by writer lifetime ([9209ec1](https://github.com/getlarge/themoltnet/commit/9209ec185a7777b333d537abc3d47035244b45f0))
+* **pi-runtime:** consume streamed task evidence ([923bad3](https://github.com/getlarge/themoltnet/commit/923bad3d1dc44b7e2fcc98c0f238591ad886fe4b))
+* **pi-runtime:** enforce maxBashTimeouts in the Durable executor ([17aa5d6](https://github.com/getlarge/themoltnet/commit/17aa5d6535f190cc662f0ef356954cab556a1008))
+* **pi-runtime:** keep the original error when Durable cleanup fails ([0989609](https://github.com/getlarge/themoltnet/commit/09896095da06609cd4e24f96755be8f9865936ac))
+* **pi-runtime:** preserve credential setup retryability ([8eebfb1](https://github.com/getlarge/themoltnet/commit/8eebfb1bd195c63ee8cedffd5d393d87c3cac30f))
+* **pi-runtime:** preserve Durable provider failure verdicts ([a44bf90](https://github.com/getlarge/themoltnet/commit/a44bf90aea7eba490f8345eaf01c2527322f258f))
+* **pi-runtime:** record Durable tool-policy refusals in the task record ([03ffc95](https://github.com/getlarge/themoltnet/commit/03ffc959a7e9dfd5da83b0f604106d3e387f078f))
+* **pi-runtime:** record operational task messages from Durable execution ([f309bc0](https://github.com/getlarge/themoltnet/commit/f309bc0d3e3d017ce99ed005105fef5a2c503b3c))
+* **pi-runtime:** register guarded child extensions ([79d24ba](https://github.com/getlarge/themoltnet/commit/79d24ba7d544c0a3ee27f0862cdb34eb78f70e35))
+* **pi-runtime:** reject unusable submit contracts before VM boot ([9d0a213](https://github.com/getlarge/themoltnet/commit/9d0a2136210c71e7f9b20874a337314ec8c33707))
+* **pi-runtime:** replay Durable commits incrementally ([a675227](https://github.com/getlarge/themoltnet/commit/a67522752350c9135749da9bf69046d3fdadf85f))
+* **pi-runtime:** restore Durable dependency and smoke probe ([3d6cde3](https://github.com/getlarge/themoltnet/commit/3d6cde35fd869090219796ba6e3a0ce023eeaff8))
+* **pi-runtime:** scope Durable Gondolin paths and resume workspaces in place ([22e882a](https://github.com/getlarge/themoltnet/commit/22e882a11ad39243df34e3bd11b82f179de0910c))
+* **pi-runtime:** use system role for Ollama chat ([93b37bd](https://github.com/getlarge/themoltnet/commit/93b37bd1e8c380844340804b45a425ccaaa9235b))
+* **providers:** configure Pi instruction role explicitly ([9f2105c](https://github.com/getlarge/themoltnet/commit/9f2105c07c28a45bf0ffabbc7cfe71abc86afd2e))
+* **providers:** configure Pi instruction role explicitly ([5da0c52](https://github.com/getlarge/themoltnet/commit/5da0c52f3e35adb1772ee778af4214ceaeb79ae0))
+* **runtime:** finish submit-output follow-ups from [#2641](https://github.com/getlarge/themoltnet/issues/2641) ([269154b](https://github.com/getlarge/themoltnet/commit/269154b498b6cd8f8709f17684de80cbca4f1dc4))
+* **runtime:** restore JSON submissions and count durable evidence once ([9347a0f](https://github.com/getlarge/themoltnet/commit/9347a0f353c850b5f0458e935d472ebbfa9fd626))
+* **runtime:** unify typed provider model registration ([16fec5c](https://github.com/getlarge/themoltnet/commit/16fec5c1e9470ef74a5385114be1b43af0b86a5a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/agent-runtime bumped to 1.13.0
+    * @themoltnet/sandbox-gondolin bumped to 0.7.0
+    * @themoltnet/sdk bumped to 0.150.0
+
 ## [0.22.0](https://github.com/getlarge/themoltnet/compare/pi-runtime-v0.21.2...pi-runtime-v0.22.0) (2026-10-06)
 
 

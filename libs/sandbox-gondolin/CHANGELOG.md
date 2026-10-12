@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/getlarge/themoltnet/compare/sandbox-gondolin-v0.6.0...sandbox-gondolin-v0.7.0) (2026-10-12)
+
+
+### Features
+
+* **pi-runtime:** upgrade Pi and share runtime capabilities ([9e8c68b](https://github.com/getlarge/themoltnet/commit/9e8c68b05bfc54dd2b35f7ad95646dc8f56be444))
+* **runtime:** upgrade Pi and share classifier capabilities [2/8] ([25c39b9](https://github.com/getlarge/themoltnet/commit/25c39b9b60f454d3b7807ca2e785dd736cd67a67))
+
 ## [0.6.0](https://github.com/getlarge/themoltnet/compare/sandbox-gondolin-v0.5.2...sandbox-gondolin-v0.6.0) (2026-10-01)
 
 

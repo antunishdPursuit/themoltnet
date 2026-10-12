@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.17.0](https://github.com/getlarge/themoltnet/compare/database-v0.16.0...database-v0.17.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable session storage and classification contracts ([9a06a8d](https://github.com/getlarge/themoltnet/commit/9a06a8dc80ac6232cd3be727ab4c478c27e5d2d7))
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **tasks:** expose persisted Durable conversations ([05af598](https://github.com/getlarge/themoltnet/commit/05af5985f3981fc668b1c34158704288b1ee9fd8))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* address review round 1 on Durable storage ([cf81d84](https://github.com/getlarge/themoltnet/commit/cf81d841dc6df2f1b832736484936b763d37d565))
+* address review round 3 fork authorization ([e685327](https://github.com/getlarge/themoltnet/commit/e685327054b9a9eb31930ac2f52cba002b0b002b))
+* restore runtime profile model database checks ([cc9dd2a](https://github.com/getlarge/themoltnet/commit/cc9dd2a6252cb271634687401a0ee1207d78af34))
+* **tasks:** enforce legacy expiry and running deadlines ([5e93dd4](https://github.com/getlarge/themoltnet/commit/5e93dd48e683bc529f93bd73d8501a36b51978b9))
+* **tasks:** enforce legacy expiry and running deadlines ([e365621](https://github.com/getlarge/themoltnet/commit/e365621e82816ef975ef37125ac0c50b615b4de6))
+
 ## [0.16.0](https://github.com/getlarge/themoltnet/compare/database-v0.15.0...database-v0.16.0) (2026-09-28)
 
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/getlarge/themoltnet/compare/docs-impact-review-action-v0.3.0...docs-impact-review-action-v0.4.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **pi-runtime:** add Durable storage and execution [3/8] ([1c66b3b](https://github.com/getlarge/themoltnet/commit/1c66b3bfd5bed20b0999f191d3c8b9e94cf68a52))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* **actions:** rebuild action bundles for runtime-store client ([d01a10b](https://github.com/getlarge/themoltnet/commit/d01a10b323bf3d8316d166045960ad8cd2d57449))
+* **actions:** rebuild action bundles for runtime-store client ([92b3407](https://github.com/getlarge/themoltnet/commit/92b3407acd61e58154c5d7e0ec1c58bfa12ec859))
+* **actions:** rebuild action bundles for runtime-store client ([db58b5f](https://github.com/getlarge/themoltnet/commit/db58b5f0986c7777c96133aab57fdaee212aedfe))
+* **actions:** rebuild bundle from frozen dependencies ([98b56cf](https://github.com/getlarge/themoltnet/commit/98b56cfab29d5bb2b8faf42c21435bbb09d580a8))
+* **providers:** configure Pi instruction role explicitly ([9f2105c](https://github.com/getlarge/themoltnet/commit/9f2105c07c28a45bf0ffabbc7cfe71abc86afd2e))
+* **review:** refresh action runtime locks ([ad591ff](https://github.com/getlarge/themoltnet/commit/ad591ff0a371e7652dccb804033e3c484b05d97e))
+
 ## [0.3.0](https://github.com/getlarge/themoltnet/compare/docs-impact-review-action-v0.2.3...docs-impact-review-action-v0.3.0) (2026-10-06)
 
 
