@@ -17,6 +17,10 @@ on:
         description: Preview updates without creating branches or pull requests
         type: boolean
         default: true
+      debug:
+        description: Include branch update details in preview logs
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -72,5 +76,6 @@ jobs:
           RENOVATE_ONBOARDING: 'false'
           RENOVATE_REQUIRE_CONFIG: required
           RENOVATE_PLATFORM_COMMIT: enabled
+          RENOVATE_LOG_LEVEL: ${{ github.event_name == 'workflow_dispatch' && inputs.debug && 'debug' || 'info' }}
           # Permit only the workspace formatter declared in renovate.json.
           RENOVATE_ALLOWED_COMMANDS: '["^node tools/renovate/format-pnpm-workspace\\.mjs$"]'

@@ -141,6 +141,25 @@
       "matchManagers": ["github-actions"]
     },
     {
+      "description": "The Rust action SHA is intentionally fixed to the repository's Rust 1.90.0 toolchain",
+      "enabled": false,
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["dtolnay/rust-toolchain"]
+    },
+    {
+      "description": "Self-repository reusable workflows must continue to load from main",
+      "matchDepTypes": ["workflow"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["getlarge/themoltnet"],
+      "pinDigests": false
+    },
+    {
+      "description": "The Renovate Docker version is a plain action input, not a pinned container reference",
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["ghcr.io/renovatebot/renovate"],
+      "pinDigests": false
+    },
+    {
       "description": "Validate Go toolchain changes (.tool-versions, read by every setup-go step) with the Go CI lanes before merging",
       "groupName": "Go toolchain",
       "matchDepNames": ["golang"],
