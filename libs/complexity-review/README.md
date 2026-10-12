@@ -4,9 +4,10 @@ This library owns the LeGreffier PR complexity review. The reusable GitHub workf
 base and head, then runs trusted code from the base revision. The library reads the
 immutable diff and runs three stages: a change-map task groups every changed
 file by domain, focused domain tasks review the full patches in parallel, and
-a synthesis task marks each criterion pass, fail, or unclear. The composite
-uses only assessed criteria. Trusted code validates file coverage, stage output,
-and score arithmetic before the workflow publishes a
+a synthesis task marks each criterion pass, fail, or unclear. Trusted code
+calculates the composite from assessed criteria and supplies reviewed paths
+from the pinned diff. It validates file coverage and stage output before
+the workflow publishes a
 revision-aware comment with the LeGreffier GitHub App token.
 
 Focused tasks receive evidence packets of at most 96 KB and have no optional
@@ -28,9 +29,11 @@ counts them and names the first few. When every changed file is generated, they
 are summarized like lockfiles instead, so the review still has evidence. Every
 other changed path appears in a focused review group after map validation.
 
-If the change-map task omits numbered files, trusted code adds those files to a
-separate focused review group. Duplicate or unknown file indexes still fail
-validation. This keeps full patch coverage when a map is incomplete.
+The change-map task suggests groups; trusted code assigns group IDs, keeps the
+first valid assignment for each numbered file, and places unassigned files in
+a separate focused review group. Duplicate or unknown indexes do not affect
+coverage. Domain tasks return observations without echoing assigned paths, and
+the synthesis task returns judgments without calculating the composite.
 
 Each task has one attempt and a 180-second running budget. Two drain workers
 claim focused tasks under one correlation ID. The final comment leads with a
@@ -83,7 +86,7 @@ moltnet-agent drain --agent legreffier --team "$TEAM" \
 ```
 
 Each stage requires a typed freeform `result`. The task service validates its
-shape before accepting the output; the trusted library then checks the map,
-assigned paths, and final rubric score.
+shape before accepting the output; the trusted library then assigns every
+changed path and calculates the final rubric score.
 The app prints `{ taskId, taskIds, output, durationMs, stageDurationsMs,
 base, head, pr }` as JSON.
