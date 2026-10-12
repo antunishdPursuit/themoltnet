@@ -261,7 +261,7 @@ func newTaskConversationsListCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			credPath := flagString(cmd, "credentials")
-			return runTaskConversationsListCmd(taskConversationsListOpts{
+			return runTaskConversationsListCmd(cmd.Context(), taskConversationsListOpts{
 				apiURL:   resolveAPIURL(cmd, credPath),
 				credPath: credPath,
 				taskID:   args[0],
@@ -281,15 +281,16 @@ func newTaskConversationsGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <task-id>",
 		Short: "Print a task attempt conversation",
-		Long: `Print the latest 100 entries of a conversation (the main conversation
+		Long: fmt.Sprintf(`Print the latest %d entries of a conversation (the main conversation
 unless --conversation is set). Messages inherited from an earlier attempt and
 interrupted or failed responses are labelled.
 
 --before-entry-id pages back through older entries. --follow starts from the
 latest entries, polls until the attempt is terminal, and prints each
-committed message once; the response
-being written is printed only if it is still uncommitted when the attempt
-ends.`,
+committed message once; the response being written is printed only if it is
+still uncommitted when the attempt ends. It waits for the attempt to open its
+conversation, retries transient errors, and slows down while nothing new
+arrives. With --format json, --follow prints one JSON message per line.`, maxConversationPageLimit),
 		Example: `  moltnet task conversations get <task-id> --team-id <uuid>
   moltnet task conversations get <task-id> --team-id <uuid> --follow
   moltnet task conversations get <task-id> --team-id <uuid> --conversation 7
@@ -298,7 +299,7 @@ ends.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			credPath := flagString(cmd, "credentials")
-			return runTaskConversationsGetCmd(taskConversationsGetOpts{
+			return runTaskConversationsGetCmd(cmd.Context(), taskConversationsGetOpts{
 				apiURL:         resolveAPIURL(cmd, credPath),
 				credPath:       credPath,
 				taskID:         args[0],
@@ -312,6 +313,7 @@ ends.`,
 				follow:         flagBool(cmd, "follow"),
 				intervalSec:    flagInt(cmd, "interval"),
 				out:            cmd.OutOrStdout(),
+				errOut:         cmd.ErrOrStderr(),
 			})
 		},
 	}

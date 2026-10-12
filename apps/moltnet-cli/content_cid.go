@@ -15,9 +15,13 @@ import (
 //
 // Format: CIDv1, sha2-256, raw codec (0x55), base32lower multibase.
 func computeContentCid(entryType, title, content string, tags []string) (string, error) {
-	canonical := buildCanonicalInput(entryType, title, content, tags)
-	hash := sha256.Sum256([]byte(canonical))
+	return rawCIDv1(buildCanonicalInput(entryType, title, content, tags))
+}
 
+// rawCIDv1 is the CIDv1 (sha2-256, raw codec 0x55, base32lower) of canonical,
+// matching the content and executor-manifest CIDs in libs/crypto-service.
+func rawCIDv1(canonical string) (string, error) {
+	hash := sha256.Sum256([]byte(canonical))
 	mh, err := multihash.Encode(hash[:], multihash.SHA2_256)
 	if err != nil {
 		return "", err

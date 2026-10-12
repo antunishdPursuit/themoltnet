@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -24,8 +26,14 @@ const (
 type stubConversationHandler struct {
 	moltnetapi.UnimplementedHandler
 
-	mu        sync.Mutex
-	list      moltnetapi.ListTaskConversationsRes
+	mu   sync.Mutex
+	list moltnetapi.ListTaskConversationsRes
+	// lists, when set, answers successive list calls (the last repeats).
+	lists     []moltnetapi.ListTaskConversationsRes
+	listCalls int
+	attempts  *moltnetapi.ListTaskAttemptsOKApplicationJSON
+	// failures replaces the latest-page response of the given poll indexes.
+	failures  map[int]moltnetapi.GetTaskConversationRes
 	snapshots []*moltnetapi.GetTaskConversationOK
 	// older answers requests with a beforeEntryId, keyed by that ID.
 	older      map[string]*moltnetapi.GetTaskConversationOK
@@ -34,7 +42,21 @@ type stubConversationHandler struct {
 }
 
 func (h *stubConversationHandler) ListTaskConversations(_ context.Context, _ moltnetapi.ListTaskConversationsParams) (moltnetapi.ListTaskConversationsRes, error) {
-	return h.list, nil
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.lists) == 0 {
+		return h.list, nil
+	}
+	i := min(h.listCalls, len(h.lists)-1)
+	h.listCalls++
+	return h.lists[i], nil
+}
+
+func (h *stubConversationHandler) ListTaskAttempts(_ context.Context, _ moltnetapi.ListTaskAttemptsParams) (moltnetapi.ListTaskAttemptsRes, error) {
+	if h.attempts == nil {
+		return nil, fmt.Errorf("stub has no attempts")
+	}
+	return h.attempts, nil
 }
 
 func (h *stubConversationHandler) GetTaskConversation(_ context.Context, params moltnetapi.GetTaskConversationParams) (moltnetapi.GetTaskConversationRes, error) {
@@ -52,11 +74,11 @@ func (h *stubConversationHandler) GetTaskConversation(_ context.Context, params 
 		return nil, fmt.Errorf("stub has no snapshots")
 	}
 	i := h.getCalls
-	if i >= len(h.snapshots) {
-		i = len(h.snapshots) - 1
-	}
 	h.getCalls++
-	return h.snapshots[i], nil
+	if failure, ok := h.failures[i]; ok {
+		return failure, nil
+	}
+	return h.snapshots[min(i, len(h.snapshots)-1)], nil
 }
 
 func mainList() *moltnetapi.ListTaskConversationsOK {
@@ -368,6 +390,213 @@ func TestValidateConversationGetOpts_Limit(t *testing.T) {
 	}
 	if err := validateConversationGetOpts(taskConversationsGetOpts{format: "human", follow: true, intervalSec: 0}); err == nil {
 		t.Error("--follow with --interval 0 must be rejected")
+	}
+}
+
+func followOpts(out, errOut *bytes.Buffer, sleeps *[]time.Duration) taskConversationsGetOpts {
+	return taskConversationsGetOpts{
+		taskID: convTaskID, teamID: convTeamID, attemptN: 1, format: "human",
+		follow: true, intervalSec: 1, out: out, errOut: errOut,
+		sleep: func(_ context.Context, d time.Duration) error {
+			if sleeps != nil {
+				*sleeps = append(*sleeps, d)
+			}
+			return nil
+		},
+	}
+}
+
+// dropLatestPages cuts the listed latest-page responses short (1-based
+// poll count): a network failure the retry transport passes through.
+func dropLatestPages(drop func(n int) bool) func(http.Handler) http.Handler {
+	var mu sync.Mutex
+	polls := 0
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/conversations/3") && !r.URL.Query().Has("beforeEntryId") {
+				mu.Lock()
+				polls++
+				n := polls
+				mu.Unlock()
+				if drop(n) {
+					// A truncated body: the response arrived, so neither the
+					// retry transport nor net/http retries it.
+					conn, buf, err := w.(http.Hijacker).Hijack()
+					if err == nil {
+						buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 64\r\n\r\n{\"messages\"")
+						buf.Flush()
+						conn.Close()
+					}
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func TestTaskConversationsGet_FollowRetriesTransientErrors(t *testing.T) {
+	completed := moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted
+	first := convMessage(t, "1/0", "1", completed, map[string]any{"role": "assistant", "content": "First"})
+	second := convMessage(t, "2/0", "2", completed, map[string]any{"role": "assistant", "content": "Second"})
+	h := &stubConversationHandler{
+		list: mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{
+			convSnapshot("running", "", first),
+			convSnapshot("completed", "", first, second),
+		},
+	}
+	_, _, client := newWrappedTestServer(t, h, dropLatestPages(func(n int) bool { return n == 2 || n == 3 }))
+	var out, errOut bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &errOut, nil))
+
+	if err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	if !strings.Contains(out.String(), "First") || !strings.Contains(out.String(), "Second") {
+		t.Fatalf("expected both messages after the retries, got:\n%s", out.String())
+	}
+	if got := strings.Count(errOut.String(), "retrying"); got != 2 {
+		t.Fatalf("expected 2 retry notices, got %d:\n%s", got, errOut.String())
+	}
+}
+
+func TestTaskConversationsGet_FollowStopsAfterRepeatedFailures(t *testing.T) {
+	h := &stubConversationHandler{
+		list:      mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{convSnapshot("running", "")},
+	}
+	_, _, client := newWrappedTestServer(t, h, dropLatestPages(func(n int) bool { return n > 1 }))
+	var out, errOut bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &errOut, nil))
+
+	if err == nil {
+		t.Fatal("expected follow to give up")
+	}
+	if got := strings.Count(errOut.String(), "retrying"); got != maxFollowRetries {
+		t.Fatalf("expected %d retry notices, got %d:\n%s", maxFollowRetries, got, errOut.String())
+	}
+}
+
+func TestTaskConversationsGet_FollowDoesNotRetryClientErrors(t *testing.T) {
+	h := &stubConversationHandler{
+		list: mainList(),
+		failures: map[int]moltnetapi.GetTaskConversationRes{
+			1: &moltnetapi.GetTaskConversationForbidden{Title: "Forbidden", Status: 403, Code: "FORBIDDEN", Type: url.URL{Scheme: "about", Opaque: "blank"}},
+		},
+		snapshots: []*moltnetapi.GetTaskConversationOK{convSnapshot("running", "")},
+	}
+	_, _, client := newTestServer(t, h)
+	var out, errOut bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &errOut, nil))
+
+	if err == nil || !strings.Contains(err.Error(), "403") {
+		t.Fatalf("expected the 403, got %v", err)
+	}
+	if errOut.Len() != 0 {
+		t.Fatalf("a client error must not be retried:\n%s", errOut.String())
+	}
+}
+
+func TestTaskConversationsGet_FollowBacksOffWhileIdle(t *testing.T) {
+	completed := moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted
+	first := convMessage(t, "1/0", "1", completed, map[string]any{"role": "assistant", "content": "First"})
+	second := convMessage(t, "2/0", "2", completed, map[string]any{"role": "assistant", "content": "Second"})
+	h := &stubConversationHandler{
+		list: mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{
+			convSnapshot("running", "", first),
+			convSnapshot("running", "", first),
+			convSnapshot("running", "", first),
+			convSnapshot("running", "", first),
+			convSnapshot("running", "", first, second),
+			convSnapshot("completed", "", first, second),
+		},
+	}
+	_, _, client := newTestServer(t, h)
+	var out, errOut bytes.Buffer
+	var sleeps []time.Duration
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &errOut, &sleeps))
+
+	if err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	want := []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 4 * time.Second, time.Second}
+	if fmt.Sprint(sleeps) != fmt.Sprint(want) {
+		t.Fatalf("waits = %v, want %v", sleeps, want)
+	}
+}
+
+func TestTaskConversationsGet_FollowWaitsForTheConversation(t *testing.T) {
+	empty := &moltnetapi.ListTaskConversationsOK{Items: []moltnetapi.ListTaskConversationsOKItemsItem{}}
+	h := &stubConversationHandler{
+		lists:    []moltnetapi.ListTaskConversationsRes{empty, empty, mainList()},
+		attempts: &moltnetapi.ListTaskAttemptsOKApplicationJSON{validRunningAttempt()},
+		snapshots: []*moltnetapi.GetTaskConversationOK{convSnapshot("completed", "",
+			convMessage(t, "1/0", "1", moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted,
+				map[string]any{"role": "assistant", "content": "Started"}),
+		)},
+	}
+	_, _, client := newTestServer(t, h)
+	var out, errOut bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &errOut, nil))
+
+	if err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	if strings.Count(errOut.String(), "waiting for attempt 1") != 1 {
+		t.Fatalf("expected one waiting notice, got:\n%s", errOut.String())
+	}
+	if !strings.Contains(out.String(), "Started") || h.lastParams.ConversationId != "3" {
+		t.Fatalf("expected the main conversation once it appeared, got:\n%s", out.String())
+	}
+}
+
+func TestTaskConversationsGet_FollowStopsWaitingWhenTheAttemptEnded(t *testing.T) {
+	h := &stubConversationHandler{
+		list:     &moltnetapi.ListTaskConversationsOK{Items: []moltnetapi.ListTaskConversationsOKItemsItem{}},
+		attempts: &moltnetapi.ListTaskAttemptsOKApplicationJSON{validRunningAttempt()},
+	}
+	(*h.attempts)[0].Status = moltnetapi.TaskAttemptStatusCancelled
+	_, _, client := newTestServer(t, h)
+	var out, errOut bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &errOut, nil))
+
+	if err == nil || !strings.Contains(err.Error(), "has no Durable conversation yet") {
+		t.Fatalf("expected the missing-conversation error, got %v", err)
+	}
+}
+
+func TestTaskConversationsGet_ListsKindsWithoutAMainConversation(t *testing.T) {
+	h := &stubConversationHandler{list: &moltnetapi.ListTaskConversationsOK{Items: []moltnetapi.ListTaskConversationsOKItemsItem{
+		{ConversationId: "7", Kind: moltnetapi.ListTaskConversationsOKItemsItemKindSubagent, ParentConversationId: moltnetapi.NewNilString("3")},
+	}}}
+	_, _, client := newTestServer(t, h)
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
+		taskID: convTaskID, teamID: convTeamID, attemptN: 1, format: "human", out: &bytes.Buffer{},
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "found: subagent 7") {
+		t.Fatalf("expected the conversations found, got %v", err)
+	}
+}
+
+func TestTaskConversationsGet_RejectsNegativeAttempt(t *testing.T) {
+	_, _, client := newTestServer(t, &stubConversationHandler{list: mainList()})
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
+		taskID: convTaskID, teamID: convTeamID, attemptN: -1, format: "human", out: &bytes.Buffer{},
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "--attempt must be >= 1") {
+		t.Fatalf("expected a negative --attempt to be rejected, got %v", err)
 	}
 }
 

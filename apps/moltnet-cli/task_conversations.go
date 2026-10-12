@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -21,6 +22,13 @@ const conversationResultLimit = 2000
 // maxConversationPageLimit is the API's largest page of entries.
 const maxConversationPageLimit = 100
 
+// --follow tolerates this many consecutive transient poll failures.
+const maxFollowRetries = 5
+
+// While nothing new arrives, --follow doubles its wait up to this many
+// times --interval; any new message resets it.
+const maxFollowIdleBackoff = 4
+
 type taskConversationsListOpts struct {
 	apiURL   string
 	credPath string
@@ -29,6 +37,9 @@ type taskConversationsListOpts struct {
 	attemptN int
 	out      io.Writer
 }
+
+// errNoConversation reports an attempt that has not opened a Durable store.
+var errNoConversation = errors.New("no Durable conversation")
 
 type taskConversationsGetOpts struct {
 	apiURL         string
@@ -44,16 +55,17 @@ type taskConversationsGetOpts struct {
 	follow         bool
 	intervalSec    int
 	out            io.Writer
+	errOut         io.Writer
 	// sleep waits between follow polls; tests replace it.
 	sleep func(ctx context.Context, d time.Duration) error
 }
 
-func runTaskConversationsListCmd(opts taskConversationsListOpts) error {
+func runTaskConversationsListCmd(ctx context.Context, opts taskConversationsListOpts) error {
 	client, err := newAuthenticatedClient(opts.apiURL, opts.credPath, opts.teamID)
 	if err != nil {
 		return err
 	}
-	return runTaskConversationsListWithClient(context.Background(), client, opts)
+	return runTaskConversationsListWithClient(ctx, client, opts)
 }
 
 func runTaskConversationsListWithClient(ctx context.Context, client *moltnetapi.Client, opts taskConversationsListOpts) error {
@@ -72,7 +84,7 @@ func runTaskConversationsListWithClient(ctx context.Context, client *moltnetapi.
 	return printJSONTo(opts.out, list)
 }
 
-func runTaskConversationsGetCmd(opts taskConversationsGetOpts) error {
+func runTaskConversationsGetCmd(ctx context.Context, opts taskConversationsGetOpts) error {
 	if err := validateConversationGetOpts(opts); err != nil {
 		return err
 	}
@@ -80,7 +92,7 @@ func runTaskConversationsGetCmd(opts taskConversationsGetOpts) error {
 	if err != nil {
 		return err
 	}
-	return runTaskConversationsGetWithClient(context.Background(), client, opts)
+	return runTaskConversationsGetWithClient(ctx, client, opts)
 }
 
 func validateConversationGetOpts(opts taskConversationsGetOpts) error {
@@ -90,8 +102,10 @@ func validateConversationGetOpts(opts taskConversationsGetOpts) error {
 	if opts.follow && opts.beforeEntryID != "" {
 		return fmt.Errorf("--follow reads the latest entries; it cannot be combined with --before-entry-id")
 	}
-	if opts.follow && opts.intervalSec < 1 {
-		return fmt.Errorf("--interval must be >= 1, got %d", opts.intervalSec)
+	if opts.follow {
+		if err := validatePollInterval(opts.intervalSec); err != nil {
+			return err
+		}
 	}
 	if opts.limitSet && (opts.limit < 1 || opts.limit > maxConversationPageLimit) {
 		return fmt.Errorf("--limit must be between 1 and %d, got %d", maxConversationPageLimit, opts.limit)
@@ -114,6 +128,9 @@ func runTaskConversationsGetWithClient(ctx context.Context, client *moltnetapi.C
 	conversationID := opts.conversationID
 	if conversationID == "" {
 		conversationID, err = mainConversationID(ctx, client, taskID, teamID, attemptN)
+		if errors.Is(err, errNoConversation) && opts.follow {
+			conversationID, err = awaitMainConversation(ctx, client, taskID, teamID, attemptN, opts)
+		}
 		if err != nil {
 			return err
 		}
@@ -161,32 +178,34 @@ func runTaskConversationsGetWithClient(ctx context.Context, client *moltnetapi.C
 // printed (it is then interrupted). Polling instead of SSE keeps the CLI on
 // the generated client, which does not model the event stream.
 func followConversation(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, opts taskConversationsGetOpts) error {
-	sleep := opts.sleep
-	if sleep == nil {
-		sleep = sleepContext
-	}
+	sleep := followSleep(opts)
+	interval := time.Duration(opts.intervalSec) * time.Second
+	wait := interval
 	seen := map[string]bool{}
 	first := true
+	failures := 0
 	for {
-		snapshot, err := getConversation(ctx, client, params)
+		messages, terminal, err := pollConversation(ctx, client, params, seen, first)
 		if err != nil {
-			return err
-		}
-		terminal := !isLiveAttemptStatus(snapshot.AttemptStatus)
-		messages := snapshot.Messages
-		if !first {
-			messages, err = withUnseenOlderPages(ctx, client, params, snapshot, seen)
-			if err != nil {
+			if !isTransientPollError(ctx, err) || failures >= maxFollowRetries {
 				return err
 			}
+			failures++
+			fmt.Fprintf(followErrOut(opts), "conversation poll failed (%d/%d), retrying: %v\n", failures, maxFollowRetries, err)
+			if err := sleep(ctx, interval); err != nil {
+				return err
+			}
+			continue
 		}
+		failures = 0
 		first = false
+		printed := false
 		for _, message := range messages {
-			_, committed := message.EntryId.Get()
-			if seen[message.ID] || (!committed && !terminal) {
+			if !shouldPrintFollowed(message, seen, terminal) {
 				continue
 			}
 			seen[message.ID] = true
+			printed = true
 			if err := printFollowedMessage(opts, message); err != nil {
 				return err
 			}
@@ -194,10 +213,107 @@ func followConversation(ctx context.Context, client *moltnetapi.Client, params m
 		if terminal {
 			return nil
 		}
-		if err := sleep(ctx, time.Duration(opts.intervalSec)*time.Second); err != nil {
+		if printed {
+			wait = interval
+		} else if wait < maxFollowIdleBackoff*interval {
+			wait = min(wait*2, maxFollowIdleBackoff*interval)
+		}
+		if err := sleep(ctx, wait); err != nil {
 			return err
 		}
 	}
+}
+
+// pollConversation reads the latest page; after the first poll it also pages
+// back to the last printed message.
+func pollConversation(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, seen map[string]bool, first bool) ([]moltnetapi.GetTaskConversationOKMessagesItem, bool, error) {
+	snapshot, err := getConversation(ctx, client, params)
+	if err != nil {
+		return nil, false, err
+	}
+	terminal := !isLiveAttemptStatus(snapshot.AttemptStatus)
+	if first {
+		return snapshot.Messages, terminal, nil
+	}
+	messages, err := withUnseenOlderPages(ctx, client, params, snapshot, seen)
+	return messages, terminal, err
+}
+
+// shouldPrintFollowed prints each message once, and a still-streaming partial
+// only when the attempt has ended (it is then interrupted).
+func shouldPrintFollowed(message moltnetapi.GetTaskConversationOKMessagesItem, seen map[string]bool, terminal bool) bool {
+	_, committed := message.EntryId.Get()
+	return !seen[message.ID] && (committed || terminal)
+}
+
+// isTransientPollError reports failures a later poll may not hit: rate
+// limits, server errors and transport errors without an HTTP status.
+func isTransientPollError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	status, ok := apiErrorStatus(err)
+	if !ok {
+		return true
+	}
+	return status == 429 || status >= 500
+}
+
+// awaitMainConversation waits for a live attempt to open its Durable store.
+func awaitMainConversation(ctx context.Context, client *moltnetapi.Client, taskID, teamID uuid.UUID, attemptN int, opts taskConversationsGetOpts) (string, error) {
+	sleep := followSleep(opts)
+	announced := false
+	for {
+		live, err := attemptIsLive(ctx, client, taskID, teamID, attemptN)
+		if err != nil {
+			return "", err
+		}
+		if !live {
+			return mainConversationID(ctx, client, taskID, teamID, attemptN)
+		}
+		if !announced {
+			fmt.Fprintf(followErrOut(opts), "waiting for attempt %d to open its Durable conversation…\n", attemptN)
+			announced = true
+		}
+		if err := sleep(ctx, time.Duration(opts.intervalSec)*time.Second); err != nil {
+			return "", err
+		}
+		id, err := mainConversationID(ctx, client, taskID, teamID, attemptN)
+		if !errors.Is(err, errNoConversation) {
+			return id, err
+		}
+	}
+}
+
+func attemptIsLive(ctx context.Context, client *moltnetapi.Client, taskID, teamID uuid.UUID, attemptN int) (bool, error) {
+	res, err := client.ListTaskAttempts(ctx, moltnetapi.ListTaskAttemptsParams{ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(teamID)})
+	if err != nil {
+		return false, fmt.Errorf("list attempts: %w", formatTransportError(err))
+	}
+	attempts, ok := res.(*moltnetapi.ListTaskAttemptsOKApplicationJSON)
+	if !ok {
+		return false, formatAPIError(res)
+	}
+	for _, attempt := range *attempts {
+		if int(attempt.AttemptN) == attemptN {
+			return isLiveAttemptStatus(string(attempt.Status)), nil
+		}
+	}
+	return false, fmt.Errorf("task %s has no attempt %d", taskID, attemptN)
+}
+
+func followSleep(opts taskConversationsGetOpts) func(context.Context, time.Duration) error {
+	if opts.sleep != nil {
+		return opts.sleep
+	}
+	return sleepContext
+}
+
+func followErrOut(opts taskConversationsGetOpts) io.Writer {
+	if opts.errOut != nil {
+		return opts.errOut
+	}
+	return io.Discard
 }
 
 // withUnseenOlderPages prepends older pages until one holds a message already
@@ -283,12 +399,11 @@ func listConversations(ctx context.Context, client *moltnetapi.Client, taskID, t
 	if err != nil {
 		return nil, fmt.Errorf("task conversations list: %w", formatTransportError(err))
 	}
-	switch v := res.(type) {
-	case *moltnetapi.ListTaskConversationsOK:
-		return v, nil
-	default:
+	list, ok := res.(*moltnetapi.ListTaskConversationsOK)
+	if !ok {
 		return nil, formatAPIError(res)
 	}
+	return list, nil
 }
 
 func mainConversationID(ctx context.Context, client *moltnetapi.Client, taskID, teamID uuid.UUID, attemptN int) (string, error) {
@@ -303,9 +418,13 @@ func mainConversationID(ctx context.Context, client *moltnetapi.Client, taskID, 
 	}
 	if len(list.Items) == 0 {
 		// The API lists nothing until the attempt opens a Durable store.
-		return "", fmt.Errorf("attempt %d of task %s has no Durable conversation yet (attempts recorded before Durable only have task messages: use `moltnet task tail --since 0`)", attemptN, taskID)
+		return "", fmt.Errorf("attempt %d of task %s has %w yet (attempts recorded before Durable only have task messages: use `moltnet task tail --since 0`)", attemptN, taskID, errNoConversation)
 	}
-	return "", fmt.Errorf("attempt %d of task %s has no main conversation yet", attemptN, taskID)
+	kinds := make([]string, 0, len(list.Items))
+	for _, item := range list.Items {
+		kinds = append(kinds, string(item.Kind)+" "+item.ConversationId)
+	}
+	return "", fmt.Errorf("attempt %d of task %s has no main conversation yet (found: %s); pass --conversation <id>", attemptN, taskID, strings.Join(kinds, ", "))
 }
 
 func getConversation(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams) (*moltnetapi.GetTaskConversationOK, error) {

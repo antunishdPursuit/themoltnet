@@ -3,11 +3,13 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -15,8 +17,6 @@ import (
 
 	"github.com/go-faster/jx"
 	"github.com/google/uuid"
-	gocid "github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multihash"
 
 	moltnetapi "github.com/getlarge/themoltnet/libs/moltnet-api-client"
 )
@@ -67,12 +67,11 @@ func executorManifestCID(t *testing.T, manifest map[string]any) string {
 	if err != nil {
 		t.Fatalf("canonical manifest: %v", err)
 	}
-	hash := sha256.Sum256([]byte(canonical))
-	mh, err := multihash.Encode(hash[:], multihash.SHA2_256)
+	cid, err := rawCIDv1(canonical)
 	if err != nil {
-		t.Fatalf("multihash: %v", err)
+		t.Fatalf("manifest CID: %v", err)
 	}
-	return gocid.NewCidV1(0x55, mh).String()
+	return cid
 }
 
 // createE2ETask creates a fulfill_brief task, optionally pinned to profiles.
@@ -90,6 +89,9 @@ func createE2ETask(t *testing.T, title string, profiles ...uuid.UUID) uuid.UUID 
 	res, err := e2eClient.CreateTask(context.Background(), req, moltnetapi.CreateTaskParams{XMoltnetTeamID: e2ePersonalTeamID})
 	return expectRes[*moltnetapi.Task](t, "create task", res, err).ID
 }
+
+// seedClaimLeaseTTLSec outlasts the whole test, so no claim expires mid-run.
+const seedClaimLeaseTTLSec = 300
 
 // seedDurableConversation claims a task under a runtime profile (only pinned
 // claims carry the lease a Durable store requires) and commits the fixture.
@@ -150,7 +152,7 @@ func seedDurableConversation(t *testing.T) durableConversation {
 	expectRes[*moltnetapi.RegisterExecutorManifestOK](t, "register executor manifest", registerRes, err)
 
 	claimRes, err := e2eClient.ClaimTask(ctx, moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{
-		LeaseTtlSec:         moltnetapi.NewOptInt(300),
+		LeaseTtlSec:         moltnetapi.NewOptInt(seedClaimLeaseTTLSec),
 		ProfileId:           moltnetapi.NewOptUUID(profile.ID),
 		ExecutorFingerprint: moltnetapi.NewOptString(fingerprint),
 	}), moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: team})
@@ -333,7 +335,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 	t.Run("explains attempts without a Durable conversation", func(t *testing.T) {
 		taskID := createE2ETask(t, "CLI conversation absent")
 		claimRes, err := e2eClient.ClaimTask(context.Background(),
-			moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{LeaseTtlSec: moltnetapi.NewOptInt(60)}),
+			moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{LeaseTtlSec: moltnetapi.NewOptInt(seedClaimLeaseTTLSec)}),
 			moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(e2ePersonalTeamID)})
 		expectRes[*moltnetapi.ClaimTaskResponseHeaders](t, "claim task", claimRes, err)
 
@@ -363,18 +365,23 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 
 	// Runs last: it ends the attempt.
 	t.Run("follow streams committed messages until the attempt ends", func(t *testing.T) {
-		var (
-			wg             sync.WaitGroup
-			stdout, stderr string
-			runErr         error
-		)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			stdout, stderr, runErr = cli("get", seeded.taskID.String(), "--team-id", seeded.teamID, "--follow", "--interval", "1", "--format", "json")
-		}()
-		// Let the follower print the committed messages while the attempt is live.
-		time.Sleep(3 * time.Second)
+		follower := startE2ECLI(t, binPath, credsPath,
+			"task", "conversations", "get", seeded.taskID.String(), "--team-id", seeded.teamID,
+			"--follow", "--interval", "1", "--format", "json")
+		// The committed messages must arrive while the attempt is still live.
+		var lines []string
+		for len(lines) < 4 {
+			select {
+			case line, ok := <-follower.lines:
+				if !ok {
+					t.Fatalf("--follow exited before printing the live messages: %v\nstdout: %v\nstderr: %s", follower.wait(), lines, follower.stderr.String())
+				}
+				lines = append(lines, line)
+			case <-time.After(followE2ETimeout):
+				t.Fatalf("--follow printed %d of 4 messages while the attempt was live\nstderr: %s", len(lines), follower.stderr.String())
+			}
+		}
+
 		// An attempt can only fail once a heartbeat has started it.
 		ctx := context.Background()
 		team := moltnetapi.NewOptUUID(e2ePersonalTeamID)
@@ -386,18 +393,24 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 		}}, moltnetapi.FailTaskAttemptParams{ID: seeded.taskID, N: seeded.attemptN, XMoltnetTeamID: team})
 		expectRes[*moltnetapi.Task](t, "fail attempt", failRes, err)
 
-		done := make(chan struct{})
-		go func() { wg.Wait(); close(done) }()
-		select {
-		case <-done:
-		case <-time.After(30 * time.Second):
-			t.Fatal("--follow did not exit after the attempt ended")
+		deadline := time.After(followE2ETimeout)
+	drain:
+		for {
+			select {
+			case line, ok := <-follower.lines:
+				if !ok {
+					break drain
+				}
+				lines = append(lines, line)
+			case <-deadline:
+				t.Fatal("--follow did not exit after the attempt ended")
+			}
 		}
-		if runErr != nil {
-			t.Fatalf("conversations get --follow: %v\nstderr: %s", runErr, stderr)
+		if err := follower.wait(); err != nil {
+			t.Fatalf("conversations get --follow: %v\nstderr: %s", err, follower.stderr.String())
 		}
 		var roles []string
-		for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		for _, line := range lines {
 			var message cliConversationMessage
 			if err := json.Unmarshal([]byte(line), &message); err != nil {
 				t.Fatalf("decode line %q: %v", line, err)
@@ -405,7 +418,65 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 			roles = append(roles, message.role(t))
 		}
 		if got := strings.Join(roles, ","); got != "user,assistant,toolResult,assistant" {
-			t.Fatalf("followed roles = %s (each message must print once)\nstdout:\n%s", got, stdout)
+			t.Fatalf("followed roles = %s (each message must print once)\nstdout:\n%s", got, strings.Join(lines, "\n"))
 		}
 	})
+}
+
+// followE2ETimeout bounds each wait on a --follow process.
+const followE2ETimeout = 30 * time.Second
+
+// e2eCLIProcess is a running CLI whose stdout is streamed line by line.
+type e2eCLIProcess struct {
+	lines  <-chan string
+	stderr *bytes.Buffer
+	wait   func() error
+}
+
+// startE2ECLI runs the CLI in the background as the e2e agent. The process is
+// killed when the test ends if it is still running.
+func startE2ECLI(t *testing.T, binPath, credsPath string, args ...string) e2eCLIProcess {
+	t.Helper()
+	cmd := exec.Command(binPath, append([]string{"--api-url", e2eAPIURL, "--credentials", credsPath}, args...)...)
+	cmd.Env = withoutEnv(os.Environ(), agentKeyEnv)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start CLI: %v", err)
+	}
+	lines := make(chan string)
+	scanned := make(chan struct{})
+	go func() {
+		defer close(lines)
+		defer close(scanned)
+		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+		for scanner.Scan() {
+			lines <- scanner.Text()
+		}
+	}()
+	var once sync.Once
+	var waitErr error
+	wait := func() error {
+		once.Do(func() {
+			<-scanned
+			waitErr = cmd.Wait()
+		})
+		return waitErr
+	}
+	t.Cleanup(func() {
+		if cmd.ProcessState == nil {
+			_ = cmd.Process.Kill()
+			go func() {
+				for range lines {
+				}
+			}()
+			_ = wait()
+		}
+	})
+	return e2eCLIProcess{lines: lines, stderr: &stderr, wait: wait}
 }
