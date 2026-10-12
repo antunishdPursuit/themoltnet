@@ -458,7 +458,8 @@ The auto-injected claim condition is load-bearing: it closes the race
 between reading the source state and the server persisting the create,
 so a continuation cannot be claimed once the parent leaves 'completed'.
 
---mode fork is currently unsupported; continuations use extend mode.
+The default extend mode continues on the parent Git branch. Use --mode fork
+to create a new branch from the source when continuing a Git-backed task.
 
 Execution settings are inherited from the source attempt; there is no
 --execution-workspace override. Git workspaces recover the parent branch
