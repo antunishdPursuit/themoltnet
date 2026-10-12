@@ -47,9 +47,15 @@ afterEach(async () => {
 });
 
 describe('agent server providers and runs', () => {
-  it.each(['generation', 'classification', 'mixed'])(
-    'preserves Desktop %s model metadata through the provider API',
-    async (capability) => {
+  it.each([
+    ['generation', 'typesafe-system-one'],
+    ['classification', 'typesafe-system-one'],
+    ['mixed', 'typesafe-system-one'],
+    ['mixed', 'cloudflare-workers-ai-system-one'],
+    ['mixed', 'llama-cpp-classify'],
+  ])(
+    'preserves Desktop %s model metadata with %s through the provider API',
+    async (capability, api) => {
       const { app, store } = await fixture();
       const token = await authorize(app);
       const headers = {
@@ -66,7 +72,7 @@ describe('agent server providers and runs', () => {
       const classifier = {
         id: 'decisions',
         type: 'classifier',
-        api: 'typesafe-system-one',
+        api,
         contextWindow: 8192,
       };
       const models = [
@@ -107,6 +113,30 @@ describe('agent server providers and runs', () => {
       expect(store.readProviders()['ollama-cloud'].models).toEqual(expected);
     },
   );
+  it('rejects unsupported classifier APIs without saving the provider', async () => {
+    const { app, store } = await fixture();
+    const token = await authorize(app);
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/v1/providers/remote',
+      headers: {
+        host: HOST,
+        origin: TEST_CLIENT_ORIGIN,
+        [AGENT_SERVER_TOKEN_HEADER]: token,
+      },
+      payload: {
+        api: 'openai-completions',
+        baseUrl: 'https://provider.example/v1',
+        envName: 'MOLTNET_PROVIDER_REMOTE_API_KEY',
+        models: [
+          { id: 'decisions', type: 'classifier', api: 'openai-completions' },
+        ],
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(store.readProviders()).not.toHaveProperty('remote');
+  });
+
   it('persists and forwards scoped drain and polling options', async () => {
     const info = vi.fn();
     const { app, store, spawned } = await fixture({

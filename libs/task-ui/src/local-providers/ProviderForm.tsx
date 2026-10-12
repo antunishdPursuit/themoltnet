@@ -32,6 +32,21 @@ const PRESETS: Array<{
   { id: 'custom', label: 'Custom (OpenAI-compatible)', baseUrl: '' },
 ];
 
+const CLASSIFIER_APIS = {
+  'typesafe-system-one': {
+    label: 'Typesafe System One',
+    hint: 'Use an endpoint serving the System One API.',
+  },
+  'cloudflare-workers-ai-system-one': {
+    label: 'Cloudflare Workers AI System One',
+    hint: 'Use your Cloudflare Workers AI account endpoint and API token.',
+  },
+  'llama-cpp-classify': {
+    label: 'llama.cpp',
+    hint: 'Use llama-server with token probabilities and its native tokenize, apply-template, and completion endpoints.',
+  },
+} as const;
+
 /** Discovery uses the server's stored key; full model capabilities survive selection. */
 export function ProviderForm({
   providers,
@@ -72,6 +87,9 @@ export function ProviderForm({
   const [error, setError] = useState<string | null>(null);
   const [discovered, setDiscovered] = useState(false);
   const [classifierId, setClassifierId] = useState('');
+  const [classifierApi, setClassifierApi] = useState<
+    keyof typeof CLASSIFIER_APIS
+  >('typesafe-system-one');
   const [classifierContext, setClassifierContext] = useState('8192');
   const contextWindow = Number(classifierContext);
   const validContext = Number.isSafeInteger(contextWindow) && contextWindow > 0;
@@ -153,7 +171,7 @@ export function ProviderForm({
     if (!id || duplicateModel || !validContext || busy || editingKey) return;
     setModels((current) => [
       ...current,
-      { id, type: 'classifier', api: 'typesafe-system-one', contextWindow },
+      { id, type: 'classifier', api: classifierApi, contextWindow },
     ]);
     setSelected((current) => new Set([...current, id]));
     setClassifierId('');
@@ -399,8 +417,28 @@ export function ProviderForm({
             Add a classifier model
           </Text>
           <Text variant="caption" color="secondary">
-            Classifiers use the Typesafe System One API and this provider's
-            endpoint and credentials. Model discovery is optional.
+            Classifiers share this provider's endpoint and credentials. The
+            endpoint must support the selected classifier API; ordinary Ollama
+            endpoints do not. Model discovery is optional.
+          </Text>
+          <Select
+            label="Classifier API"
+            value={classifierApi}
+            disabled={busy || editingKey}
+            onChange={(event) => {
+              const api = event.target.value;
+              if (Object.hasOwn(CLASSIFIER_APIS, api))
+                setClassifierApi(api as keyof typeof CLASSIFIER_APIS);
+            }}
+          >
+            {Object.entries(CLASSIFIER_APIS).map(([api, { label }]) => (
+              <option key={api} value={api}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <Text variant="caption" color="secondary">
+            {CLASSIFIER_APIS[classifierApi].hint}
           </Text>
           <Input
             label="Classifier model ID"

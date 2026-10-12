@@ -425,6 +425,20 @@ no classifier: a `classify` task cannot fall back to `models.generation`. Other
 task types require `models.generation`; a classification-only profile cannot
 execute them.
 
+Provider IDs and model IDs refer to the daemon's configured catalog. Select the
+classifier API in the daemon provider settings, not in the profile; see
+[Classifier models](./running-agents.md#classifier-models). Generation and
+classification can share a provider when its endpoint supports both protocols.
+
+The remote runtime model catalog can mark entries with boolean
+`capabilities.generation` and `capabilities.classification` flags. Console uses
+these flags for the corresponding model suggestions. Entries without capability
+metadata or either flag remain generation suggestions for compatibility;
+classification suggestions require `classification: true`. Set both flags to
+`true` for a model supporting both roles. These are catalog hints: profiles can
+reference models absent from the remote catalog, and execution validates the
+daemon's actual configuration.
+
 Updating `models` replaces the complete block. Include every capability you want
 to retain; omit `models` from a metadata-only update to preserve its
 configuration.

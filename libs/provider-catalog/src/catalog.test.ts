@@ -15,9 +15,12 @@ import {
 const execFileAsync = promisify(execFile);
 
 describe('provider catalog', () => {
-  it('keeps the Pi-derived entries to the supported static providers', () => {
+  it('preserves the supported static generation providers', () => {
     expect(piRuntimeModels.length).toBeGreaterThan(0);
-    expect(new Set(piRuntimeModels.map((entry) => entry.provider))).toEqual(
+    const generationModels = piRuntimeModels.filter(
+      (entry) => entry.capabilities.generation !== false,
+    );
+    expect(new Set(generationModels.map((entry) => entry.provider))).toEqual(
       new Set(['anthropic', 'openai-codex']),
     );
     const anthropic = piRuntimeModels.find(
@@ -27,6 +30,48 @@ describe('provider catalog', () => {
     expect(
       piRuntimeModels.some((entry) => entry.provider === 'openai-codex'),
     ).toBe(true);
+  });
+
+  it('offers pinned Pi classifiers separately from generation models', () => {
+    const classifiers = piRuntimeModels.filter(
+      (entry) => entry.capabilities.classification === true,
+    );
+    expect(new Set(classifiers.map((entry) => entry.provider))).toEqual(
+      new Set([
+        'cloudflare-workers-ai',
+        'opencode',
+        'openrouter',
+        'typesafe',
+        'vercel-ai-gateway',
+      ]),
+    );
+    expect(
+      classifiers.find(
+        (entry) =>
+          entry.provider === 'typesafe' && entry.model === 'jev-latest',
+      )?.capabilities,
+    ).toMatchObject({ api: 'typesafe-system-one', contextWindow: 64000 });
+    expect(
+      classifiers.find(
+        (entry) =>
+          entry.provider === 'cloudflare-workers-ai' &&
+          entry.model === 'typesafe/jev',
+      )?.capabilities,
+    ).toMatchObject({ api: 'cloudflare-workers-ai-system-one' });
+    for (const entry of classifiers) {
+      expect(entry.capabilities.generation).toBe(false);
+      expect(requestOptionCapabilities(entry.provider, entry.model)).toEqual({
+        temperature: false,
+        topP: false,
+        topK: false,
+        maxOutputTokens: false,
+      });
+    }
+    expect(
+      [...ollamaModels, ...ollamaCloudModels].some(
+        (entry) => entry.capabilities.classification === true,
+      ),
+    ).toBe(false);
   });
 
   it('keeps reviewed Ollama local and Cloud suggestions separate and valid', () => {

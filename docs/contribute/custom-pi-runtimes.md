@@ -140,9 +140,13 @@ also with `provider` and `model` fields.
 In the daemon provider configuration, declare the classifier model with
 `{ "id": "decisions", "type": "classifier", "api": "typesafe-system-one" }`. Set
 the provider's endpoint and credentials through the normal provider settings;
-classifier models use the same credential resolver as chat models. The supported
-classifier API is currently `typesafe-system-one`; the provider name is
-arbitrary. An optional `contextWindow` overrides the default of 8192 tokens.
+classifier models use the same credential resolver as chat models. Supported
+classifier APIs are `typesafe-system-one` (the default),
+`cloudflare-workers-ai-system-one`, and `llama-cpp-classify`. The endpoint must
+implement the selected protocol; the provider name is arbitrary. An optional
+`contextWindow` overrides the default of 8192 tokens. See
+[Classifier models](../operate/running-agents.md#classifier-models) for Desktop
+and CLI setup, endpoint compatibility, and model ID requirements.
 
 ## Pi Durable execution
 

@@ -7,6 +7,8 @@ import type {
   ClassifierModel,
   ClassifierResult,
 } from '@earendil-works/pi-ai';
+import { classify as classifyCloudflare } from '@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one';
+import { classify as classifyLlamaCpp } from '@earendil-works/pi-ai/api/llama-cpp-classify';
 import { classify } from '@earendil-works/pi-ai/api/typesafe-system-one';
 import {
   ModelRuntime,
@@ -27,7 +29,7 @@ import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
 import { resolvePiCodingAgentDir } from '../config.js';
-import { PI_CLASSIFIER_API } from '../pi-config.js';
+import { PI_CLASSIFIER_API, PI_CLASSIFIER_APIS } from '../pi-config.js';
 import {
   classifyProviderFailure,
   sanitizeProviderDiagnostic,
@@ -37,7 +39,9 @@ const ClassifierDeclaration = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
     type: Type.Literal('classifier'),
-    api: Type.Optional(Type.Literal(PI_CLASSIFIER_API)),
+    api: Type.Optional(
+      Type.Union(PI_CLASSIFIER_APIS.map((api) => Type.Literal(api))),
+    ),
     contextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
     input: Type.Optional(
       Type.Array(Type.Union([Type.Literal('text'), Type.Literal('image')])),
@@ -101,7 +105,11 @@ export async function createRuntimeModels(
     const ids = new Set(classifiers.map((model) => model.id));
     models.registerProvider(provider, {
       baseUrl: config.baseUrl,
-      classifiers: { [PI_CLASSIFIER_API]: { classify } },
+      classifiers: {
+        'typesafe-system-one': { classify },
+        'cloudflare-workers-ai-system-one': { classify: classifyCloudflare },
+        'llama-cpp-classify': { classify: classifyLlamaCpp },
+      },
       models: [
         // Pi 1.0's JSON loader constructs chat models even for classifier entries.
         // Remove those interpretations and replace existing classifiers by id;

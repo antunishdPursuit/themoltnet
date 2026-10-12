@@ -162,6 +162,41 @@ describe('moltnet-agent providers', () => {
     ).toBe(1);
   });
 
+  it.each([
+    'typesafe-system-one',
+    'cloudflare-workers-ai-system-one',
+    'llama-cpp-classify',
+  ])('persists the explicit %s classifier API', async (api) => {
+    const test = await fixture();
+    expect(
+      await runProviders(
+        [
+          'set',
+          'remote',
+          '--base-url',
+          'https://provider.example/v1',
+          '--classifier-model',
+          'decisions',
+          '--classifier-api',
+          api,
+        ],
+        test.dependencies,
+      ),
+    ).toBe(0);
+    expect(test.configuration.list().remote.models).toEqual([
+      { id: 'decisions', type: 'classifier', api },
+    ]);
+    writeStorePiConfig(test.root, test.store.readProviders());
+    const config = JSON.parse(
+      readFileSync(join(test.root, 'models.json'), 'utf8'),
+    ) as {
+      providers: Record<string, { models: unknown[] }>;
+    };
+    expect(config.providers.remote.models).toEqual([
+      expect.objectContaining({ id: 'decisions', type: 'classifier', api }),
+    ]);
+  });
+
   it('rejects conflicting or malformed classifier declarations', async () => {
     const test = await fixture();
     for (const args of [
@@ -170,6 +205,13 @@ describe('moltnet-agent providers', () => {
       ['--classifier-model', 'decisions=1.5'],
       ['--model', 'decisions', '--classifier-model', 'decisions'],
       ['--classifier-model', 'decisions', '--clear-models'],
+      [
+        '--classifier-model',
+        'decisions',
+        '--classifier-api',
+        'openai-completions',
+      ],
+      ['--classifier-api', 'llama-cpp-classify'],
     ]) {
       expect(
         await runProviders(['set', 'remote', ...args], test.dependencies),

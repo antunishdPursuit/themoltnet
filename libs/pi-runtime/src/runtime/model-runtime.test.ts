@@ -2,15 +2,23 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { classify as classifyCloudflare } from '@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one';
+import { classify as classifyLlamaCpp } from '@earendil-works/pi-ai/api/llama-cpp-classify';
 import { classify } from '@earendil-works/pi-ai/api/typesafe-system-one';
 import type { ClaimedTask } from '@themoltnet/agent-runtime';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createGondolinDurableTaskExecutor } from '../durable-gondolin.js';
-import { writePiConfig } from '../pi-config.js';
+import { PI_CLASSIFIER_APIS, writePiConfig } from '../pi-config.js';
 import { createRuntimeModels } from './model-runtime.js';
 
 vi.mock('@earendil-works/pi-ai/api/typesafe-system-one', () => ({
+  classify: vi.fn(),
+}));
+vi.mock('@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one', () => ({
+  classify: vi.fn(),
+}));
+vi.mock('@earendil-works/pi-ai/api/llama-cpp-classify', () => ({
   classify: vi.fn(),
 }));
 const dirs: string[] = [];
@@ -79,6 +87,60 @@ it.each(['environment', 'auth', 'classifier-only', 'classifier-only-chat-api'])(
     );
   },
 );
+
+it('routes each classifier protocol with shared credentials while preserving generation', async () => {
+  const piDir = mkdtempSync(join(tmpdir(), 'classifier-protocols-'));
+  dirs.push(piDir);
+  vi.stubEnv('TEST_CLASSIFIER_API_KEY', 'protocol-test-key');
+  writePiConfig({
+    piDir,
+    providers: {
+      team: {
+        api: 'openai-completions',
+        baseUrl: 'https://provider.example/v1',
+        apiKeyEnvRef: '$TEST_CLASSIFIER_API_KEY',
+        models: [
+          { id: 'chat' },
+          ...PI_CLASSIFIER_APIS.map((api) => ({
+            id: api,
+            type: 'classifier' as const,
+            api,
+            contextWindow: 4096,
+          })),
+        ],
+      },
+    },
+  });
+  const adapters = [classify, classifyCloudflare, classifyLlamaCpp];
+  const models = await createRuntimeModels(piDir);
+  await models.refresh({ allowNetwork: false });
+  expect(models.getModel('team', 'chat')).toMatchObject({
+    api: 'openai-completions',
+  });
+  for (const [index, api] of PI_CLASSIFIER_APIS.entries()) {
+    const adapter = adapters[index];
+    vi.mocked(adapter).mockResolvedValue({
+      provider: 'team',
+      model: api,
+      api,
+      timestamp: 0,
+      stopReason: 'stop',
+      answers: {},
+    });
+    const model = models.getModelOfType('classifier', 'team', api);
+    if (!model) throw new Error(`Missing ${api}`);
+    expect(model).toMatchObject({
+      api,
+      baseUrl: 'https://provider.example/v1',
+    });
+    expect(models.getModel('team', api)).toBeUndefined();
+    await models.classify(model, { state: {}, questions: {} });
+    expect(adapter).toHaveBeenCalledOnce();
+    expect(vi.mocked(adapter).mock.calls[0][2]?.apiKey).toBe(
+      'protocol-test-key',
+    );
+  }
+});
 
 it('dispatches a standalone classifier through Durable without a coding VM', async () => {
   const piDir = mkdtempSync(join(tmpdir(), 'classifier-task-'));

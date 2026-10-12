@@ -3,8 +3,11 @@ import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 
 import {
+  isPiClassifierApi,
   PI_CLASSIFIER_API,
+  PI_CLASSIFIER_APIS,
   PI_MODEL_MODALITIES,
+  type PiClassifierApi,
 } from '@themoltnet/pi-runtime/pi-config';
 import {
   createNodeSecretProviderRegistry,
@@ -42,6 +45,7 @@ const MODEL_MODALITIES: readonly ProviderModelModality[] = PI_MODEL_MODALITIES;
 function parseModelArgs(
   chatModels: string[] | undefined,
   classifierModels: string[] | undefined,
+  classifierApi: PiClassifierApi,
   modelInputs: string[] | undefined,
   modelReasoning: string[] | undefined,
   modelThinkingMaps: string[] | undefined,
@@ -166,7 +170,7 @@ function parseModelArgs(
     entries.set(id, {
       id,
       type: 'classifier',
-      api: PI_CLASSIFIER_API,
+      api: classifierApi,
       ...(contextWindow ? { contextWindow: Number(contextWindow) } : {}),
     });
   }
@@ -305,6 +309,7 @@ function parseProviderArgs(command: string | undefined, args: string[]) {
           model: { type: 'string', multiple: true },
           'chat-model': { type: 'string', multiple: true },
           'classifier-model': { type: 'string', multiple: true },
+          'classifier-api': { type: 'string' },
           'model-input': { type: 'string', multiple: true },
           'model-reasoning': { type: 'string', multiple: true },
           'model-thinking-map': { type: 'string', multiple: true },
@@ -352,6 +357,19 @@ function parseProviderArgs(command: string | undefined, args: string[]) {
           '--api-key-stdin and --clear-api-key cannot be used together',
         );
       }
+      const classifierApi = values['classifier-api'] ?? PI_CLASSIFIER_API;
+      if (!isPiClassifierApi(classifierApi)) {
+        throw new ProviderCliError(
+          'invalid_arguments',
+          `--classifier-api expects ${PI_CLASSIFIER_APIS.join(' or ')}`,
+        );
+      }
+      if (values['classifier-api'] && !values['classifier-model']) {
+        throw new ProviderCliError(
+          'invalid_arguments',
+          '--classifier-api requires --classifier-model',
+        );
+      }
       const developerRole = values['supports-developer-role'];
       if (
         developerRole !== undefined &&
@@ -378,6 +396,7 @@ function parseProviderArgs(command: string | undefined, args: string[]) {
                 ? [...(values.model ?? []), ...(values['chat-model'] ?? [])]
                 : undefined,
               values['classifier-model'],
+              classifierApi,
               values['model-input'],
               values['model-reasoning'],
               values['model-thinking-map'],

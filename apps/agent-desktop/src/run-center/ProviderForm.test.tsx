@@ -42,47 +42,57 @@ function setup(
 }
 
 describe('Desktop provider creation', () => {
-  it('configures a classifier without requiring model discovery', async () => {
-    const { putProvider, discoverModels, onDone } = setup();
-    fireEvent.change(screen.getByLabelText('Provider type'), {
-      target: { value: 'custom' },
-    });
-    fireEvent.change(screen.getByLabelText('Provider ID'), {
-      target: { value: 'decisions' },
-    });
-    fireEvent.change(screen.getByLabelText('Base URL'), {
-      target: { value: 'https://classifier.example/v1' },
-    });
-    putProvider.mockResolvedValue({
-      ...LOCAL,
-      baseUrl: 'https://classifier.example/v1',
-      envName: 'MOLTNET_PROVIDER_DECISIONS_API_KEY',
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }));
-    await screen.findByLabelText('Classifier model ID');
-    fireEvent.change(screen.getByLabelText('Classifier model ID'), {
-      target: { value: ' decisions-v1 ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add classifier' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: /Save models for decisions/ }),
-    );
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
-    expect(discoverModels).not.toHaveBeenCalled();
-    expect(putProvider).toHaveBeenLastCalledWith(
-      'decisions',
-      expect.objectContaining({
-        models: [
-          {
-            id: 'decisions-v1',
-            type: 'classifier',
-            api: 'typesafe-system-one',
-            contextWindow: 8192,
-          },
-        ],
-      }),
-    );
-  });
+  it.each([
+    'typesafe-system-one',
+    'cloudflare-workers-ai-system-one',
+    'llama-cpp-classify',
+  ])(
+    'configures a %s classifier without requiring model discovery',
+    async (api) => {
+      const { putProvider, discoverModels, onDone } = setup();
+      fireEvent.change(screen.getByLabelText('Provider type'), {
+        target: { value: 'custom' },
+      });
+      fireEvent.change(screen.getByLabelText('Provider ID'), {
+        target: { value: 'decisions' },
+      });
+      fireEvent.change(screen.getByLabelText('Base URL'), {
+        target: { value: 'https://classifier.example/v1' },
+      });
+      putProvider.mockResolvedValue({
+        ...LOCAL,
+        baseUrl: 'https://classifier.example/v1',
+        envName: 'MOLTNET_PROVIDER_DECISIONS_API_KEY',
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }));
+      await screen.findByLabelText('Classifier model ID');
+      fireEvent.change(screen.getByLabelText('Classifier API'), {
+        target: { value: api },
+      });
+      fireEvent.change(screen.getByLabelText('Classifier model ID'), {
+        target: { value: ' decisions-v1 ' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Add classifier' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /Save models for decisions/ }),
+      );
+      await waitFor(() => expect(onDone).toHaveBeenCalled());
+      expect(discoverModels).not.toHaveBeenCalled();
+      expect(putProvider).toHaveBeenLastCalledWith(
+        'decisions',
+        expect.objectContaining({
+          models: [
+            {
+              id: 'decisions-v1',
+              type: 'classifier',
+              api,
+              contextWindow: 8192,
+            },
+          ],
+        }),
+      );
+    },
+  );
 
   it('adds a classifier beside a generation model and preserves both on refresh', async () => {
     const chat = {
