@@ -67,9 +67,10 @@ func newProfileCreateCmd() *cobra.Command {
 		Use:   "create --from-file <path>",
 		Short: "Create a runtime profile from a JSON definition file",
 		Long: `Create a runtime profile from a JSON file matching the runtime-profile create
-schema in the API reference (POST /runtime-profiles). Name, provider, model, and
-a sandbox object are required; every other field is optional. Use "-" to read
-the definition from stdin.
+schema in the API reference (POST /runtime-profiles). Configure models under
+models.generation and models.classification, each with its provider and model,
+as needed for the supported task types. Include the profile name and sandbox
+policy. Use "-" to read the definition from stdin.
 
 A JSON file is preferred over a wide flag surface because the sandbox policy —
 network allowlists, VFS shadow rules, resource limits — is a security artifact
