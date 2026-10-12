@@ -1,6 +1,6 @@
 import { C as __exportAll, E as __toESM, S as __esmMin, T as __toCommonJS, _ as _Object_, a as Record, b as _Array_, c as Number$1, d as Integer, f as Boolean$1, g as Unknown, h as Cyclic, i as Partial, l as Null, m as Unsafe, n as Errors, o as Union, p as Intersect, r as Check, s as String$1, t as Clean, u as Literal, v as Optional, w as __require, x as __commonJSMin, y as Ref$1 } from "./assets/value-CDS208oC.js";
 import { t as runMain } from "./assets/run-BAJLqHWw.js";
-import { a as createRateLimitFetch, i as summarizeCorpus, r as renderComment } from "./assets/report-DJdZyA5m.js";
+import { a as createRateLimitFetch, i as summarizeCorpus, o as createRetryFetch$1, r as renderComment } from "./assets/report-DQMPYY8c.js";
 import { i as requireFullOid, n as ensureRevisions, r as existsAt, t as createGit } from "./assets/git-D6Jflhap.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { constants, lstatSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
@@ -8734,6 +8734,23 @@ function createRuntimeSessionsNamespace(context) {
 		signal: options.signal,
 		headers: requiredTeamHeaders(options)
 	});
+	const retryRequest = (options) => ({
+		...request(options),
+		fetch: createRetryFetch$1({
+			baseFetch: client.getConfig().fetch ?? globalThis.fetch,
+			retryMethods: ["GET", "POST"],
+			retryStatuses: [
+				408,
+				500,
+				502,
+				503,
+				504
+			],
+			maxRetries: 3,
+			baseDelay: 250,
+			maxDelay: 1e3
+		})
+	});
 	return {
 		async getDurableForAttempt(taskId, attemptN, options) {
 			return unwrapResult(await getRuntimeStoreForAttempt({
@@ -8752,7 +8769,7 @@ function createRuntimeSessionsNamespace(context) {
 		},
 		async renew(storeId, body, options) {
 			return unwrapResult(await renewRuntimeStore({
-				...request(options),
+				...retryRequest(options),
 				path: { storeId },
 				body
 			}));
@@ -8774,14 +8791,14 @@ function createRuntimeSessionsNamespace(context) {
 		},
 		async append(storeId, body, options) {
 			return unwrapResult(await appendRuntimeStoreCommit({
-				...request(options),
+				...retryRequest(options),
 				path: { storeId },
 				body
 			}));
 		},
 		async read(storeId, afterSeq, options) {
 			const body = unwrapResult(await client.request({
-				...request(options),
+				...retryRequest(options),
 				method: "GET",
 				parseAs: "stream",
 				security: [{
