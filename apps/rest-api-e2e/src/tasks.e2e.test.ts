@@ -564,7 +564,7 @@ describe('Tasks API', () => {
             },
           },
         });
-        expect(response.status).toBe(400);
+        expect(response?.status).toBe(400);
         expect(data).toBeUndefined();
         expect(JSON.stringify(error)).toContain('input/outputContract/schema');
       },
