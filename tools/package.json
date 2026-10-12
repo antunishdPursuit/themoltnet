@@ -55,6 +55,7 @@
     "ws": "catalog:"
   },
   "devDependencies": {
+    "@earendil-works/chord": "catalog:",
     "@nx/devkit": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
@@ -100,6 +101,14 @@
         "options": {
           "command": "moltnet start node -- --import tsx tools/src/codex-environment/probe.ts",
           "cwd": "{workspaceRoot}"
+        }
+      },
+      "bench:durable": {
+        "executor": "nx:run-commands",
+        "cache": false,
+        "options": {
+          "command": "tsx src/bench-durable-storage.ts",
+          "cwd": "tools"
         }
       }
     }

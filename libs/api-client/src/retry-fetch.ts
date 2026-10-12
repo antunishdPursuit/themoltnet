@@ -1,6 +1,7 @@
 export interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
+  /** Cap for client-generated backoff; Retry-After is a server minimum. */
   maxDelay?: number;
   retryStatuses?: number[];
   retryMethods?: string[];
@@ -117,13 +118,13 @@ function computeDelay(
   const retryAfter = response?.headers.get('Retry-After');
   if (retryAfter) {
     const seconds = Number(retryAfter);
-    if (!Number.isNaN(seconds)) {
-      return Math.min(seconds * 1000, maxDelay);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(seconds * 1000, 2_147_483_647);
     }
     // HTTP-date format
     const date = Date.parse(retryAfter);
     if (!Number.isNaN(date)) {
-      return Math.min(Math.max(date - Date.now(), 0), maxDelay);
+      return Math.min(Math.max(date - Date.now(), 0), 2_147_483_647);
     }
   }
 
