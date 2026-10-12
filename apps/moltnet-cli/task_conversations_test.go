@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-faster/jx"
 
@@ -22,9 +24,11 @@ const (
 type stubConversationHandler struct {
 	moltnetapi.UnimplementedHandler
 
-	mu         sync.Mutex
-	list       moltnetapi.ListTaskConversationsRes
-	snapshots  []*moltnetapi.GetTaskConversationOK
+	mu        sync.Mutex
+	list      moltnetapi.ListTaskConversationsRes
+	snapshots []*moltnetapi.GetTaskConversationOK
+	// older answers requests with a beforeEntryId, keyed by that ID.
+	older      map[string]*moltnetapi.GetTaskConversationOK
 	getCalls   int
 	lastParams moltnetapi.GetTaskConversationParams
 }
@@ -37,6 +41,16 @@ func (h *stubConversationHandler) GetTaskConversation(_ context.Context, params 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.lastParams = params
+	if before, ok := params.BeforeEntryId.Get(); ok && h.older != nil {
+		page, found := h.older[before]
+		if !found {
+			return nil, fmt.Errorf("unexpected beforeEntryId %q", before)
+		}
+		return page, nil
+	}
+	if len(h.snapshots) == 0 {
+		return nil, fmt.Errorf("stub has no snapshots")
+	}
 	i := h.getCalls
 	if i >= len(h.snapshots) {
 		i = len(h.snapshots) - 1
@@ -163,7 +177,7 @@ func TestTaskConversationsGet_PassesPagingAndConversation(t *testing.T) {
 
 	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
 		taskID: convTaskID, teamID: convTeamID, attemptN: 2, conversationID: "7",
-		beforeEntryID: "42", limit: 10, format: "json", out: &out,
+		beforeEntryID: "42", limit: 10, limitSet: true, format: "json", out: &out,
 	})
 
 	if err != nil {
@@ -221,6 +235,139 @@ func TestTaskConversationsGet_FollowPrintsCommittedMessagesOnce(t *testing.T) {
 	}
 	if sleeps != 2 || h.getCalls != 3 {
 		t.Fatalf("expected 3 polls and 2 sleeps, got %d polls, %d sleeps", h.getCalls, sleeps)
+	}
+}
+
+func TestTaskConversationsGet_FollowPagesBackOverBursts(t *testing.T) {
+	completed := moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted
+	msg := func(n int) moltnetapi.GetTaskConversationOKMessagesItem {
+		return convMessage(t, fmt.Sprintf("%d/0", n), fmt.Sprint(n), completed,
+			map[string]any{"role": "assistant", "content": fmt.Sprintf("m%d", n)})
+	}
+	// Four entries land between the first two polls; a page holds two.
+	h := &stubConversationHandler{
+		list: mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{
+			convSnapshot("running", "", msg(1)),
+			convSnapshot("running", "4", msg(4), msg(5)),
+			convSnapshot("completed", "4", msg(4), msg(5)),
+		},
+		older: map[string]*moltnetapi.GetTaskConversationOK{
+			"4": convSnapshot("running", "2", msg(2), msg(3)),
+			"2": convSnapshot("running", "", msg(1)),
+		},
+	}
+	_, _, client := newTestServer(t, h)
+	var out bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
+		taskID: convTaskID, teamID: convTeamID, attemptN: 1, format: "human",
+		limit: 2, limitSet: true, follow: true, intervalSec: 1, out: &out,
+		sleep: func(context.Context, time.Duration) error { return nil },
+	})
+
+	if err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	var got []string
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.HasPrefix(line, "m") {
+			got = append(got, line)
+		}
+	}
+	if strings.Join(got, ",") != "m1,m2,m3,m4,m5" {
+		t.Fatalf("expected every message once in order, got %v\n%s", got, out.String())
+	}
+}
+
+func TestTaskConversationsGet_HumanOutputNeutralisesControlSequences(t *testing.T) {
+	completed := moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted
+	h := &stubConversationHandler{
+		list: mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{convSnapshot("completed", "",
+			convMessage(t, "1/0", "1", completed, map[string]any{
+				"role": "assistant",
+				"content": []any{map[string]any{
+					"type": "toolCall", "id": "c1", "name": "bash\x1b[2J",
+					"arguments": map[string]any{"command": "printf '\x1b]52;c;cHduZWQ=\x07'"},
+				}},
+			}),
+			convMessage(t, "2/0", "2", completed, map[string]any{
+				"role": "toolResult", "toolCallId": "c1", "toolName": "bash",
+				"content": []any{map[string]any{"type": "text", "text": "ok\x1b]52;c;cHduZWQ=\x07\u009b2J\nnext\tline"}},
+			}),
+		)},
+	}
+	_, _, client := newTestServer(t, h)
+	var out bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
+		taskID: convTaskID, teamID: convTeamID, attemptN: 1, format: "human", out: &out,
+	})
+
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if i := strings.IndexFunc(out.String(), isUnsafeTerminalRune); i >= 0 {
+		t.Fatalf("control character reached the terminal at byte %d:\n%q", i, out.String())
+	}
+	for _, want := range []string{`ok\u001b]52;c;cHduZWQ=\u0007\u009b2J`, "\nnext\tline", `→ bash\u001b[2J`} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output missing %q\n%q", want, out.String())
+		}
+	}
+}
+
+func TestTaskConversationsGet_TruncatesLongToolResultsOnRunes(t *testing.T) {
+	text := strings.Repeat("é", conversationResultLimit+3)
+	h := &stubConversationHandler{
+		list: mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{convSnapshot("completed", "",
+			convMessage(t, "1/0", "1", moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted, map[string]any{
+				"role": "toolResult", "toolCallId": "c1", "toolName": "read",
+				"content": []any{map[string]any{"type": "text", "text": text}},
+			}),
+		)},
+	}
+	_, _, client := newTestServer(t, h)
+	var out bytes.Buffer
+
+	err := runTaskConversationsGetWithClient(context.Background(), client, taskConversationsGetOpts{
+		taskID: convTaskID, teamID: convTeamID, attemptN: 1, format: "human", out: &out,
+	})
+
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if !utf8.ValidString(out.String()) {
+		t.Fatal("truncation split a multi-byte character")
+	}
+	want := strings.Repeat("é", conversationResultLimit) + "… (3 more characters; use --format json)"
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("expected the result cut at %d characters, got:\n%s", conversationResultLimit, out.String())
+	}
+}
+
+func TestValidateConversationGetOpts_Limit(t *testing.T) {
+	for _, tc := range []struct {
+		limit    int
+		limitSet bool
+		ok       bool
+	}{
+		{0, false, true},
+		{0, true, false},
+		{-1, true, false},
+		{1, true, true},
+		{100, true, true},
+		{101, true, false},
+	} {
+		err := validateConversationGetOpts(taskConversationsGetOpts{format: "human", limit: tc.limit, limitSet: tc.limitSet})
+		if (err == nil) != tc.ok {
+			t.Errorf("limit=%d set=%v: err=%v, want ok=%v", tc.limit, tc.limitSet, err, tc.ok)
+		}
+	}
+	if err := validateConversationGetOpts(taskConversationsGetOpts{format: "human", follow: true, intervalSec: 0}); err == nil {
+		t.Error("--follow with --interval 0 must be rejected")
 	}
 }
 

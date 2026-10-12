@@ -3,71 +3,60 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/go-faster/jx"
 	"github.com/google/uuid"
 	gocid "github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
+
+	moltnetapi "github.com/getlarge/themoltnet/libs/moltnet-api-client"
 )
 
 // durableConversation is a task attempt whose Durable store holds the
 // committed pi-durable writes from testdata/durable-conversation-commits.json.
 // Regenerate with: pnpm exec nx run @moltnet/bootstrap:generate:durable-fixture
 type durableConversation struct {
-	taskID   string
+	taskID   uuid.UUID
 	teamID   string
 	attemptN int
 }
 
-// e2eAPI sends one JSON request as the bootstrapped e2e agent. Seeding goes
-// through the REST API directly so the CLI is the only code under test.
-func e2eAPI(t *testing.T, method, path string, body any, want int, out any) {
+// expectRes fails the test unless the generated client returned want.
+// Seeding goes through the typed client so the CLI is the only code under
+// test and request shapes are checked at compile time.
+func expectRes[T any](t *testing.T, op string, res any, err error) T {
 	t.Helper()
-	token, err := NewTokenManager(e2eAPIURL, e2eCreds.OAuth2.ClientID, e2eCreds.OAuth2.ClientSecret).GetToken()
 	if err != nil {
-		t.Fatalf("token: %v", err)
+		t.Fatalf("%s: %v", op, formatTransportError(err))
 	}
-	var reader io.Reader
-	if body != nil {
-		raw, err := json.Marshal(body)
+	want, ok := res.(T)
+	if !ok {
+		t.Fatalf("%s = %T: %v", op, res, formatAPIError(res))
+	}
+	return want
+}
+
+// rawObject encodes each value of a free-form JSON object.
+func rawObject(t *testing.T, fields map[string]any) map[string]jx.Raw {
+	t.Helper()
+	out := make(map[string]jx.Raw, len(fields))
+	for key, value := range fields {
+		raw, err := json.Marshal(value)
 		if err != nil {
-			t.Fatalf("encode %s %s: %v", method, path, err)
+			t.Fatalf("encode %s: %v", key, err)
 		}
-		reader = bytes.NewReader(raw)
+		out[key] = raw
 	}
-	req, err := http.NewRequest(method, e2eAPIURL+path, reader)
-	if err != nil {
-		t.Fatalf("request %s %s: %v", method, path, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("x-moltnet-team-id", e2ePersonalTeamID.String())
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("%s %s: %v", method, path, err)
-	}
-	defer res.Body.Close()
-	raw, _ := io.ReadAll(res.Body)
-	if res.StatusCode != want {
-		t.Fatalf("%s %s = %d, want %d: %s", method, path, res.StatusCode, want, raw)
-	}
-	if out != nil {
-		if err := json.Unmarshal(raw, out); err != nil {
-			t.Fatalf("decode %s %s: %v: %s", method, path, err, raw)
-		}
-	}
+	return out
 }
 
 // executorManifestCID matches computeExecutorManifestCid in
@@ -86,36 +75,48 @@ func executorManifestCID(t *testing.T, manifest map[string]any) string {
 	return gocid.NewCidV1(0x55, mh).String()
 }
 
+// createE2ETask creates a fulfill_brief task, optionally pinned to profiles.
+func createE2ETask(t *testing.T, title string, profiles ...uuid.UUID) uuid.UUID {
+	t.Helper()
+	req := &moltnetapi.CreateTaskReq{
+		TaskType: "fulfill_brief",
+		Title:    moltnetapi.NewOptString(title),
+		DiaryId:  e2eDiaryID,
+		Input:    rawObject(t, map[string]any{"brief": title}),
+	}
+	for _, id := range profiles {
+		req.AllowedProfiles = append(req.AllowedProfiles, moltnetapi.RuntimeProfileRef{ProfileId: id})
+	}
+	res, err := e2eClient.CreateTask(context.Background(), req, moltnetapi.CreateTaskParams{XMoltnetTeamID: e2ePersonalTeamID})
+	return expectRes[*moltnetapi.Task](t, "create task", res, err).ID
+}
+
 // seedDurableConversation claims a task under a runtime profile (only pinned
 // claims carry the lease a Durable store requires) and commits the fixture.
 func seedDurableConversation(t *testing.T) durableConversation {
 	t.Helper()
-	var profile struct {
-		ID            string `json:"id"`
-		DefinitionCid string `json:"definitionCid"`
-		RuntimeKind   string `json:"runtimeKind"`
-	}
-	e2eAPI(t, http.MethodPost, "/runtime-profiles", map[string]any{
-		"name": "cli-conversations-" + uuid.NewString(),
-		"models": map[string]any{
-			"generation": map[string]any{"provider": "anthropic", "model": "claude-sonnet-4-5"},
-		},
-		"sandbox": map[string]any{
-			"hostExec":  map[string]any{"autoApprove": false},
-			"resources": map[string]any{"cpus": 2, "memory": "2G"},
-		},
-	}, http.StatusCreated, &profile)
+	ctx := context.Background()
+	team := moltnetapi.NewOptUUID(e2ePersonalTeamID)
 
-	var task struct {
-		ID string `json:"id"`
-	}
-	e2eAPI(t, http.MethodPost, "/tasks", map[string]any{
-		"taskType":        "fulfill_brief",
-		"title":           "CLI conversation read",
-		"diaryId":         e2eDiaryID.String(),
-		"allowedProfiles": []map[string]any{{"profileId": profile.ID}},
-		"input":           map[string]any{"brief": "CLI conversation read"},
-	}, http.StatusCreated, &task)
+	profileRes, err := e2eClient.CreateRuntimeProfile(ctx, moltnetapi.NewOptCreateRuntimeProfileBody(moltnetapi.CreateRuntimeProfileBody{
+		Name: "cli-conversations-" + uuid.NewString(),
+		Models: moltnetapi.CreateRuntimeProfileBodyModels{
+			Generation: moltnetapi.NewOptCreateRuntimeProfileBodyModelsGeneration(moltnetapi.CreateRuntimeProfileBodyModelsGeneration{
+				Provider: "anthropic", Model: "claude-sonnet-4-5",
+			}),
+		},
+		Sandbox: moltnetapi.CreateRuntimeProfileBodySandbox{
+			HostExec: moltnetapi.NewOptCreateRuntimeProfileBodySandboxHostExec(moltnetapi.CreateRuntimeProfileBodySandboxHostExec{
+				AutoApprove: moltnetapi.NewOptCreateRuntimeProfileBodySandboxHostExecAutoApprove(moltnetapi.CreateRuntimeProfileBodySandboxHostExecAutoApproveFalse),
+			}),
+			Resources: moltnetapi.NewOptCreateRuntimeProfileBodySandboxResources(moltnetapi.CreateRuntimeProfileBodySandboxResources{
+				Cpus: moltnetapi.NewOptInt(2), Memory: moltnetapi.NewOptString("2G"),
+			}),
+		},
+	}), moltnetapi.CreateRuntimeProfileParams{XMoltnetTeamID: team})
+	profile := expectRes[*moltnetapi.RuntimeProfile](t, "create runtime profile", profileRes, err)
+
+	taskID := createE2ETask(t, "CLI conversation read", profile.ID)
 
 	manifest := map[string]any{
 		"schemaVersion": "moltnet:executor-manifest:v1",
@@ -123,7 +124,7 @@ func seedDurableConversation(t *testing.T) durableConversation {
 			"kind": profile.RuntimeKind, "engine": "pi", "sandbox": "gondolin",
 			"id": "cli-conversations-e2e", "version": "1",
 		},
-		"profile": map[string]any{"id": profile.ID, "definitionCid": profile.DefinitionCid},
+		"profile": map[string]any{"id": profile.ID.String(), "definitionCid": profile.DefinitionCid},
 		"vm": map[string]any{
 			"templateId": "cli-conversations-e2e", "templateVersion": "1",
 			"templateFingerprint": "bafyreie2e-template", "guestAssetBuildId": "cli-conversations-e2e",
@@ -141,58 +142,47 @@ func seedDurableConversation(t *testing.T) durableConversation {
 	if err != nil {
 		t.Fatalf("sign registration: %v", err)
 	}
-	e2eAPI(t, http.MethodPost, "/executor-manifests/register", map[string]any{
-		"executorManifest":    manifest,
-		"executorFingerprint": fingerprint,
-		"executorSignature":   signature,
-	}, http.StatusOK, nil)
+	registerRes, err := e2eClient.RegisterExecutorManifest(ctx, &moltnetapi.RegisterExecutorManifestReq{
+		ExecutorManifest:    rawObject(t, manifest),
+		ExecutorFingerprint: fingerprint,
+		ExecutorSignature:   signature,
+	})
+	expectRes[*moltnetapi.RegisterExecutorManifestOK](t, "register executor manifest", registerRes, err)
 
-	var claim struct {
-		Attempt struct {
-			AttemptN int    `json:"attemptN"`
-			LeaseID  string `json:"leaseId"`
-		} `json:"attempt"`
+	claimRes, err := e2eClient.ClaimTask(ctx, moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{
+		LeaseTtlSec:         moltnetapi.NewOptInt(300),
+		ProfileId:           moltnetapi.NewOptUUID(profile.ID),
+		ExecutorFingerprint: moltnetapi.NewOptString(fingerprint),
+	}), moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: team})
+	attempt := expectRes[*moltnetapi.ClaimTaskResponseHeaders](t, "claim task", claimRes, err).Response.Attempt
+	leaseID, ok := attempt.LeaseId.Get()
+	if !ok {
+		t.Fatal("pinned claim returned no lease")
 	}
-	e2eAPI(t, http.MethodPost, "/tasks/"+task.ID+"/claim", map[string]any{
-		"leaseTtlSec":         300,
-		"profileId":           profile.ID,
-		"executorFingerprint": fingerprint,
-	}, http.StatusOK, &claim)
+	attemptN := int(attempt.AttemptN)
 
-	authority := map[string]any{
-		"taskId":              task.ID,
-		"attemptN":            claim.Attempt.AttemptN,
-		"leaseId":             claim.Attempt.LeaseID,
-		"executorFingerprint": fingerprint,
-	}
-	var store struct {
-		StoreID     string `json:"storeId"`
-		WriterToken string `json:"writerToken"`
-		HeadSeq     int    `json:"headSeq"`
-	}
-	e2eAPI(t, http.MethodPost, "/runtime-sessions/durable/open", authority, http.StatusOK, &store)
+	openRes, err := e2eClient.OpenRuntimeStore(ctx, &moltnetapi.OpenRuntimeStoreReq{
+		TaskId: taskID, AttemptN: attemptN, LeaseId: leaseID, ExecutorFingerprint: fingerprint,
+	}, moltnetapi.OpenRuntimeStoreParams{XMoltnetTeamID: e2ePersonalTeamID})
+	store := expectRes[*moltnetapi.OpenRuntimeStoreOK](t, "open runtime store", openRes, err)
 
 	raw, err := os.ReadFile("testdata/durable-conversation-commits.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	var commits [][]map[string]any
-	if err := json.Unmarshal([]byte(strings.ReplaceAll(string(raw), "__TASK_ID__", task.ID)), &commits); err != nil {
+	var commits [][]moltnetapi.AppendRuntimeStoreCommitReqWritesItem
+	if err := json.Unmarshal([]byte(strings.ReplaceAll(string(raw), "__TASK_ID__", taskID.String())), &commits); err != nil {
 		t.Fatalf("decode fixture: %v", err)
 	}
 	head := store.HeadSeq
-	for _, writes := range commits {
-		body := map[string]any{"writerToken": store.WriterToken, "commitId": uuid.NewString(), "expectedSeq": head, "writes": writes}
-		for k, v := range authority {
-			body[k] = v
-		}
-		var receipt struct {
-			Seq int `json:"seq"`
-		}
-		e2eAPI(t, http.MethodPost, "/runtime-sessions/durable/"+store.StoreID+"/commits", body, http.StatusOK, &receipt)
-		head = receipt.Seq
+	for i, writes := range commits {
+		appendRes, err := e2eClient.AppendRuntimeStoreCommit(ctx, &moltnetapi.AppendRuntimeStoreCommitReq{
+			TaskId: taskID, AttemptN: attemptN, LeaseId: leaseID, ExecutorFingerprint: fingerprint,
+			WriterToken: store.WriterToken, CommitId: uuid.New(), ExpectedSeq: head, Writes: writes,
+		}, moltnetapi.AppendRuntimeStoreCommitParams{StoreId: store.StoreId, XMoltnetTeamID: e2ePersonalTeamID})
+		head = expectRes[*moltnetapi.AppendRuntimeStoreCommitOK](t, fmt.Sprintf("append commit %d", i+1), appendRes, err).Seq
 	}
-	return durableConversation{taskID: task.ID, teamID: e2ePersonalTeamID.String(), attemptN: claim.Attempt.AttemptN}
+	return durableConversation{taskID: taskID, teamID: e2ePersonalTeamID.String(), attemptN: attemptN}
 }
 
 type cliConversationMessage struct {
@@ -236,7 +226,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 	}
 	getJSON := func(t *testing.T, args ...string) cliConversationSnapshot {
 		t.Helper()
-		stdout, stderr, err := cli(append([]string{"get", seeded.taskID, "--team-id", seeded.teamID, "--format", "json"}, args...)...)
+		stdout, stderr, err := cli(append([]string{"get", seeded.taskID.String(), "--team-id", seeded.teamID, "--format", "json"}, args...)...)
 		if err != nil {
 			t.Fatalf("conversations get %v: %v\nstderr: %s", args, err, stderr)
 		}
@@ -248,7 +238,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 	}
 
 	t.Run("list returns the main conversation", func(t *testing.T) {
-		stdout, stderr, err := cli("list", seeded.taskID, "--team-id", seeded.teamID)
+		stdout, stderr, err := cli("list", seeded.taskID.String(), "--team-id", seeded.teamID)
 		if err != nil {
 			t.Fatalf("conversations list: %v\nstderr: %s", err, stderr)
 		}
@@ -268,7 +258,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 	})
 
 	t.Run("get prints the transcript with tool calls and results", func(t *testing.T) {
-		stdout, stderr, err := cli("get", seeded.taskID, "--team-id", seeded.teamID)
+		stdout, stderr, err := cli("get", seeded.taskID.String(), "--team-id", seeded.teamID)
 		if err != nil {
 			t.Fatalf("conversations get: %v\nstderr: %s", err, stderr)
 		}
@@ -321,7 +311,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 			t.Fatalf("second page = %+v", second)
 		}
 
-		stdout, stderr, err := cli("get", seeded.taskID, "--team-id", seeded.teamID, "--limit", "1")
+		stdout, stderr, err := cli("get", seeded.taskID.String(), "--team-id", seeded.teamID, "--limit", "1")
 		if err != nil {
 			t.Fatalf("conversations get --limit 1: %v\nstderr: %s", err, stderr)
 		}
@@ -331,26 +321,24 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 	})
 
 	t.Run("rejects an unknown conversation", func(t *testing.T) {
-		_, stderr, err := cli("get", seeded.taskID, "--team-id", seeded.teamID, "--conversation", "999999")
+		_, stderr, err := cli("get", seeded.taskID.String(), "--team-id", seeded.teamID, "--conversation", "999999")
 		if err == nil {
 			t.Fatalf("expected failure for an unknown conversation; stderr: %s", stderr)
+		}
+		if !strings.Contains(stderr, "Not Found") {
+			t.Errorf("stderr does not report the conversation as not found: %s", stderr)
 		}
 	})
 
 	t.Run("explains attempts without a Durable conversation", func(t *testing.T) {
-		var task struct {
-			ID string `json:"id"`
-		}
-		e2eAPI(t, http.MethodPost, "/tasks", map[string]any{
-			"taskType": "fulfill_brief",
-			"title":    "CLI conversation absent",
-			"diaryId":  e2eDiaryID.String(),
-			"input":    map[string]any{"brief": "no Durable store"},
-		}, http.StatusCreated, &task)
-		e2eAPI(t, http.MethodPost, "/tasks/"+task.ID+"/claim", map[string]any{"leaseTtlSec": 60}, http.StatusOK, nil)
+		taskID := createE2ETask(t, "CLI conversation absent")
+		claimRes, err := e2eClient.ClaimTask(context.Background(),
+			moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{LeaseTtlSec: moltnetapi.NewOptInt(60)}),
+			moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(e2ePersonalTeamID)})
+		expectRes[*moltnetapi.ClaimTaskResponseHeaders](t, "claim task", claimRes, err)
 
 		// Until an attempt opens a Durable store, the API lists no conversations.
-		stdout, stderr, err := cli("list", task.ID, "--team-id", seeded.teamID)
+		stdout, stderr, err := cli("list", taskID.String(), "--team-id", seeded.teamID)
 		if err != nil {
 			t.Fatalf("conversations list: %v\nstderr: %s", err, stderr)
 		}
@@ -364,7 +352,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 			t.Fatalf("items = %s, want none", stdout)
 		}
 
-		_, stderr, err = cli("get", task.ID, "--team-id", seeded.teamID)
+		_, stderr, err = cli("get", taskID.String(), "--team-id", seeded.teamID)
 		if err == nil {
 			t.Fatal("expected get to fail for an attempt without a Durable store")
 		}
@@ -383,16 +371,20 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			stdout, stderr, runErr = cli("get", seeded.taskID, "--team-id", seeded.teamID, "--follow", "--interval", "1", "--format", "json")
+			stdout, stderr, runErr = cli("get", seeded.taskID.String(), "--team-id", seeded.teamID, "--follow", "--interval", "1", "--format", "json")
 		}()
 		// Let the follower print the committed messages while the attempt is live.
 		time.Sleep(3 * time.Second)
 		// An attempt can only fail once a heartbeat has started it.
-		attempt := fmt.Sprintf("/tasks/%s/attempts/%d", seeded.taskID, seeded.attemptN)
-		e2eAPI(t, http.MethodPost, attempt+"/heartbeat", map[string]any{}, http.StatusOK, nil)
-		e2eAPI(t, http.MethodPost, attempt+"/fail", map[string]any{
-			"error": map[string]any{"code": "e2e_finished", "message": "follow test ends the attempt", "retryable": false},
-		}, http.StatusOK, nil)
+		ctx := context.Background()
+		team := moltnetapi.NewOptUUID(e2ePersonalTeamID)
+		heartbeatRes, err := e2eClient.TaskHeartbeat(ctx, moltnetapi.OptTaskHeartbeatReq{},
+			moltnetapi.TaskHeartbeatParams{ID: seeded.taskID, N: seeded.attemptN, XMoltnetTeamID: team})
+		expectRes[*moltnetapi.HeartbeatResponse](t, "heartbeat", heartbeatRes, err)
+		failRes, err := e2eClient.FailTaskAttempt(ctx, &moltnetapi.FailTaskAttemptReq{Error: moltnetapi.TaskError{
+			Code: "e2e_finished", Message: "follow test ends the attempt", Retryable: moltnetapi.NewOptBool(false),
+		}}, moltnetapi.FailTaskAttemptParams{ID: seeded.taskID, N: seeded.attemptN, XMoltnetTeamID: team})
+		expectRes[*moltnetapi.Task](t, "fail attempt", failRes, err)
 
 		done := make(chan struct{})
 		go func() { wg.Wait(); close(done) }()

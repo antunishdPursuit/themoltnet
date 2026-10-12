@@ -285,8 +285,9 @@ func newTaskConversationsGetCmd() *cobra.Command {
 unless --conversation is set). Messages inherited from an earlier attempt and
 interrupted or failed responses are labelled.
 
---before-entry-id pages back through older entries. --follow polls until the
-attempt is terminal and prints each committed message once; the response
+--before-entry-id pages back through older entries. --follow starts from the
+latest entries, polls until the attempt is terminal, and prints each
+committed message once; the response
 being written is printed only if it is still uncommitted when the attempt
 ends.`,
 		Example: `  moltnet task conversations get <task-id> --team-id <uuid>
@@ -306,6 +307,7 @@ ends.`,
 				conversationID: flagString(cmd, "conversation"),
 				beforeEntryID:  flagString(cmd, "before-entry-id"),
 				limit:          flagInt(cmd, "limit"),
+				limitSet:       cmd.Flags().Changed("limit"),
 				format:         flagString(cmd, "format"),
 				follow:         flagBool(cmd, "follow"),
 				intervalSec:    flagInt(cmd, "interval"),

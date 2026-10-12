@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -15,6 +17,9 @@ import (
 
 // Long tool results are cut in human output; --format json has the full body.
 const conversationResultLimit = 2000
+
+// maxConversationPageLimit is the API's largest page of entries.
+const maxConversationPageLimit = 100
 
 type taskConversationsListOpts struct {
 	apiURL   string
@@ -34,6 +39,7 @@ type taskConversationsGetOpts struct {
 	conversationID string
 	beforeEntryID  string
 	limit          int
+	limitSet       bool
 	format         string
 	follow         bool
 	intervalSec    int
@@ -87,8 +93,8 @@ func validateConversationGetOpts(opts taskConversationsGetOpts) error {
 	if opts.follow && opts.intervalSec < 1 {
 		return fmt.Errorf("--interval must be >= 1, got %d", opts.intervalSec)
 	}
-	if opts.limit < 0 || opts.limit > 100 {
-		return fmt.Errorf("--limit must be between 1 and 100, got %d", opts.limit)
+	if opts.limitSet && (opts.limit < 1 || opts.limit > maxConversationPageLimit) {
+		return fmt.Errorf("--limit must be between 1 and %d, got %d", maxConversationPageLimit, opts.limit)
 	}
 	return nil
 }
@@ -121,7 +127,7 @@ func runTaskConversationsGetWithClient(ctx context.Context, client *moltnetapi.C
 	if opts.beforeEntryID != "" {
 		params.BeforeEntryId = moltnetapi.NewOptString(opts.beforeEntryID)
 	}
-	if opts.limit > 0 {
+	if opts.limitSet {
 		params.Limit = moltnetapi.NewOptInt(opts.limit)
 	}
 	if opts.follow {
@@ -148,7 +154,9 @@ func runTaskConversationsGetWithClient(ctx context.Context, client *moltnetapi.C
 }
 
 // followConversation polls the conversation until the attempt is terminal,
-// printing each committed message once. The in-progress partial response is
+// printing each committed message once. It starts from the latest page; later
+// polls page back to the last printed message, so a burst larger than one
+// page between polls is not skipped. The in-progress partial response is
 // not printed while it streams; a partial left on the final snapshot is
 // printed (it is then interrupted). Polling instead of SSE keeps the CLI on
 // the generated client, which does not model the event stream.
@@ -158,13 +166,22 @@ func followConversation(ctx context.Context, client *moltnetapi.Client, params m
 		sleep = sleepContext
 	}
 	seen := map[string]bool{}
+	first := true
 	for {
 		snapshot, err := getConversation(ctx, client, params)
 		if err != nil {
 			return err
 		}
 		terminal := !isLiveAttemptStatus(snapshot.AttemptStatus)
-		for _, message := range snapshot.Messages {
+		messages := snapshot.Messages
+		if !first {
+			messages, err = withUnseenOlderPages(ctx, client, params, snapshot, seen)
+			if err != nil {
+				return err
+			}
+		}
+		first = false
+		for _, message := range messages {
 			_, committed := message.EntryId.Get()
 			if seen[message.ID] || (!committed && !terminal) {
 				continue
@@ -183,6 +200,41 @@ func followConversation(ctx context.Context, client *moltnetapi.Client, params m
 	}
 }
 
+// withUnseenOlderPages prepends older pages until one holds a message already
+// printed, or the conversation starts. Messages are returned oldest first.
+func withUnseenOlderPages(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, snapshot *moltnetapi.GetTaskConversationOK, seen map[string]bool) ([]moltnetapi.GetTaskConversationOKMessagesItem, error) {
+	pages := [][]moltnetapi.GetTaskConversationOKMessagesItem{snapshot.Messages}
+	next := snapshot.NextBeforeEntryId
+	for !anySeen(pages[len(pages)-1], seen) {
+		before, ok := next.Get()
+		if !ok {
+			break
+		}
+		older := params
+		older.BeforeEntryId = moltnetapi.NewOptString(before)
+		page, err := getConversation(ctx, client, older)
+		if err != nil {
+			return nil, err
+		}
+		pages = append(pages, page.Messages)
+		next = page.NextBeforeEntryId
+	}
+	var messages []moltnetapi.GetTaskConversationOKMessagesItem
+	for i := len(pages) - 1; i >= 0; i-- {
+		messages = append(messages, pages[i]...)
+	}
+	return messages, nil
+}
+
+func anySeen(messages []moltnetapi.GetTaskConversationOKMessagesItem, seen map[string]bool) bool {
+	for _, message := range messages {
+		if seen[message.ID] {
+			return true
+		}
+	}
+	return false
+}
+
 func printFollowedMessage(opts taskConversationsGetOpts, message moltnetapi.GetTaskConversationOKMessagesItem) error {
 	if opts.format == "json" {
 		// MarshalJSON has a pointer receiver; a value would be reflected and
@@ -198,7 +250,7 @@ func printFollowedMessage(opts taskConversationsGetOpts, message moltnetapi.GetT
 }
 
 func isLiveAttemptStatus(status string) bool {
-	return status == "claimed" || status == "running"
+	return status == string(moltnetapi.TaskAttemptStatusClaimed) || status == string(moltnetapi.TaskAttemptStatusRunning)
 }
 
 func sleepContext(ctx context.Context, d time.Duration) error {
@@ -299,9 +351,9 @@ func printConversationMessage(out io.Writer, item moltnetapi.GetTaskConversation
 	rawField(item.Message, "toolName", &toolName)
 	rawField(item.Message, "isError", &isError)
 
-	label := role
+	label := terminalSafe(role)
 	if role == "toolResult" {
-		label = "tool result: " + toolName
+		label = "tool result: " + terminalSafe(toolName)
 	}
 	var flags []string
 	if item.Inherited {
@@ -326,18 +378,19 @@ func printConversationMessage(out io.Writer, item moltnetapi.GetTaskConversation
 			if part.Text == "" {
 				continue
 			}
-			if role == "toolResult" && len(part.Text) > conversationResultLimit {
-				fmt.Fprintf(&b, "%s… (%d more characters; use --format json)\n",
-					part.Text[:conversationResultLimit], len(part.Text)-conversationResultLimit)
-				continue
+			if role == "toolResult" {
+				if head, rest := truncateRunes(part.Text, conversationResultLimit); rest > 0 {
+					fmt.Fprintf(&b, "%s… (%d more characters; use --format json)\n", terminalSafe(head), rest)
+					continue
+				}
 			}
-			b.WriteString(part.Text + "\n")
+			b.WriteString(terminalSafe(part.Text) + "\n")
 		case "toolCall":
 			args := string(part.Arguments)
 			if args == "" {
 				args = "{}"
 			}
-			fmt.Fprintf(&b, "→ %s %s\n", part.Name, args)
+			fmt.Fprintf(&b, "→ %s %s\n", terminalSafe(part.Name), terminalSafe(args))
 		case "image":
 			b.WriteString("[image]\n")
 		}
@@ -345,4 +398,40 @@ func printConversationMessage(out io.Writer, item moltnetapi.GetTaskConversation
 	b.WriteString("\n")
 	_, err := io.WriteString(out, b.String())
 	return err
+}
+
+// truncateRunes cuts s to at most limit runes, returning how many were cut.
+func truncateRunes(s string, limit int) (string, int) {
+	total := utf8.RuneCountInString(s)
+	if total <= limit {
+		return s, 0
+	}
+	cut := 0
+	for i := 0; i < limit; i++ {
+		_, size := utf8.DecodeRuneInString(s[cut:])
+		cut += size
+	}
+	return s[:cut], total - limit
+}
+
+// terminalSafe escapes control characters other than newline and tab.
+// Conversation text includes tool output the agent read, which may carry
+// escape sequences that would otherwise drive the reader's terminal.
+func terminalSafe(s string) string {
+	if strings.IndexFunc(s, isUnsafeTerminalRune) < 0 {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if isUnsafeTerminalRune(r) {
+			fmt.Fprintf(&b, "\\u%04x", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func isUnsafeTerminalRune(r rune) bool {
+	return r != '\n' && r != '\t' && (unicode.IsControl(r) || r == utf8.RuneError)
 }
