@@ -1,5 +1,7 @@
 import {
   createDiaryCustomPack,
+  diffContextPacksByCid,
+  diffContextPacksById,
   getContextPackById,
   getContextPackProvenanceByCid,
   getContextPackProvenanceById,
@@ -30,6 +32,26 @@ export function createPacksNamespace(context: AgentContext): PacksNamespace {
           auth,
           path: { id },
           query,
+        }),
+      );
+    },
+
+    async diff(id, otherId) {
+      return unwrapResult(
+        await diffContextPacksById({
+          client,
+          auth,
+          path: { id, otherId },
+        }),
+      );
+    },
+
+    async diffByCid(cid, otherCid) {
+      return unwrapResult(
+        await diffContextPacksByCid({
+          client,
+          auth,
+          path: { cid, otherCid },
         }),
       );
     },

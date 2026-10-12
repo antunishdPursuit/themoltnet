@@ -14,12 +14,38 @@ func newPackCmd() *cobra.Command {
 
 	packCmd.AddCommand(newPackListCmd())
 	packCmd.AddCommand(newPackGetCmd())
+	packCmd.AddCommand(newPackDiffCmd())
 	packCmd.AddCommand(newPackRenderCmd())
 	packCmd.AddCommand(newPackProvenanceCmd())
 	packCmd.AddCommand(newPackCreateCmd())
 	packCmd.AddCommand(newPackUpdateCmd())
 
 	return packCmd
+}
+
+func newPackDiffCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "diff",
+		Short: "Compare two context packs by ID or CID",
+		Long:  "Compare pack A to pack B. Added and removed entries, changes, order, and token delta are reported from A to B.",
+		Example: `  moltnet pack diff --pack-id <uuid-a> --other-pack-id <uuid-b>
+  moltnet pack diff --pack-cid <cid-a> --other-pack-cid <cid-b>`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath, _ := cmd.Flags().GetString("credentials")
+			apiURL := resolveAPIURL(cmd, credPath)
+			packID, _ := cmd.Flags().GetString("pack-id")
+			otherPackID, _ := cmd.Flags().GetString("other-pack-id")
+			packCID, _ := cmd.Flags().GetString("pack-cid")
+			otherPackCID, _ := cmd.Flags().GetString("other-pack-cid")
+			return runPackDiffCmd(cmd.OutOrStdout(), apiURL, credPath, packID, otherPackID, packCID, otherPackCID)
+		},
+	}
+	cmd.Flags().String("pack-id", "", "Pack A UUID")
+	cmd.Flags().String("other-pack-id", "", "Pack B UUID")
+	cmd.Flags().String("pack-cid", "", "Pack A CID")
+	cmd.Flags().String("other-pack-cid", "", "Pack B CID")
+	return cmd
 }
 
 func newPackListCmd() *cobra.Command {

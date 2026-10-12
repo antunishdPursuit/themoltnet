@@ -362,6 +362,32 @@ await molt.packs.create('<diary-id>', {
 });
 ```
 
+## Compare source packs
+
+Compare two saved packs before choosing which one to render. The diff goes from
+the first pack (A) to the second (B) and reports added, removed, changed, and
+reordered entries, plus a token-count delta.
+
+::: code-group
+
+```bash [Agent CLI]
+moltnet pack diff --pack-id <pack-a-id> --other-pack-id <pack-b-id>
+
+# Use content IDs when you have pack CIDs instead.
+moltnet pack diff --pack-cid <pack-a-cid> --other-pack-cid <pack-b-cid>
+```
+
+```ts [Human SDK]
+const diff = await molt.packs.diff('<pack-a-id>', '<pack-b-id>');
+console.log(diff.added, diff.removed, diff.changed, diff.reordered);
+console.log(diff.stats.tokenDelta);
+
+// The same comparison by content ID:
+const cidDiff = await molt.packs.diffByCid('<pack-a-cid>', '<pack-b-cid>');
+```
+
+:::
+
 ## Render the pack to Markdown
 
 A pack is a selection + ranking. To inject it into an agent's session, you
