@@ -168,15 +168,15 @@ describe('useTaskConversations', () => {
   it('reports no conversation for attempts without one', () => {
     mocks.useQuery.mockReturnValue({
       refetch: mocks.refetch,
-      data: undefined,
-      error: { status: 404 },
+      data: { items: [] },
     });
 
     const { result } = renderHook(() =>
       useTaskConversations({ ...base, attemptStatus: 'completed' }),
     );
 
-    expect(result.current.threads).toBeUndefined();
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.error).toBeUndefined();
     expect(mocks.watch).not.toHaveBeenCalled();
     expect(mocks.getTaskConversation).not.toHaveBeenCalled();
   });
@@ -230,6 +230,7 @@ describe('useTaskConversations', () => {
     await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
     expect(mocks.watch.mock.calls[0][0].signal.aborted).toBe(true);
     expect(result.current.threads![0].messages).toHaveLength(1);
+    expect(result.current.threads![0].live).toBe(false);
   });
 
   it('reads subagents only after expansion and aborts their pending read on collapse', async () => {
@@ -276,10 +277,10 @@ describe('useTaskConversations', () => {
     expect(result.current.threads![0].messages).toEqual([]);
   });
 
-  it('distinguishes discovery errors from absence and provides retry', () => {
+  it.each([404, 503])('reports discovery %s and provides retry', (status) => {
     mocks.useQuery.mockReturnValue({
       refetch: mocks.refetch,
-      error: { status: 503 },
+      error: { status },
     });
     const { result } = renderHook(() =>
       useTaskConversations({ ...base, attemptStatus: 'running' }),
@@ -311,4 +312,46 @@ describe('useTaskConversations', () => {
       beforeEntryId: '2',
     });
   });
+  it.each([false, true])(
+    'keeps a skipped window reachable with an in-flight history read: %s',
+    async (inFlight) => {
+      const page = (start: number, end: number, cursor: string | null) => ({
+        ...snapshot('page', cursor),
+        messages: Array.from({ length: end - start + 1 }, (_, i) => ({
+          ...snapshot('page').messages[0],
+          id: `${start + i}/0`,
+          entryId: String(start + i),
+        })),
+      });
+      let resolve!: (value: unknown) => void;
+      mocks.getTaskConversation.mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+      const { result } = renderHook(() =>
+        useTaskConversations({ ...base, attemptStatus: 'running' }),
+      );
+      const { onSnapshot } = mocks.watch.mock.calls[0][0];
+      act(() => onSnapshot(page(6, 105, '6')));
+      act(() => result.current.threads![0].onLoadOlder!());
+      if (!inFlight) await act(async () => resolve({ data: page(1, 5, null) }));
+      act(() => onSnapshot(page(151, 250, '151')));
+      if (inFlight) await act(async () => resolve({ data: page(1, 5, null) }));
+      expect(result.current.threads![0].onLoadOlder).toBeDefined();
+      mocks.getTaskConversation.mockResolvedValueOnce({
+        data: page(51, 150, '51'),
+      });
+      act(() => result.current.threads![0].onLoadOlder!());
+      await waitFor(() =>
+        expect(result.current.threads![0].loadingOlder).toBe(false),
+      );
+      expect(mocks.getTaskConversation.mock.calls.at(-1)![0].query).toEqual({
+        beforeEntryId: '151',
+      });
+      expect(
+        result.current.threads![0].messages.map((m) => Number(m.entryId)),
+      ).toEqual(Array.from({ length: 250 }, (_, i) => i + 1));
+    },
+  );
 });

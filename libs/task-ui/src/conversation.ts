@@ -22,6 +22,8 @@ export interface TaskConversationSummary {
 export interface TaskConversationThread {
   summary: TaskConversationSummary;
   messages: TaskConversationMessage[];
+  /** Observed attempt state; a terminal snapshot overrides stale page data. */
+  live?: boolean;
   /** True until the first snapshot for this conversation arrives. */
   loading?: boolean;
   error?: boolean;

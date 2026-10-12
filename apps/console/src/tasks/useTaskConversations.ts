@@ -44,7 +44,6 @@ const committed = (messages: TaskConversationMessage[]) =>
   messages.filter((message) => message.entryId !== null);
 const statusCode = (error: unknown) =>
   (error as { status?: number } | null)?.status;
-const absent = (error: unknown) => statusCode(error) === 404;
 
 export interface UseTaskConversationsOptions {
   client: Client;
@@ -93,11 +92,11 @@ export function useTaskConversations({
     retry: (count, error) =>
       ![401, 403, 404].includes(statusCode(error) ?? 0) && count < 2,
     refetchInterval: (query) => {
-      if (!live || [401, 403].includes(statusCode(query.state.error) ?? 0))
+      if (!live || [401, 403, 404].includes(statusCode(query.state.error) ?? 0))
         return false;
-      // A live attempt can acquire its first store later. Other discovery
-      // failures back off instead of competing with the transcript reader.
-      return query.state.error && !absent(query.state.error)
+      // Empty discovery can acquire its first store later. Transient failures
+      // back off instead of competing with the transcript reader.
+      return query.state.error
         ? Math.min(
             5_000 * 2 ** Math.min(query.state.errorUpdateCount, 3),
             30_000,
@@ -141,16 +140,33 @@ export function useTaskConversations({
   );
   const apply = useCallback(
     (id: string, snapshot: ConversationSnapshot) => {
-      update(id, (value) => ({
-        ...value,
-        snapshot,
-        error: false,
-        retrying: false,
-        older:
-          value.olderCursor !== undefined && value.snapshot
-            ? mergeMessages(value.older, committed(value.snapshot.messages))
+      update(id, (value) => {
+        const retained = value.olderCursor !== undefined && value.snapshot;
+        const lastEntry = Math.max(
+          0,
+          ...(value.snapshot?.messages ?? []).map((message) =>
+            Number(message.entryId ?? 0),
+          ),
+        );
+        // A reconnect (or reopening a child) can skip an entire live window.
+        // Reopen pagination at that boundary, even after history was exhausted.
+        // IDs may also skip because another conversation wrote entries; an
+        // extra history read is preferable to hiding a possible gap.
+        const gap =
+          retained &&
+          snapshot.nextBeforeEntryId !== null &&
+          Number(snapshot.nextBeforeEntryId) > lastEntry + 1;
+        return {
+          ...value,
+          snapshot,
+          error: false,
+          retrying: false,
+          olderCursor: gap ? snapshot.nextBeforeEntryId : value.olderCursor,
+          older: retained
+            ? mergeMessages(value.older, committed(value.snapshot!.messages))
             : value.older,
-      }));
+        };
+      });
       if (!isLiveAttemptStatus(snapshot.attemptStatus))
         setState((previous) =>
           previous.scope === scope ? { ...previous, terminal: true } : previous,
@@ -306,7 +322,11 @@ export function useTaskConversations({
           update(conversationId, (value) => ({
             ...value,
             older: mergeMessages(committed(data.messages), value.older),
-            olderCursor: data.nextBeforeEntryId,
+            // A newer snapshot may have opened a gap while this read ran.
+            olderCursor:
+              value.olderCursor === cursor
+                ? data.nextBeforeEntryId
+                : value.olderCursor,
             loadingOlder: false,
             error: false,
           }));
@@ -333,6 +353,9 @@ export function useTaskConversations({
             : value.olderCursor;
         return {
           summary,
+          live:
+            live &&
+            isLiveAttemptStatus(value.snapshot?.attemptStatus ?? attemptStatus),
           messages: mergeMessages(value.older, value.snapshot?.messages ?? []),
           loading: !value.snapshot && !value.error,
           error: value.error,
@@ -366,10 +389,7 @@ export function useTaskConversations({
   return {
     threads,
     loading: enabled && listQuery.isPending,
-    error:
-      listQuery.error && !absent(listQuery.error)
-        ? 'Conversations could not be loaded.'
-        : undefined,
+    error: listQuery.error ? 'Conversations could not be loaded.' : undefined,
     retry,
   };
 }
