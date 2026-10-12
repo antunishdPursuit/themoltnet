@@ -91,7 +91,6 @@ function setup() {
         new Map(taskIds.map((taskId) => [taskId, true])),
     ),
   };
-  const appendMessages = vi.fn();
   const deps = {
     repository,
     storage,
@@ -101,7 +100,6 @@ function setup() {
     transactionRunner: {
       runInTransaction: async (fn: () => Promise<unknown>) => fn(),
     },
-    taskRepository: { appendMessages },
   } as unknown as Dependencies;
   return {
     service: createRuntimeStoreService(deps),
@@ -111,7 +109,6 @@ function setup() {
     row,
     commits,
     objects,
-    appendMessages,
     advance: (ms: number) => {
       now += ms;
     },
@@ -204,7 +201,7 @@ describe('runtime store publication', () => {
     await expect(f.service.open(authority)).rejects.toThrow();
     expect(f.repository.fork).not.toHaveBeenCalled();
   });
-  it('returns one receipt and one slim projection for repeated acknowledgment retries', async () => {
+  it('returns one receipt without task-message projection for repeated acknowledgment retries', async () => {
     const f = setup();
     const handle = await f.service.open(authority);
     const commit = {
@@ -218,10 +215,6 @@ describe('runtime store publication', () => {
     expect(await f.service.append(commit)).toEqual({ seq: 1 });
     expect(f.commits).toHaveLength(1);
     expect(f.storage.putObject).toHaveBeenCalledTimes(1);
-    expect(f.appendMessages).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(f.appendMessages.mock.calls)).not.toContain(
-      'large private content',
-    );
     expect(f.row.nextId).toBe(11);
     const page = await f.service.read({
       ...authority,
@@ -263,7 +256,6 @@ describe('runtime store publication', () => {
     });
     await expect(f.service.append(input)).resolves.toEqual({ seq: 1 });
     expect(f.repository.append).not.toHaveBeenCalled();
-    expect(f.appendMessages).not.toHaveBeenCalled();
   });
 
   it('rejects a stale expected head before uploading a new object', async () => {
@@ -394,3 +386,99 @@ async function collect<T>(items: AsyncIterable<T>): Promise<T[]> {
   for await (const item of items) result.push(item);
   return result;
 }
+
+it('cancels a stalled object body without reading subsequent commits', async () => {
+  const f = setup();
+  const handle = await f.service.open(authority);
+  await f.service.append({
+    ...authority,
+    ...handle,
+    commitId: 'cancelled-read',
+    expectedSeq: 0,
+    writes,
+  });
+  const body = new Readable({ read() {} });
+  f.storage.getObject.mockResolvedValue({ body });
+  const controller = new AbortController();
+  const page = await f.service.read({
+    ...authority,
+    storeId: 'store',
+    signal: controller.signal,
+  });
+  const pending = page.items.next();
+  const rejected = expect(pending).rejects.toThrow();
+  await vi.waitFor(() => expect(f.storage.getObject).toHaveBeenCalled());
+  controller.abort();
+  await rejected;
+  expect(body.destroyed).toBe(true);
+  expect(f.storage.getObject).toHaveBeenCalledTimes(1);
+});
+
+it('caches contributors by captured head but rechecks permissions and bindings on every read', async () => {
+  const f = setup();
+  f.row.headSeq = 10;
+  f.repository.listCommitTaskIds.mockResolvedValue(['ancestor']);
+  const input = { ...authority, storeId: 'store', afterSeq: 10 };
+  await f.service.read(input);
+  f.permissionChecker.canViewTasks.mockResolvedValue(
+    new Map([
+      ['task', true],
+      ['ancestor', false],
+    ]),
+  );
+  await expect(f.service.read(input)).rejects.toThrow();
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(1);
+  expect(f.repository.listAttempts).toHaveBeenCalledTimes(2);
+  expect(f.permissionChecker.canViewTasks).toHaveBeenCalledTimes(2);
+  f.permissionChecker.canViewTasks.mockImplementation(
+    async (ids) => new Map(ids.map((id) => [id, true])),
+  );
+  f.row.headSeq = 11;
+  f.repository.listCommitTaskIds.mockResolvedValue(['ancestor', 'new-task']);
+  await f.service.read(input);
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+  expect(f.permissionChecker.canViewTasks).toHaveBeenLastCalledWith(
+    ['task', 'ancestor', 'new-task'],
+    authority.subjectId,
+    authority.subjectNs,
+  );
+});
+
+it('does not label contributor discovery with a revision published during the query', async () => {
+  const f = setup();
+  f.row.headSeq = 1;
+  f.repository.listCommitTaskIds.mockImplementationOnce(async () => {
+    f.row.headSeq = 2;
+    return ['task'];
+  });
+  await f.service.read({ ...authority, storeId: 'store' });
+  f.repository.listCommitTaskIds.mockResolvedValue(['task', 'new-task']);
+  await f.service.read({ ...authority, storeId: 'store' });
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+  expect(f.permissionChecker.canViewTasks).toHaveBeenLastCalledWith(
+    ['task', 'new-task'],
+    authority.subjectId,
+    authority.subjectNs,
+  );
+});
+
+it('bounds contributor cache entries across stores', async () => {
+  const f = setup();
+  for (let i = 0; i < 129; i++)
+    await f.service.read({ ...authority, storeId: `store-${i}` });
+  f.repository.listCommitTaskIds.mockClear();
+  await f.service.read({ ...authority, storeId: 'store-128' });
+  expect(f.repository.listCommitTaskIds).not.toHaveBeenCalled();
+  await f.service.read({ ...authority, storeId: 'store-0' });
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledOnce();
+});
+
+it('does not retain oversized contributor lists', async () => {
+  const f = setup();
+  f.repository.listCommitTaskIds.mockResolvedValue(
+    Array.from({ length: 1025 }, (_, i) => `task-${i}`),
+  );
+  await f.service.read({ ...authority, storeId: 'store' });
+  await f.service.read({ ...authority, storeId: 'store' });
+  expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+});

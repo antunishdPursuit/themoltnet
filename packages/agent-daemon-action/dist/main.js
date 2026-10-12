@@ -24123,6 +24123,84 @@ var completeTask = (options) => (options.client ?? client).post({
 		...options.headers
 	}
 });
+var listTaskConversations = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}/attempts/{n}/conversations",
+	...options
+});
+var getTaskConversation = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}/attempts/{n}/conversations/{conversationId}",
+	...options
+});
+/**
+* SSE replacement snapshots of the latest 100 entries plus partial response. Each connection, including reconnects, starts with a fresh snapshot; replace prior state. IDs are opaque revision tokens, not replay offsets. Stream closes after five minutes; reconnect to continue. Reading never starts execution.
+*/
+var watchTaskConversation = (options) => (options.client ?? client).sse.get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}/attempts/{n}/conversations/{conversationId}/events",
+	...options
+});
 /**
 * Mark an attempt as failed with error details.
 */
@@ -30362,6 +30440,50 @@ var TaskContext = _Array_(_Object_({
 }), {
 	$id: "TaskContext",
 	maxItems: 5
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/conversations.ts
+var id = String$1({ pattern: "^[1-9][0-9]*$" });
+var json = Record(String$1(), Unknown());
+var ConversationMessage = _Object_({
+	id: String$1(),
+	entryId: Union([id, Null()]),
+	entryKind: String$1(),
+	inherited: Boolean$1(),
+	status: Union([
+		Literal("completed"),
+		Literal("streaming"),
+		Literal("interrupted"),
+		Literal("failed")
+	]),
+	/** Pi's already assembled user/assistant/toolResult message; never storage operations. */
+	message: json
+});
+_Object_({ items: _Array_(_Object_({
+	conversationId: id,
+	parentConversationId: Union([id, Null()]),
+	kind: Union([Literal("main"), Literal("subagent")])
+})) });
+var ConversationSnapshot = _Object_({
+	conversationId: id,
+	cursor: String$1(),
+	attemptStatus: String$1(),
+	messages: _Array_(ConversationMessage),
+	nextBeforeEntryId: Union([id, Null()]),
+	/** Persisted tool progress, retry/deferred state and compaction status from pi.live. */
+	live: json
+});
+_Object_({
+	id: String$1({ format: "uuid" }),
+	n: Integer({ minimum: 1 }),
+	conversationId: id
+});
+_Object_({
+	beforeEntryId: Optional(id),
+	limit: Optional(Integer({
+		minimum: 1,
+		maximum: 100
+	}))
 });
 //#endregion
 //#region ../../libs/runtime-profiles/src/runtime-models.ts
@@ -38149,6 +38271,61 @@ function createTasksNamespace(context) {
 		return teamId ? requiredTeamHeaders({ teamId }) : void 0;
 	};
 	return {
+		conversations: {
+			async list(id, n, options) {
+				return unwrapResult(await listTaskConversations({
+					client,
+					auth,
+					path: {
+						id,
+						n
+					},
+					headers: requiredTeamHeaders(options),
+					signal: options.signal
+				}));
+			},
+			async get(id, n, conversationId, options, query) {
+				return unwrapResult(await getTaskConversation({
+					client,
+					auth,
+					path: {
+						id,
+						n,
+						conversationId
+					},
+					headers: requiredTeamHeaders(options),
+					signal: options.signal,
+					query
+				}));
+			},
+			async *watch(id, n, conversationId, options) {
+				const cancellation = new AbortController();
+				const signal = options.signal ? AbortSignal.any([options.signal, cancellation.signal]) : cancellation.signal;
+				try {
+					const { stream } = await watchTaskConversation({
+						client,
+						auth,
+						path: {
+							id,
+							n,
+							conversationId
+						},
+						headers: requiredTeamHeaders(options),
+						signal,
+						sseMaxRetryAttempts: 1,
+						onSseError(error) {
+							throw error;
+						}
+					});
+					for await (const snapshot of stream) {
+						if (!Check(ConversationSnapshot, snapshot)) throw new Error("Invalid conversation snapshot");
+						yield snapshot;
+					}
+				} finally {
+					cancellation.abort();
+				}
+			}
+		},
 		async schemas() {
 			return unwrapResult(await listTaskSchemas({
 				client,

@@ -663,11 +663,25 @@ async function expectRuntimeState(input: {
     count++;
   }
   expect(count).toBeGreaterThan(0);
-  const messages = await input.agent.tasks.listMessages(
+  // Task messages carry progress only; the transcript is read through the
+  // attempt's Durable conversations.
+  const { items } = await input.agent.tasks.conversations.list(
     input.taskId,
     input.attemptN,
+    { teamId: input.teamId },
   );
-  expect(JSON.stringify(messages)).toContain('pi-durable.v1');
+  expect(items.length).toBeGreaterThan(0);
+  const page = await input.agent.tasks.conversations.get(
+    input.taskId,
+    input.attemptN,
+    items[0].conversationId,
+    { teamId: input.teamId },
+  );
+  expect(
+    page.messages.some(
+      ({ inherited, message }) => !inherited && message.role === 'assistant',
+    ),
+  ).toBe(true);
 }
 
 async function collectStreamText(

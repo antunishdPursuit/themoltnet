@@ -1,12 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { Readable } from 'node:stream';
+import { addAbortSignal, Readable } from 'node:stream';
 
 import type { PermissionChecker } from '@moltnet/auth';
 import type {
   RuntimeStore,
   RuntimeStoreAuthority,
   RuntimeStoreRepository,
-  TaskRepository,
   TransactionRunner,
 } from '@moltnet/database';
 import type {
@@ -28,7 +27,6 @@ type Writer = Authority & RuntimeStoreWriter & { storeId: string };
 
 export function createRuntimeStoreService(deps: {
   repository: RuntimeStoreRepository;
-  taskRepository: Pick<TaskRepository, 'appendMessages'>;
   transactionRunner: TransactionRunner;
   storage: RuntimeSessionStorage;
   permissionChecker: PermissionChecker;
@@ -37,6 +35,28 @@ export function createRuntimeStoreService(deps: {
 }) {
   const repo = deps.repository;
   const now = deps.now ?? Date.now;
+  // Cache provenance, never authorization. Commit history is append-only, so a
+  // captured head identifies its contributors even if another writer advances.
+  const contributors = new Map<
+    string,
+    { headSeq: number; taskIds: string[] }
+  >();
+  async function commitTaskIds(store: RuntimeStore) {
+    const cached = contributors.get(store.id);
+    if (cached?.headSeq === store.headSeq) return cached.taskIds;
+    const taskIds = await repo.listCommitTaskIds(store.id);
+    // The query can include newer commits: this is a conservative superset for
+    // the captured head. Never label it with a head observed after the query.
+    contributors.delete(store.id);
+    // Bound both entry count and retained IDs; large histories remain readable.
+    if (taskIds.length <= 1024) {
+      contributors.set(store.id, { headSeq: store.headSeq, taskIds });
+      const oldest = contributors.keys().next().value;
+      if (contributors.size > 128 && oldest !== undefined)
+        contributors.delete(oldest);
+    }
+    return taskIds;
+  }
   async function team(input: Subject) {
     if (
       !(await deps.permissionChecker.canAccessTeam(
@@ -64,7 +84,7 @@ export function createRuntimeStoreService(deps: {
     const bindings = await repo.listAttempts(input.teamId, storeId);
     if (bindings.length === 0) throw createProblem('not-found');
     // Forks copy commits, not attempt bindings. Retain authorization for every
-    // task that contributed content on the page being read.
+    // task whose content can be present in a replayed reader, even on empty pages.
     const taskIds = [
       ...new Set([
         ...bindings.map((binding) => binding.taskId),
@@ -325,45 +345,6 @@ export function createRuntimeStoreService(deps: {
             taskId: input.taskId,
             attemptN: input.attemptN,
           });
-          const messages = input.writes.flatMap((write) => {
-            if (
-              write.type !== 'entry' ||
-              !write.value ||
-              typeof write.value !== 'object'
-            )
-              return [];
-            const entry = write.value as {
-              id?: unknown;
-              conversationId?: unknown;
-              kind?: unknown;
-            };
-            if (
-              !Number.isSafeInteger(entry.id) ||
-              !Number.isSafeInteger(entry.conversationId) ||
-              typeof entry.kind !== 'string'
-            )
-              return [];
-            return [
-              {
-                taskId: input.taskId,
-                attemptN: input.attemptN,
-                kind: 'info' as const,
-                timestamp: new Date(now()),
-                payload: {
-                  event: 'runtime_entry',
-                  format: FORMAT,
-                  storeId: store.id,
-                  commitSeq: seq,
-                  entryId: entry.id,
-                  conversationId: entry.conversationId,
-                  entryKind: entry.kind.slice(0, 128),
-                },
-              },
-            ];
-          });
-          // Same database transaction as the commit receipt: acknowledgment retries
-          // cannot duplicate this slim index. Canonical content stays in object storage.
-          await deps.taskRepository.appendMessages(messages);
           let nextId = store.nextId;
           for (const write of input.writes) {
             const record = (write.value ?? write.record) as
@@ -387,8 +368,15 @@ export function createRuntimeStoreService(deps: {
       );
     },
     async read(
-      input: Subject & { storeId: string; afterSeq?: number; limit?: number },
+      input: Subject & {
+        storeId: string;
+        afterSeq?: number;
+        limit?: number;
+        throughSeq?: number;
+        signal?: AbortSignal;
+      },
     ) {
+      input.signal?.throwIfAborted();
       await team(input);
       const store = await repo.get(input.teamId, input.storeId);
       if (!store) throw createProblem('not-found');
@@ -396,16 +384,20 @@ export function createRuntimeStoreService(deps: {
         store.id,
         input.afterSeq ?? 0,
         Math.min(input.limit ?? 50, 100),
-        store.headSeq,
+        Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
       );
-      await reader(
-        input,
-        input.storeId,
-        rows.map((row) => row.taskId),
-      );
+      await reader(input, input.storeId, [
+        ...(await commitTaskIds(store)),
+        ...rows.map((row) => row.taskId),
+      ]);
       async function* items(): AsyncGenerator<RuntimeStoreCommit> {
         for (const row of rows) {
-          const object = await deps.storage.getObject(row.objectKey);
+          input.signal?.throwIfAborted();
+          const object = await deps.storage.getObject(
+            row.objectKey,
+            input.signal,
+          );
+          if (input.signal) addAbortSignal(input.signal, object.body);
           const chunks: Buffer[] = [];
           let size = 0;
           for await (const chunk of object.body) {
@@ -440,7 +432,11 @@ export function createRuntimeStoreService(deps: {
           };
         }
       }
-      return { headSeq: store.headSeq, count: rows.length, items: items() };
+      return {
+        headSeq: Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
+        count: rows.length,
+        items: items(),
+      };
     },
   };
 }
