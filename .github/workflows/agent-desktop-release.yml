@@ -121,7 +121,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         if: ${{ inputs.agent-bundle-artifact != '' }}
         with:
           name: ${{ inputs.agent-bundle-artifact }}
@@ -135,7 +135,7 @@ jobs:
           bash tools/release/agent-desktop/stage-agent.sh \
             "$AGENT_CLI_VERSION" "$RUNNER_TEMP/desktop-agent" ${SOURCE:+"$SOURCE"}
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agent-desktop-daemon
           path: ${{ runner.temp }}/desktop-agent
@@ -264,7 +264,7 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: bash tools/release/agent-desktop/materialize.sh ${{ matrix.platform }} "$VERSION" "$TAURI_UPDATER_PUBLIC_KEY"
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         if: ${{ matrix.platform == 'linux' }}
         with:
           name: agent-desktop-daemon
@@ -277,7 +277,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/desktop-agent/moltnet-agent-linux-x64.tar.gz" -C dist/agent-bundle
           bash tools/release/agent-desktop/linux-smoke.sh
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agent-desktop-package-${{ matrix.platform }}
           path: dist/agent-desktop
@@ -301,7 +301,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: tools/release
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: agent-desktop-package-*
           path: dist/agent-desktop
