@@ -178,10 +178,11 @@ describe('Durable runtime stores API', () => {
       expectedSeq: 0,
       writes: [{ type: 'conversation', value: { id: ids[0] } }],
     };
+    const appendedId = ids[1] + 100;
     const second = {
       commitId: randomUUID(),
       expectedSeq: 1,
-      writes: [{ type: 'conversation', value: { id: ids[1] } }],
+      writes: [{ type: 'conversation', value: { id: appendedId } }],
     };
     expect((await append(handle.storeId, writer, first)).data).toEqual({
       seq: 1,
@@ -216,7 +217,8 @@ describe('Durable runtime stores API', () => {
       path: { storeId: handle.storeId },
       body: writer,
     });
-    expect(next.data!.id).toBeGreaterThan(ids[1]);
+    expect(next.error).toBeUndefined();
+    expect(next.data!.id).toBeGreaterThan(appendedId);
 
     const all = await readCommits(handle.storeId, {});
     expect(all.status).toBe(200);

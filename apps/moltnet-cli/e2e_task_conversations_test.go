@@ -374,18 +374,18 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 			select {
 			case line, ok := <-follower.lines:
 				if !ok {
-					t.Fatalf("--follow exited before printing the live messages: %v\nstdout: %v\nstderr: %s", follower.wait(), lines, follower.stderr.String())
+					t.Fatalf("--follow exited before printing the live messages: %v\nstdout: %v\nstderr: %s", follower.wait(), lines, follower.stop())
 				}
 				lines = append(lines, line)
 			case <-time.After(followE2ETimeout):
-				t.Fatalf("--follow printed %d of 4 messages while the attempt was live\nstderr: %s", len(lines), follower.stderr.String())
+				t.Fatalf("--follow printed %d of 4 messages while the attempt was live\nstderr: %s", len(lines), follower.stop())
 			}
 		}
 
 		// An attempt can only fail once a heartbeat has started it.
 		ctx := context.Background()
 		team := moltnetapi.NewOptUUID(e2ePersonalTeamID)
-		heartbeatRes, err := e2eClient.TaskHeartbeat(ctx, moltnetapi.OptTaskHeartbeatReq{},
+		heartbeatRes, err := e2eClient.TaskHeartbeat(ctx, moltnetapi.NewOptTaskHeartbeatReq(moltnetapi.TaskHeartbeatReq{}),
 			moltnetapi.TaskHeartbeatParams{ID: seeded.taskID, N: seeded.attemptN, XMoltnetTeamID: team})
 		expectRes[*moltnetapi.HeartbeatResponse](t, "heartbeat", heartbeatRes, err)
 		failRes, err := e2eClient.FailTaskAttempt(ctx, &moltnetapi.FailTaskAttemptReq{Error: moltnetapi.TaskError{
@@ -407,7 +407,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 			}
 		}
 		if err := follower.wait(); err != nil {
-			t.Fatalf("conversations get --follow: %v\nstderr: %s", err, follower.stderr.String())
+			t.Fatalf("conversations get --follow: %v\nstderr: %s", err, follower.stop())
 		}
 		var roles []string
 		for _, line := range lines {
@@ -428,9 +428,9 @@ const followE2ETimeout = 30 * time.Second
 
 // e2eCLIProcess is a running CLI whose stdout is streamed line by line.
 type e2eCLIProcess struct {
-	lines  <-chan string
-	stderr *bytes.Buffer
-	wait   func() error
+	lines <-chan string
+	wait  func() error
+	stop  func() string
 }
 
 // startE2ECLI runs the CLI in the background as the e2e agent. The process is
@@ -468,7 +468,8 @@ func startE2ECLI(t *testing.T, binPath, credsPath string, args ...string) e2eCLI
 		})
 		return waitErr
 	}
-	t.Cleanup(func() {
+	// Wait for the stderr copy to finish before exposing diagnostics.
+	stop := func() string {
 		if cmd.ProcessState == nil {
 			_ = cmd.Process.Kill()
 			go func() {
@@ -477,6 +478,8 @@ func startE2ECLI(t *testing.T, binPath, credsPath string, args ...string) e2eCLI
 			}()
 			_ = wait()
 		}
-	})
-	return e2eCLIProcess{lines: lines, stderr: &stderr, wait: wait}
+		return stderr.String()
+	}
+	t.Cleanup(func() { stop() })
+	return e2eCLIProcess{lines: lines, wait: wait, stop: stop}
 }
