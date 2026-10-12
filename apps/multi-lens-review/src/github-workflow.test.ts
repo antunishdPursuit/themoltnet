@@ -24,9 +24,17 @@ function workflowJob(name: string, nextName: string): string {
   return workflow.slice(jobStart, jobEnd);
 }
 
+// Renovate moves action digests, so assert the action is SHA-pinned rather
+// than pinned to one specific digest.
+function pinnedActionIndex(job: string, action: string): number {
+  const escaped = action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return job.search(new RegExp(`- uses: ${escaped}@[0-9a-f]{40}(?:\\s|$)`));
+}
+
 function expectPrivateDatabaseProxy(job: string, consumerName: string): void {
-  const setupIndex = job.indexOf(
-    '- uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1',
+  const setupIndex = pinnedActionIndex(
+    job,
+    'superfly/flyctl-actions/setup-flyctl',
   );
   const startIndex = job.indexOf('- name: Start private review database proxy');
   const consumerIndex = job.indexOf(`- name: ${consumerName}`);
@@ -77,9 +85,7 @@ function expectTrustedWorkflowHelpers(job: string): void {
 describe('multi-lens GitHub workflow', () => {
   it('installs a pinned uv action before provisioning the review database', () => {
     const job = workflowJob('runtime-preflight', 'orchestrate');
-    const setupUvIndex = job.indexOf(
-      '- uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7',
-    );
+    const setupUvIndex = pinnedActionIndex(job, 'astral-sh/setup-uv');
     const provisionIndex = job.indexOf('- name: Provision Absurd schema');
 
     expect(setupUvIndex).toBeGreaterThanOrEqual(0);
