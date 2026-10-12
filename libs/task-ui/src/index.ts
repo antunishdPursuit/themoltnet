@@ -9,6 +9,17 @@ export {
   type ContinueEligibility,
 } from './continue-eligibility.js';
 export {
+  compareConversationMessages,
+  type ConversationBlock,
+  type ConversationItem,
+  hasConversationView,
+  operationalTaskMessages,
+  type TaskConversationMessage,
+  type TaskConversationSummary,
+  type TaskConversationThread,
+  toConversationItems,
+} from './conversation.js';
+export {
   type ContinueFromSource,
   CreateTaskDialog,
   type CreateTaskDialogProps,
@@ -69,6 +80,10 @@ export {
   TaskAttemptsTable,
   type TaskAttemptsTableProps,
 } from './task-attempts-table.js';
+export {
+  TaskConversationView,
+  type TaskConversationViewProps,
+} from './task-conversation-view.js';
 export {
   TaskDetailHeader,
   type TaskDetailHeaderProps,
