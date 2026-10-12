@@ -145,7 +145,8 @@ function Item({
   theme: Theme;
 }) {
   const { message } = item;
-  const pending = live && message.status === 'streaming';
+  const pending =
+    live && message.status !== 'interrupted' && message.status !== 'failed';
   return (
     <div
       data-conversation-message={message.id}
@@ -191,7 +192,7 @@ function Item({
                 <ToolBlock
                   key={key}
                   block={block}
-                  pending={pending || (live && !block.result)}
+                  pending={pending && !block.result}
                   theme={theme}
                 />
               );
@@ -310,6 +311,34 @@ function Thread({
   );
 }
 
+function SubagentThread({
+  thread,
+  live,
+  theme,
+}: {
+  thread: TaskConversationThread;
+  live: boolean;
+  theme: Theme;
+}) {
+  const onExpandedChange = useRef(thread.onExpandedChange);
+  onExpandedChange.current = thread.onExpandedChange;
+  // Tabs and pane collapse unmount disclosures without firing a toggle event.
+  useEffect(() => () => onExpandedChange.current?.(false), []);
+  return (
+    <Disclosure
+      onOpenChange={thread.onExpandedChange}
+      summary={`Subagent conversation ${thread.summary.conversationId}`}
+      hint={`${thread.messages.length} ${thread.messages.length === 1 ? 'message' : 'messages'}`}
+    >
+      <Thread
+        thread={thread}
+        live={live && thread.live !== false}
+        theme={theme}
+      />
+    </Disclosure>
+  );
+}
+
 /** Screen-reader status for the main thread: changes only on state changes. */
 function liveStatus(thread: TaskConversationThread | undefined): string {
   const last = thread?.messages.at(-1);
@@ -321,7 +350,7 @@ function liveStatus(thread: TaskConversationThread | undefined): string {
 
 export function TaskConversationView({
   threads,
-  live = false,
+  live: requestedLive = false,
   loading,
   error,
   onRetry,
@@ -329,6 +358,7 @@ export function TaskConversationView({
   const theme = useTheme();
   const endRef = useRef<HTMLDivElement>(null);
   const main = threads.find((thread) => thread.summary.kind === 'main');
+  const live = requestedLive && main?.live !== false;
   const subagents = threads.filter((thread) => thread !== main);
   const rootRef = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -410,16 +440,12 @@ export function TaskConversationView({
         ) : null}
         <div ref={endRef} />
         {subagents.map((thread) => (
-          <Disclosure
+          <SubagentThread
             key={thread.summary.conversationId}
-            onOpenChange={thread.onExpandedChange}
-            summary={`Subagent conversation ${thread.summary.conversationId}`}
-            hint={`${thread.messages.length} ${
-              thread.messages.length === 1 ? 'message' : 'messages'
-            }`}
-          >
-            <Thread thread={thread} live={live} theme={theme} />
-          </Disclosure>
+            thread={thread}
+            live={live}
+            theme={theme}
+          />
         ))}
       </Stack>
     </div>

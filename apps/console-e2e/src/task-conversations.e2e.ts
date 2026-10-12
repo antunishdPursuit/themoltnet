@@ -205,28 +205,100 @@ test.describe('Durable conversations in the console', () => {
     await expect.poll(() => ended).toBe(streams);
   });
 
-  test('shows discovery failures and recovers through the retry control', async ({
+  test('recovers a skipped live window after history was exhausted', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    conversation = await seedConversation(env, 105);
+    await page.route('**/conversations/*/events', (route) =>
+      route.fulfill({ status: 503, body: 'Unavailable' }),
+    );
+    await openAttempt(page);
+    await expect(page.getByText('Message 105', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Load older', exact: true }).click();
+    await expect(page.getByText('Message 001', { exact: true })).toBeAttached();
+    await expect(
+      page.getByRole('button', { name: 'Load older', exact: true }),
+    ).toHaveCount(0);
+    // Keep the UI mounted while the store advances beyond one complete page.
+    await page.route(/\/conversations\/\d+$/, (route) =>
+      route.fulfill({ status: 503, body: 'Unavailable' }),
+    );
+    await expect(
+      page.getByText('Live updates unavailable. Retrying…', { exact: true }),
+    ).toBeVisible();
+    for (let i = 106; i <= 250; i++) await conversation.append(`Message ${i}`);
+    await page.unroute(/\/conversations\/\d+$/);
+    await page
+      .getByRole('button', { name: 'Retry conversation', exact: true })
+      .click();
+    await expect(page.getByText('Message 250', { exact: true })).toBeAttached();
+    await page.getByRole('button', { name: 'Load older', exact: true }).click();
+    await expect(page.getByText('Message 106', { exact: true })).toBeAttached();
+    await expect(page.getByText('Message 150', { exact: true })).toBeAttached();
+    await expect(page.locator('[data-conversation-message]')).toHaveCount(250);
+  });
+
+  test('stops child reads while another pane tab is visible', async ({
     page,
   }) => {
     conversation = await seedConversation(env);
-    await page.route('**/conversations', (route) =>
-      route.fulfill({
-        status: 503,
-        contentType: 'application/problem+json',
-        body: JSON.stringify({ status: 503, title: 'Unavailable' }),
-      }),
+    const [child] = await conversation.subagents(1);
+    let reads = 0;
+    page.on('request', (request) => {
+      if (request.url().endsWith(`/conversations/${child}`)) reads++;
+    });
+    await page.goto(
+      `${CONSOLE_URL}/tasks?view=board&selected=${conversation.taskId}`,
     );
-    await openAttempt(page);
+    const label = page.getByText(`Subagent conversation ${child}`, {
+      exact: true,
+    });
+    await label.click();
     await expect(
-      page.getByText('Conversations could not be loaded.', { exact: true }),
+      page.getByText('Subagent result 1', { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText('Messages', { exact: true })).toHaveCount(0);
-    await page.unroute('**/conversations');
-    await page
-      .getByRole('button', { name: 'Retry conversations', exact: true })
-      .click();
-    await expect(page.getByText('Message 001', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: /^Events/ }).click();
+    const before = reads;
+    // Observe longer than a polling interval; absence of requests is the assertion.
+    await page.waitForTimeout(2_500);
+    expect(reads).toBe(before);
+    await page.getByRole('tab', { name: 'Turns', exact: true }).click();
+    await expect(label.locator('..').locator('..')).toBeAttached();
+    await expect(
+      page.getByText('Subagent result 1', { exact: true }),
+    ).toBeHidden();
+    await page.waitForTimeout(2_500);
+    expect(reads).toBe(before);
+    await label.click();
+    await expect.poll(() => reads).toBeGreaterThan(before);
   });
+
+  for (const status of [404, 503])
+    test(`shows discovery ${status} and recovers through retry`, async ({
+      page,
+    }) => {
+      conversation = await seedConversation(env);
+      await page.route('**/conversations', (route) =>
+        route.fulfill({
+          status,
+          contentType: 'application/problem+json',
+          body: JSON.stringify({ status, title: 'Unavailable' }),
+        }),
+      );
+      await openAttempt(page);
+      await expect(
+        page.getByText('Conversations could not be loaded.', { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText('Messages', { exact: true })).toHaveCount(0);
+      await page.unroute('**/conversations');
+      await page
+        .getByRole('button', { name: 'Retry conversations', exact: true })
+        .click();
+      await expect(
+        page.getByText('Message 001', { exact: true }),
+      ).toBeVisible();
+    });
 
   test('shows stale content when live reads fail and recovers polling from the real API', async ({
     page,

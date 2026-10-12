@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { MoltThemeProvider } from '@themoltnet/design-system';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -96,6 +102,90 @@ function taskMessage(
 }
 
 describe('TaskConversationView', () => {
+  it.each(['interrupted', 'failed'] as const)(
+    'does not label a %s tool as running',
+    (status) => {
+      renderWithTheme(
+        <TaskConversationView
+          live
+          threads={[
+            mainThread([
+              committed(1, toolCall('call', 'bash', {}), { status }),
+            ]),
+          ]}
+        />,
+      );
+      expect(screen.queryByText('Running')).not.toBeInTheDocument();
+      expect(
+        screen.getByText(status === 'failed' ? 'Failed' : 'Interrupted'),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('lets an observed terminal snapshot override a stale live prop', () => {
+    renderWithTheme(
+      <TaskConversationView
+        live
+        threads={[
+          mainThread([committed(1, toolCall('call', 'bash', {}))], {
+            live: false,
+          }),
+        ]}
+      />,
+    );
+    expect(screen.queryByText('Running')).not.toBeInTheDocument();
+    expect(screen.getByText('No result')).toBeInTheDocument();
+  });
+
+  it('releases child subscriptions when the conversation view unmounts', async () => {
+    const onExpandedChange = vi.fn();
+    const view = renderWithTheme(
+      <TaskConversationView
+        threads={[
+          mainThread([]),
+          {
+            summary: {
+              conversationId: '2',
+              parentConversationId: '1',
+              kind: 'subagent',
+            },
+            messages: [],
+            onExpandedChange,
+          },
+        ]}
+      />,
+    );
+    const details = screen
+      .getByText('Subagent conversation 2')
+      .closest('details')!;
+    details.open = true;
+    fireEvent(details, new Event('toggle'));
+    await waitFor(() => expect(onExpandedChange).toHaveBeenCalledWith(true));
+    // Use the latest callback without treating ordinary rerenders as closure.
+    const latest = vi.fn();
+    view.rerender(
+      <MoltThemeProvider mode="light">
+        <TaskConversationView
+          threads={[
+            mainThread([]),
+            {
+              summary: {
+                conversationId: '2',
+                parentConversationId: '1',
+                kind: 'subagent',
+              },
+              messages: [],
+              onExpandedChange: latest,
+            },
+          ]}
+        />
+      </MoltThemeProvider>,
+    );
+    expect(latest).not.toHaveBeenCalled();
+    view.unmount();
+    expect(latest).toHaveBeenCalledWith(false);
+  });
+
   it('renders assistant text', () => {
     renderWithTheme(
       <TaskConversationView
