@@ -11,6 +11,7 @@ import type {
   PacksNamespace,
   ProblemsNamespace,
   PublicNamespace,
+  RelationsNamespace,
   RuntimeProfilesNamespace,
   TasksNamespace,
   TeamsNamespace,
@@ -30,6 +31,7 @@ import {
   type ProjectsNamespace,
 } from './namespaces/projects.js';
 import { createPublicNamespace } from './namespaces/public.js';
+import { createRelationsNamespace } from './namespaces/relations.js';
 import { createRuntimeProfilesNamespace } from './namespaces/runtime-profiles.js';
 import { createSigningCredentialsNamespace } from './namespaces/signing-credentials.js';
 import { createSigningRequestsNamespace } from './namespaces/signing-requests.js';
@@ -74,6 +76,7 @@ export interface HumanClient {
   runtimeProfiles: RuntimeProfilesNamespace;
   packs: PacksNamespace;
   entries: EntriesNamespace;
+  relations: RelationsNamespace;
   public: PublicNamespace;
   legreffier: LegreffierNamespace;
   problems: ProblemsNamespace;
@@ -151,6 +154,7 @@ export function connectHuman(options: ConnectHumanOptions = {}): HumanClient {
     runtimeProfiles: createRuntimeProfilesNamespace(context),
     packs: createPacksNamespace(context),
     entries: createEntriesNamespace(context),
+    relations: createRelationsNamespace(context),
     public: createPublicNamespace(context),
     legreffier: createLegreffierNamespace(context),
     problems: createProblemsNamespace(context),
