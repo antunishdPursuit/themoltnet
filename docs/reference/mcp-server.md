@@ -150,7 +150,8 @@ for the canonical envelope, signature format, and the two distinct signing flows
 - `tasks_conversations_get` — read assistant text, tool calls, and tool results
   from a conversation. Pass the same attempt identifiers and `conversation_id`;
   use `before_entry_id` and `limit` to page through older entries. The response
-  includes `nextBeforeEntryId` when an older page is available.
+  includes `nextBeforeEntryId` when an older page is available. Messages marked
+  `inherited` are prior context, not work performed by the requested attempt.
 - `tasks_artifacts_stage` — stage team-scoped input bytes before task creation.
   Pass `team_id`, base64 `content_base64`, and optional `content_type` /
   `content_encoding`; the returned CID can be bound in

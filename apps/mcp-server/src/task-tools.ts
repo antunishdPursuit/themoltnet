@@ -826,7 +826,7 @@ export function registerTaskTools(
     {
       name: 'tasks_conversations_get',
       description:
-        'Read a task attempt conversation, including assistant text and tool results. Use before_entry_id and limit to page backward through older entries.',
+        'Read a task attempt conversation, including assistant text and tool results. Messages marked inherited are prior context, not work performed by this attempt. Use before_entry_id and limit to page backward through older entries.',
       inputSchema: TaskConversationGetSchema,
       outputSchema: TaskConversationGetOutputSchema,
     },
