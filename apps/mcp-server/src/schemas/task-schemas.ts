@@ -12,12 +12,16 @@ import type {
   CreateTaskResponses,
   DownloadTaskArtifactData,
   DownloadTaskArtifactResponses,
+  GetTaskConversationData,
+  GetTaskConversationResponses,
   GetTaskData,
   GetTaskResponses,
   ListTaskArtifactsData,
   ListTaskArtifactsResponses,
   ListTaskAttemptsData,
   ListTaskAttemptsResponses,
+  ListTaskConversationsData,
+  ListTaskConversationsResponses,
   ListTaskMessagesData,
   ListTaskMessagesResponses,
   ListTaskSchemasResponses,
@@ -27,7 +31,11 @@ import type {
   UploadTaskArtifactData,
   UploadTaskArtifactResponses,
 } from '@moltnet/api-client';
-import { RuntimeProfileRef } from '@moltnet/runtime-profiles';
+import {
+  ConversationList,
+  ConversationSnapshot,
+  RuntimeProfileRef,
+} from '@moltnet/runtime-profiles';
 import {
   type ClaimCondition as ClaimConditionType,
   ClaimConditionDefinition,
@@ -464,6 +472,48 @@ type _TaskMessagesListInputMatchesApi = AssertSchemaToApi<
   TaskMessagesListInput
 >;
 
+const ConversationIdSchema = Type.String({ pattern: '^[1-9][0-9]*$' });
+
+export const TaskConversationsListSchema = Type.Object({
+  task_id: Type.String({ format: 'uuid', description: 'Task ID.' }),
+  attempt_n: Type.Integer({ minimum: 1, description: 'Attempt number.' }),
+  team_id: Type.String({
+    format: 'uuid',
+    description: 'Team ID that owns the task.',
+  }),
+});
+type ListConversationsPath = PathOf<ListTaskConversationsData>;
+export type TaskConversationsListInput = {
+  task_id: ListConversationsPath['id'];
+  attempt_n: ListConversationsPath['n'];
+  team_id: TeamIdHeaderOf<ListTaskConversationsData>;
+};
+type _TaskConversationsListInputMatchesApi = AssertSchemaToApi<
+  Static<typeof TaskConversationsListSchema>,
+  TaskConversationsListInput
+>;
+
+export const TaskConversationGetSchema = Type.Object({
+  ...TaskConversationsListSchema.properties,
+  conversation_id: ConversationIdSchema,
+  before_entry_id: Type.Optional(ConversationIdSchema),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+});
+type GetConversationPath = PathOf<GetTaskConversationData>;
+type GetConversationQuery = QueryOf<GetTaskConversationData>;
+export type TaskConversationGetInput = {
+  task_id: GetConversationPath['id'];
+  attempt_n: GetConversationPath['n'];
+  team_id: TeamIdHeaderOf<GetTaskConversationData>;
+  conversation_id: GetConversationPath['conversationId'];
+  before_entry_id?: GetConversationQuery['beforeEntryId'];
+  limit?: GetConversationQuery['limit'];
+};
+type _TaskConversationGetInputMatchesApi = AssertSchemaToApi<
+  Static<typeof TaskConversationGetSchema>,
+  TaskConversationGetInput
+>;
+
 export const TaskArtifactsListSchema = Type.Object({
   task_id: Type.String({
     format: 'uuid',
@@ -657,6 +707,8 @@ export const TaskAttemptsListOutputSchema = Type.Object({
 export const TaskMessagesListOutputSchema = Type.Object({
   items: Type.Array(TaskMessage),
 });
+export const TaskConversationsListOutputSchema = ConversationList;
+export const TaskConversationGetOutputSchema = ConversationSnapshot;
 
 const TaskArtifactMetadataSchema = Type.Object({
   id: Type.String(),
@@ -864,6 +916,14 @@ const _TaskAttemptsOutputMatchesApi: AssertOutputMatchesApi<
 const _TaskMessagesOutputMatchesApi: AssertOutputMatchesApi<
   Static<typeof TaskMessagesListOutputSchema>,
   { items: ResponseOf<ListTaskMessagesResponses> }
+> = true;
+const _TaskConversationsListOutputMatchesApi: AssertOutputMatchesApi<
+  Static<typeof TaskConversationsListOutputSchema>,
+  ResponseOf<ListTaskConversationsResponses>
+> = true;
+const _TaskConversationGetOutputMatchesApi: AssertOutputMatchesApi<
+  Static<typeof TaskConversationGetOutputSchema>,
+  ResponseOf<GetTaskConversationResponses>
 > = true;
 const _TaskArtifactsListOutputMatchesApi: AssertOutputMatchesApi<
   Static<typeof TaskArtifactsListOutputSchema>,

@@ -13,8 +13,10 @@ import {
   downloadTaskArtifact,
   downloadTaskArtifactByCid,
   getTask,
+  getTaskConversation,
   listTaskArtifacts,
   listTaskAttempts,
+  listTaskConversations,
   listTaskMessages,
   listTasks,
   listTaskSchemas,
@@ -33,6 +35,8 @@ import type {
   TaskCancelInput,
   TaskConsoleLinkInput,
   TaskContinueInput,
+  TaskConversationGetInput,
+  TaskConversationsListInput,
   TaskCreateInput,
   TaskGetInput,
   TaskListInput,
@@ -54,6 +58,10 @@ import {
   TaskConsoleLinkOutputSchema,
   TaskConsoleLinkSchema,
   TaskContinueSchema,
+  TaskConversationGetOutputSchema,
+  TaskConversationGetSchema,
+  TaskConversationsListOutputSchema,
+  TaskConversationsListSchema,
   TaskCreateSchema,
   TaskGetSchema,
   TaskListOutputSchema,
@@ -474,6 +482,69 @@ export async function handleTasksMessagesList(
   return structuredResult({ items: data });
 }
 
+export async function handleTaskConversationsList(
+  args: TaskConversationsListInput,
+  deps: McpDeps,
+  context: HandlerContext,
+): Promise<CallToolResult> {
+  deps.logger.debug({ tool: 'tasks_conversations_list' }, 'tool.invoked');
+  const token = getTokenFromContext(context);
+  if (!token) return errorResult('Not authenticated');
+
+  const { data, error } = await listTaskConversations({
+    client: deps.client,
+    auth: () => token,
+    headers: { 'x-moltnet-team-id': args.team_id },
+    path: { id: args.task_id, n: args.attempt_n },
+  });
+
+  if (error || !data) {
+    deps.logger.error(
+      { tool: 'tasks_conversations_list', err: error },
+      'tool.error',
+    );
+    return errorResult(
+      extractApiErrorMessage(error, 'Failed to list task conversations'),
+    );
+  }
+
+  return structuredResult(data);
+}
+
+export async function handleTaskConversationGet(
+  args: TaskConversationGetInput,
+  deps: McpDeps,
+  context: HandlerContext,
+): Promise<CallToolResult> {
+  deps.logger.debug({ tool: 'tasks_conversations_get' }, 'tool.invoked');
+  const token = getTokenFromContext(context);
+  if (!token) return errorResult('Not authenticated');
+
+  const { data, error } = await getTaskConversation({
+    client: deps.client,
+    auth: () => token,
+    headers: { 'x-moltnet-team-id': args.team_id },
+    path: {
+      id: args.task_id,
+      n: args.attempt_n,
+      conversationId: args.conversation_id,
+    },
+    query: { beforeEntryId: args.before_entry_id, limit: args.limit },
+  });
+
+  if (error || !data) {
+    deps.logger.error(
+      { tool: 'tasks_conversations_get', err: error },
+      'tool.error',
+    );
+    return errorResult(
+      extractApiErrorMessage(error, 'Failed to read task conversation'),
+    );
+  }
+
+  return structuredResult(data);
+}
+
 export async function handleTaskArtifactsList(
   args: TaskArtifactsListInput,
   deps: McpDeps,
@@ -737,6 +808,30 @@ export function registerTaskTools(
     },
     async (args: TaskMessagesListInput, ctx: HandlerContext) =>
       handleTasksMessagesList(args, deps, ctx),
+  );
+
+  fastify.mcpAddTool(
+    {
+      name: 'tasks_conversations_list',
+      description:
+        'List the root and subagent conversations for a task attempt. Read-only; use tasks_conversations_get to read assistant text and tool results.',
+      inputSchema: TaskConversationsListSchema,
+      outputSchema: TaskConversationsListOutputSchema,
+    },
+    async (args: TaskConversationsListInput, ctx: HandlerContext) =>
+      handleTaskConversationsList(args, deps, ctx),
+  );
+
+  fastify.mcpAddTool(
+    {
+      name: 'tasks_conversations_get',
+      description:
+        'Read a task attempt conversation, including assistant text and tool results. Use before_entry_id and limit to page backward through older entries.',
+      inputSchema: TaskConversationGetSchema,
+      outputSchema: TaskConversationGetOutputSchema,
+    },
+    async (args: TaskConversationGetInput, ctx: HandlerContext) =>
+      handleTaskConversationGet(args, deps, ctx),
   );
 
   fastify.mcpAddTool(

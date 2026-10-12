@@ -572,6 +572,8 @@ describe('buildApp', () => {
     expect(toolNames).toContain('tasks_list');
     expect(toolNames).toContain('tasks_attempts_list');
     expect(toolNames).toContain('tasks_messages_list');
+    expect(toolNames).toContain('tasks_conversations_list');
+    expect(toolNames).toContain('tasks_conversations_get');
     expect(toolNames).toContain('tasks_artifacts_list');
     expect(toolNames).toContain('tasks_artifacts_upload');
     expect(toolNames).toContain('tasks_artifacts_download');
@@ -983,6 +985,14 @@ describe('buildApp', () => {
         {
           "inputSchema": "d89fc85634d37f40",
           "name": "tasks_continue",
+        },
+        {
+          "inputSchema": "2935897f4a0eb221",
+          "name": "tasks_conversations_get",
+        },
+        {
+          "inputSchema": "17886109b0c857ff",
+          "name": "tasks_conversations_list",
         },
         {
           "inputSchema": "0875819b0fcf5f15",
