@@ -5,13 +5,6 @@
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/^\\.github\\/workflows\\/renovate\\.yml$/"],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+renovate-version:\\s*(?<currentValue>\\S+)"
-      ]
-    },
-    {
-      "customType": "regex",
       "datasourceTemplate": "go",
       "depNameTemplate": "{{#if depName}}{{{depName}}}{{else}}go.opentelemetry.io/collector/otelcol{{/if}}",
       "description": "OCB manifest versions for the custom OTel Collector; excludes this repository's own modules",
@@ -155,7 +148,8 @@
     },
     {
       "description": "The Renovate Docker version is a plain action input, not a pinned container reference",
-      "matchManagers": ["custom.regex"],
+      "matchDepTypes": ["uses-with"],
+      "matchManagers": ["github-actions"],
       "matchPackageNames": ["ghcr.io/renovatebot/renovate"],
       "pinDigests": false
     },
