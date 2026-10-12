@@ -12,6 +12,7 @@ import {
 // eslint-disable-next-line @nx/enforce-module-boundaries -- Node-only browser E2E setup.
 import {
   assistantMessage,
+  buildE2EExecutorManifest,
   openDurableSeed,
 } from '@moltnet/bootstrap/testing/durable';
 import {
@@ -22,6 +23,9 @@ import { expect } from '@playwright/test';
 
 import { provisionAgent } from './agent-seed.js';
 import { REST_API_URL } from './env.js';
+
+/** Claim lease the seed keeps alive; the writer lease never outlives it. */
+const LEASE_TTL_SEC = 120;
 
 /** Real cross-principal team: human reads in the console, agent writes Durable. */
 export async function provisionConversationTeam(human: Client) {
@@ -97,26 +101,7 @@ export async function seedConversation(
   count = 1,
 ) {
   const { agent, teamId, diaryId, profile } = env;
-  const manifest = {
-    schemaVersion: 'moltnet:executor-manifest:v1',
-    runtime: {
-      kind: profile.runtimeKind,
-      engine: 'pi',
-      sandbox: 'gondolin',
-      id: 'console-conversations-e2e',
-      version: '1',
-    },
-    profile: { id: profile.id, definitionCid: profile.definitionCid },
-    vm: {
-      templateId: 'console-e2e',
-      templateVersion: '1',
-      templateFingerprint: 'bafyreie2e-template',
-      guestAssetBuildId: 'console-e2e',
-    },
-    tools: [],
-    extensions: [],
-    executables: [],
-  };
+  const manifest = buildE2EExecutorManifest(profile, 'console-conversations');
   const executorFingerprint = computeExecutorManifestCid(manifest);
   const task = await agent.agent.tasks.create(
     {
@@ -129,19 +114,18 @@ export async function seedConversation(
     { teamId },
   );
   const claim = await agent.agent.tasks.claim(task.id, {
-    leaseTtlSec: 120,
+    leaseTtlSec: LEASE_TTL_SEC,
     profileId: profile.id,
     executorFingerprint,
     executorManifest: manifest,
   });
   const attemptN = claim.attempt.attemptN;
-  await agent.agent.tasks.heartbeat(task.id, attemptN, { leaseTtlSec: 120 });
-  const authority = {
-    taskId: task.id,
-    attemptN,
-    leaseId: claim.attempt.leaseId!,
-    executorFingerprint,
-  };
+  await agent.agent.tasks.heartbeat(task.id, attemptN, {
+    leaseTtlSec: LEASE_TTL_SEC,
+  });
+  const { leaseId } = claim.attempt;
+  if (!leaseId) throw new Error('A pinned claim must return a lease');
+  const authority = { taskId: task.id, attemptN, leaseId, executorFingerprint };
   const request = {
     client: createClient({ baseUrl: REST_API_URL }),
     auth: () => agent.genesis.accessToken,
@@ -156,9 +140,13 @@ export async function seedConversation(
       model: [assistantMessage(`Message ${String(i + 1).padStart(3, '0')}`)],
     })),
   );
-  let stopped = false;
+  // The writer lease is released exactly once: complete() hands it back before
+  // completing the task, and close() releases it only if complete() did not.
+  let released = false;
   async function renew() {
-    await agent.agent.tasks.heartbeat(task.id, attemptN, { leaseTtlSec: 120 });
+    await agent.agent.tasks.heartbeat(task.id, attemptN, {
+      leaseTtlSec: LEASE_TTL_SEC,
+    });
     await seed.renew();
   }
 
@@ -205,8 +193,11 @@ export async function seedConversation(
         throw new Error('Runtime writer renewal failed', {
           cause: renewalError,
         });
-      await this.partial('');
+      // Clear the streaming partial under one last renewal, then hand back.
+      await renew();
+      await seed.partial();
       await seed.release();
+      released = true;
       const output = {
         summary:
           'The console conversation integration fixture completed successfully.',
@@ -230,12 +221,11 @@ export async function seedConversation(
         outputCid: await computeJsonCid(output),
         usage: { inputTokens: 0, outputTokens: 0 },
       });
-      stopped = true;
     },
     async close() {
       await stopRenewal();
       await seed.close();
-      if (!stopped) await seed.release();
+      if (!released) await seed.release();
       if (renewalError)
         throw new Error('Runtime writer renewal failed', {
           cause: renewalError,

@@ -17,21 +17,28 @@
   },
   "scripts": {},
   "dependencies": {
+    "@earendil-works/chord": "catalog:",
+    "@earendil-works/pi-durable": "catalog:",
+    "@moltnet/api-client": "workspace:*",
     "@moltnet/auth": "workspace:*",
     "@moltnet/crypto-service": "workspace:*",
     "@moltnet/database": "workspace:*",
     "@ory/client-fetch": "catalog:"
   },
   "devDependencies": {
-    "@earendil-works/chord": "catalog:",
-    "@earendil-works/pi-durable": "catalog:",
-    "@moltnet/api-client": "workspace:*",
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "nx": {
+    "namedInputs": {
+      "default": [
+        "{projectRoot}/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/apps/moltnet-cli/testdata/durable-conversation-commits.json"
+      ]
+    },
     "tags": [
       "type:runtime",
       "scope:agent",

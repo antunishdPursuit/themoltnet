@@ -7,6 +7,8 @@ import {
   createTask,
   registerExecutorManifest,
 } from '@moltnet/api-client';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Node E2E fixture setup.
+import { buildE2EExecutorManifest } from '@moltnet/bootstrap/testing/durable';
 import {
   buildExecutorRegistrationAttestationPayload,
   computeExecutorManifestCid,
@@ -20,6 +22,9 @@ function required<T>(value: T | null | undefined, what: string): T {
   if (value === null || value === undefined) throw new Error(`Missing ${what}`);
   return value;
 }
+
+/** Claim lease for pinned attempts; the writer lease never outlives it. */
+export const DEFAULT_LEASE_TTL_SEC = 120;
 
 export interface PinnedClaim {
   taskId: string;
@@ -36,6 +41,7 @@ export async function claimPinnedAttempt(
   client: Client,
   agent: TestAgent,
   label: string,
+  { leaseTtlSec = DEFAULT_LEASE_TTL_SEC }: { leaseTtlSec?: number } = {},
 ): Promise<PinnedClaim> {
   const headers = { 'x-moltnet-team-id': agent.personalTeamId };
   const created = await createRuntimeProfile({
@@ -71,26 +77,7 @@ export async function claimPinnedAttempt(
   expect(createdTask.error).toBeUndefined();
   const task = required(createdTask.data, 'task');
 
-  const manifest = {
-    schemaVersion: 'moltnet:executor-manifest:v1',
-    runtime: {
-      kind: profile.runtimeKind,
-      engine: 'pi',
-      sandbox: 'gondolin',
-      id: `${label}-e2e`,
-      version: '1',
-    },
-    profile: { id: profile.id, definitionCid: profile.definitionCid },
-    vm: {
-      templateId: `${label}-e2e`,
-      templateVersion: '1',
-      templateFingerprint: 'bafyreie2e-template',
-      guestAssetBuildId: `${label}-e2e`,
-    },
-    tools: [],
-    extensions: [],
-    executables: [],
-  };
+  const manifest = buildE2EExecutorManifest(profile, label);
   const executorFingerprint = computeExecutorManifestCid(manifest);
   const registration = await registerExecutorManifest({
     client,
@@ -111,7 +98,7 @@ export async function claimPinnedAttempt(
     auth: () => agent.accessToken,
     headers,
     path: { id: task.id },
-    body: { leaseTtlSec: 120, profileId: profile.id, executorFingerprint },
+    body: { leaseTtlSec, profileId: profile.id, executorFingerprint },
   });
   expect(claim.error).toBeUndefined();
   const { attemptN, leaseId } = required(claim.data, 'claim').attempt;

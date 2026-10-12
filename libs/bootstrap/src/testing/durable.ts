@@ -1,4 +1,4 @@
-/** Native Pi fixtures for Node E2E setup and checked-in Go test data. */
+/** Test-only: native Pi seeding for Node E2E setup and Go test fixtures. */
 import { randomUUID } from 'node:crypto';
 
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
@@ -36,6 +36,35 @@ const Subagent = defineTask({
   phases: { idle: async () => {} },
   abort: async () => {},
 });
+
+/** Executor manifest shared by E2E claims pinned to a runtime profile. Only
+ * the label varies, so each suite registers a distinct executor fingerprint.
+ */
+export function buildE2EExecutorManifest(
+  profile: { id: string; definitionCid: string; runtimeKind: string },
+  label: string,
+) {
+  return {
+    schemaVersion: 'moltnet:executor-manifest:v1',
+    runtime: {
+      kind: profile.runtimeKind,
+      engine: 'pi',
+      sandbox: 'gondolin',
+      id: `${label}-e2e`,
+      version: '1',
+    },
+    profile: { id: profile.id, definitionCid: profile.definitionCid },
+    vm: {
+      templateId: `${label}-e2e`,
+      templateVersion: '1',
+      templateFingerprint: 'bafyreie2e-template',
+      guestAssetBuildId: `${label}-e2e`,
+    },
+    tools: [] as { name: string }[],
+    extensions: [] as { declaredTools: string[] }[],
+    executables: [] as string[],
+  };
+}
 
 export function assistantMessage(text: string, timestamp = 0) {
   return {

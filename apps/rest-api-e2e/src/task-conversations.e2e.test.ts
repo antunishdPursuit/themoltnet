@@ -24,6 +24,10 @@ import { claimPinnedAttempt, type PinnedClaim } from './durable-claims.js';
 import { createAgent, type TestAgent } from './helpers.js';
 import { createTestHarness, type TestHarness } from './setup.js';
 
+function roleOf({ message }: { message: unknown }) {
+  return (message as { role?: string }).role;
+}
+
 describe('Task conversations API', () => {
   let harness: TestHarness;
   let client: Client;
@@ -113,9 +117,9 @@ describe('Task conversations API', () => {
     expect(read.data!.conversationId).toBe(conversationId);
     expect(read.data!.nextBeforeEntryId).toBeNull();
     expect(
-      read.data!.messages.map(({ inherited, message }) => ({
-        inherited,
-        role: (message as { role?: string }).role,
+      read.data!.messages.map((entry) => ({
+        inherited: entry.inherited,
+        role: roleOf(entry),
       })),
     ).toEqual([
       { inherited: false, role: 'user' },
@@ -126,20 +130,17 @@ describe('Task conversations API', () => {
     );
 
     // Older history pages through beforeEntryId.
-    const newest = read.data!.messages.at(-1)!.entryId!;
+    const newestEntryId = read.data!.messages.at(-1)?.entryId;
+    expect(newestEntryId).toEqual(expect.any(String));
     const older = await getTaskConversation({
       client,
       auth: () => owner.accessToken,
       headers: team(),
       path: { ...path, conversationId },
-      query: { beforeEntryId: newest },
+      query: { beforeEntryId: newestEntryId! },
     });
     expect(older.error).toBeUndefined();
-    expect(
-      older.data!.messages.map(
-        ({ message }) => (message as { role?: string }).role,
-      ),
-    ).toEqual(['user']);
+    expect(older.data!.messages.map(roleOf)).toEqual(['user']);
 
     // Reading never takes the writer lease: the executor can still release it.
     const released = await releaseRuntimeStore({
@@ -173,30 +174,40 @@ describe('Task conversations API', () => {
     const authority = await claimPinned();
     await writeConversation(authority);
     const path = { id: authority.taskId, n: authority.attemptN };
+    const listed = await listTaskConversations({
+      client,
+      auth: () => owner.accessToken,
+      headers: team(),
+      path,
+    });
+    expect(listed.error).toBeUndefined();
+    const { conversationId } = listed.data!.items[0];
 
+    // In its own team the outsider cannot see the task at all.
     const ownTeam = await listTaskConversations({
       client,
       auth: () => outsider.accessToken,
       headers: { 'x-moltnet-team-id': outsider.personalTeamId },
       path,
     });
-    expect([403, 404]).toContain(ownTeam.response?.status);
+    expect(ownTeam.response?.status).toBe(404);
 
+    // The auth plugin rejects a team header naming a team it is not in.
     const foreignTeam = await listTaskConversations({
       client,
       auth: () => outsider.accessToken,
       headers: team(),
       path,
     });
-    expect([403, 404]).toContain(foreignTeam.response?.status);
+    expect(foreignTeam.response?.status).toBe(403);
 
     const snapshot = await getTaskConversation({
       client,
       auth: () => outsider.accessToken,
       headers: team(),
-      path: { ...path, conversationId: '1' },
+      path: { ...path, conversationId },
     });
-    expect([403, 404]).toContain(snapshot.response?.status);
+    expect(snapshot.response?.status).toBe(403);
   });
 
   it('requires team context', async () => {
@@ -204,7 +215,8 @@ describe('Task conversations API', () => {
     const listed = await listTaskConversations({
       client,
       auth: () => owner.accessToken,
-      headers: {} as ReturnType<typeof team>,
+      // @ts-expect-error -- deliberately omits the required team header.
+      headers: {},
       path: { id: authority.taskId, n: authority.attemptN },
     });
     expect(listed.response?.status).toBe(400);
