@@ -44,7 +44,7 @@ describe('freeform contract storage shape', () => {
       validateOutputContractResult('freeform', input, { result: { note: 1 } }),
     ).not.toEqual([]);
   });
-  it('pins an inline contract without interpreting its custom schema', () => {
+  it('pins a supported inline contract', () => {
     const input = normalizeTaskInputForCreate('freeform', {
       brief: 'Classify the document.',
       outputContract: { version: 1, schema },
@@ -72,7 +72,7 @@ describe('freeform contract storage shape', () => {
     ).toEqual([]);
   });
 
-  it('leaves custom schema validity and result values to the daemon', () => {
+  it('rejects unsupported schemas at submission while leaving results to the daemon', () => {
     const input = {
       brief: 'Classify the document.',
       outputContract: {
@@ -81,7 +81,12 @@ describe('freeform contract storage shape', () => {
       },
     };
 
-    expect(validateTaskInput('freeform', input)).toEqual([]);
+    expect(validateTaskInput('freeform', input)).toEqual([
+      {
+        field: 'input/outputContract/schema',
+        message: 'outputContract.schema.$ref is not supported',
+      },
+    ]);
     expect(
       validateTaskOutput(
         'freeform',
@@ -89,5 +94,31 @@ describe('freeform contract storage shape', () => {
         input,
       ),
     ).toEqual([]);
+  });
+});
+
+describe('freeform output contract submission preflight', () => {
+  it('rejects a typed const before an executor can claim the task', () => {
+    const input = {
+      brief: 'Calculate a sum.',
+      outputContract: {
+        version: 1,
+        schema: {
+          type: 'object',
+          properties: { sum: { type: 'integer', const: 42 } },
+          required: ['sum'],
+          additionalProperties: false,
+        },
+      },
+    };
+    expect(validateTaskInput('freeform', input)).toEqual(
+      validateOutputContract('freeform', input),
+    );
+    expect(validateTaskInput('freeform', input)).toEqual([
+      {
+        field: 'input/outputContract/schema',
+        message: 'outputContract.schema.properties.sum.const is not supported',
+      },
+    ]);
   });
 });

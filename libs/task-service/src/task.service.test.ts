@@ -1759,6 +1759,29 @@ describe('createTaskService.create — producer input normalization', () => {
     vi.restoreAllMocks();
   });
 
+  it('rejects an unsupported output contract without persisting a task', async () => {
+    await expect(
+      service.create({
+        ...fulfillCreateInput(),
+        taskType: 'freeform',
+        inputPayload: {
+          brief: 'Calculate a sum.',
+          outputContract: {
+            version: 1,
+            schema: {
+              type: 'object',
+              properties: { sum: { type: 'integer', const: 42 } },
+              required: ['sum'],
+              additionalProperties: false,
+            },
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'invalid' });
+    expect(mocks.taskRepository.create).not.toHaveBeenCalled();
+    expect(mocks.relationshipWriter.grantTaskOwnership).not.toHaveBeenCalled();
+  });
+
   it('stores normalized producer input and hashes the normalized promise body', async () => {
     await service.create(fulfillCreateInput() as never);
 

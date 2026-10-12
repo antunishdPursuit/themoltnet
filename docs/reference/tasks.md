@@ -63,6 +63,14 @@ durable task type. Its input accepts a natural-language `brief`, optional
 `output.result` without registering a new task type. The usual `summary`,
 `artifacts`, and `verification` fields remain available.
 
+The API validates `outputContract.schema` against the supported JSON Schema
+subset before creating the task. Use an object with explicit property types,
+`properties`, `required`, and `additionalProperties: false`. Primitive fields
+support `enum`; use a one-value enum for a fixed value (for example,
+`{ "type": "integer", "enum": [42] }`). Unsupported keywords such as `const` and
+`$ref` return HTTP 400 without consuming an attempt. The daemon also checks
+contracts before execution and validates submitted results.
+
 `freeform` deliberately keeps runtime control narrow. Standalone freeform tasks
 may set `input.execution.workspace` to `none`, `shared_mount`, or
 `dedicated_worktree`, and `input.continueFrom` can resume from a completed
