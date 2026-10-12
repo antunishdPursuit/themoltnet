@@ -539,7 +539,7 @@ func runTaskTailWithClient(ctx context.Context, client *moltnetapi.Client, opts 
 			return nil
 		}
 
-		if err := sleepContext(ctx, interval); err != nil {
+		if err := retrySleep(ctx, interval); err != nil {
 			return err
 		}
 	}

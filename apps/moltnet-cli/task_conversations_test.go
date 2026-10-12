@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -409,11 +410,15 @@ func followOpts(out, errOut *bytes.Buffer, sleeps *[]time.Duration) taskConversa
 // dropLatestPages cuts the listed latest-page responses short (1-based
 // poll count): a network failure the retry transport passes through.
 func dropLatestPages(drop func(n int) bool) func(http.Handler) http.Handler {
+	return dropConversationReads("/conversations/3", drop)
+}
+
+func dropConversationReads(suffix string, drop func(n int) bool) func(http.Handler) http.Handler {
 	var mu sync.Mutex
 	polls := 0
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasSuffix(r.URL.Path, "/conversations/3") && !r.URL.Query().Has("beforeEntryId") {
+			if strings.HasSuffix(r.URL.Path, suffix) && !r.URL.Query().Has("beforeEntryId") {
 				mu.Lock()
 				polls++
 				n := polls
@@ -662,4 +667,120 @@ func TestTaskConversationsList_PrintsConversations(t *testing.T) {
 	if !strings.Contains(out.String(), `"subagent"`) || !strings.Contains(out.String(), `"main"`) {
 		t.Fatalf("unexpected list output:\n%s", out.String())
 	}
+}
+
+func TestTaskConversationsGet_FollowRetriesDiscovery(t *testing.T) {
+	for _, phase := range []string{"initial", "waiting", "status", "latest attempt"} {
+		t.Run(phase, func(t *testing.T) {
+			empty := &moltnetapi.ListTaskConversationsOK{Items: []moltnetapi.ListTaskConversationsOKItemsItem{}}
+			h := &stubConversationHandler{
+				list: mainList(), attempts: &moltnetapi.ListTaskAttemptsOKApplicationJSON{validRunningAttempt()},
+				snapshots: []*moltnetapi.GetTaskConversationOK{convSnapshot("completed", "")},
+			}
+			if phase == "waiting" || phase == "status" {
+				h.lists = []moltnetapi.ListTaskConversationsRes{empty, mainList()}
+			}
+			suffix, dropAt := "/conversations", 1
+			if phase == "waiting" {
+				dropAt = 2
+			}
+			if phase == "status" || phase == "latest attempt" {
+				suffix = "/attempts"
+			}
+			_, _, client := newWrappedTestServer(t, h, dropConversationReads(suffix, func(n int) bool { return n == dropAt }))
+			var out, diagnostics bytes.Buffer
+			opts := followOpts(&out, &diagnostics, nil)
+			if phase == "latest attempt" {
+				opts.attemptN = 0
+			}
+			if err := runTaskConversationsGetWithClient(context.Background(), client, opts); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Count(diagnostics.String(), "retrying") != 1 {
+				t.Fatalf("expected one retry: %s", diagnostics.String())
+			}
+		})
+	}
+}
+
+func TestTaskConversationsGet_DiscoveryRetryBounds(t *testing.T) {
+	for _, follow := range []bool{false, true} {
+		t.Run(fmt.Sprint(follow), func(t *testing.T) {
+			h := &stubConversationHandler{list: mainList()}
+			_, _, client := newWrappedTestServer(t, h, dropConversationReads("/conversations", func(int) bool { return true }))
+			var out, diagnostics bytes.Buffer
+			var sleeps []time.Duration
+			opts := followOpts(&out, &diagnostics, &sleeps)
+			opts.follow = follow
+			err := runTaskConversationsGetWithClient(context.Background(), client, opts)
+			if err == nil {
+				t.Fatal("expected exhausted read error")
+			}
+			want := 0
+			if follow {
+				want = maxFollowRetries
+			}
+			if len(sleeps) != want {
+				t.Fatalf("retries = %d, want %d", len(sleeps), want)
+			}
+		})
+	}
+}
+
+func TestTaskConversationsGet_FollowCheckpointKeepsWholeEntries(t *testing.T) {
+	completed := moltnetapi.GetTaskConversationOKMessagesItemStatusCompleted
+	message := func(id, entry, text string) moltnetapi.GetTaskConversationOKMessagesItem {
+		return convMessage(t, id, entry, completed, map[string]any{"role": "assistant", "content": text})
+	}
+	old := message("9/0", "9", "Old")
+	one, two := message("101/0", "101", "One"), message("101/1", "101", "Two")
+	last := message("200/0", "200", "Last")
+	h := &stubConversationHandler{
+		list: mainList(),
+		snapshots: []*moltnetapi.GetTaskConversationOK{
+			convSnapshot("running", "", old), convSnapshot("running", "200", last), convSnapshot("completed", "200", last),
+		},
+		older: map[string]*moltnetapi.GetTaskConversationOK{
+			"200": convSnapshot("running", "150"), // Native entry with no model messages.
+			"150": convSnapshot("running", "101", one, two),
+			"101": convSnapshot("running", "", old),
+		},
+	}
+	_, _, client := newTestServer(t, h)
+	var out, diagnostics bytes.Buffer
+	if err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &diagnostics, nil)); err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{"Old", "One", "Two", "Last"} {
+		if strings.Count(out.String(), text) != 1 {
+			t.Fatalf("expected %q once: %s", text, out.String())
+		}
+	}
+}
+
+func TestTaskConversationsGet_DiscoveryStopsOnPermanentErrorsAndCancellation(t *testing.T) {
+	for _, status := range []int{401, 403, 404} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			_, _, client := newWrappedTestServer(t, &stubConversationHandler{}, func(http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) })
+			})
+			var out, diagnostics bytes.Buffer
+			var sleeps []time.Duration
+			err := runTaskConversationsGetWithClient(context.Background(), client, followOpts(&out, &diagnostics, &sleeps))
+			if err == nil || len(sleeps) != 0 {
+				t.Fatalf("err = %v, retries = %v", err, sleeps)
+			}
+		})
+	}
+	t.Run("cancel during retry wait", func(t *testing.T) {
+		_, _, client := newWrappedTestServer(t, &stubConversationHandler{}, dropConversationReads("/conversations", func(int) bool { return true }))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var out, diagnostics bytes.Buffer
+		opts := followOpts(&out, &diagnostics, nil)
+		opts.sleep = func(ctx context.Context, d time.Duration) error { cancel(); return retrySleep(ctx, d) }
+		if err := runTaskConversationsGetWithClient(ctx, client, opts); !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected cancellation, got %v", err)
+		}
+	})
 }

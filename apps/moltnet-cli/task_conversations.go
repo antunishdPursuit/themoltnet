@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -121,13 +123,17 @@ func runTaskConversationsGetWithClient(ctx context.Context, client *moltnetapi.C
 	if err != nil {
 		return err
 	}
-	attemptN, err := resolveAttempt(ctx, client, taskID, moltnetapi.NewOptUUID(teamID), opts.attemptN)
+	attemptN, err := retryConversationRead(ctx, opts, func() (int, error) {
+		return resolveAttempt(ctx, client, taskID, moltnetapi.NewOptUUID(teamID), opts.attemptN)
+	})
 	if err != nil {
 		return err
 	}
 	conversationID := opts.conversationID
 	if conversationID == "" {
-		conversationID, err = mainConversationID(ctx, client, taskID, teamID, attemptN)
+		conversationID, err = retryConversationRead(ctx, opts, func() (string, error) {
+			return mainConversationID(ctx, client, taskID, teamID, attemptN)
+		})
 		if errors.Is(err, errNoConversation) && opts.follow {
 			conversationID, err = awaitMainConversation(ctx, client, taskID, teamID, attemptN, opts)
 		}
@@ -181,35 +187,41 @@ func followConversation(ctx context.Context, client *moltnetapi.Client, params m
 	sleep := followSleep(opts)
 	interval := time.Duration(opts.intervalSec) * time.Second
 	wait := interval
-	seen := map[string]bool{}
+	var lastEntry uint64
 	first := true
-	failures := 0
 	for {
-		messages, terminal, err := pollConversation(ctx, client, params, seen, first)
+		var terminal bool
+		messages, err := retryConversationRead(ctx, opts, func() ([]moltnetapi.GetTaskConversationOKMessagesItem, error) {
+			messages, done, err := pollConversation(ctx, client, params, lastEntry, first)
+			terminal = done
+			return messages, err
+		})
 		if err != nil {
-			if !isTransientPollError(ctx, err) || failures >= maxFollowRetries {
-				return err
-			}
-			failures++
-			fmt.Fprintf(followErrOut(opts), "conversation poll failed (%d/%d), retrying: %v\n", failures, maxFollowRetries, err)
-			if err := sleep(ctx, interval); err != nil {
-				return err
-			}
-			continue
+			return err
 		}
-		failures = 0
+
 		first = false
 		printed := false
+		nextEntry := lastEntry
 		for _, message := range messages {
-			if !shouldPrintFollowed(message, seen, terminal) {
+			entry, committed := message.EntryId.Get()
+			var id uint64
+			if committed {
+				id, err = strconv.ParseUint(entry, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid conversation entry ID %q: %w", entry, err)
+				}
+			}
+			if (committed && id <= lastEntry) || (!committed && !terminal) {
 				continue
 			}
-			seen[message.ID] = true
+			nextEntry = max(nextEntry, id)
 			printed = true
 			if err := printFollowedMessage(opts, message); err != nil {
 				return err
 			}
 		}
+		lastEntry = nextEntry
 		if terminal {
 			return nil
 		}
@@ -226,7 +238,7 @@ func followConversation(ctx context.Context, client *moltnetapi.Client, params m
 
 // pollConversation reads the latest page; after the first poll it also pages
 // back to the last printed message.
-func pollConversation(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, seen map[string]bool, first bool) ([]moltnetapi.GetTaskConversationOKMessagesItem, bool, error) {
+func pollConversation(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, lastEntry uint64, first bool) ([]moltnetapi.GetTaskConversationOKMessagesItem, bool, error) {
 	snapshot, err := getConversation(ctx, client, params)
 	if err != nil {
 		return nil, false, err
@@ -235,28 +247,37 @@ func pollConversation(ctx context.Context, client *moltnetapi.Client, params mol
 	if first {
 		return snapshot.Messages, terminal, nil
 	}
-	messages, err := withUnseenOlderPages(ctx, client, params, snapshot, seen)
+	messages, err := withUnseenOlderPages(ctx, client, params, snapshot, lastEntry)
 	return messages, terminal, err
 }
 
-// shouldPrintFollowed prints each message once, and a still-streaming partial
-// only when the attempt has ended (it is then interrupted).
-func shouldPrintFollowed(message moltnetapi.GetTaskConversationOKMessagesItem, seen map[string]bool, terminal bool) bool {
-	_, committed := message.EntryId.Get()
-	return !seen[message.ID] && (committed || terminal)
+// retryConversationRead applies the same bounded retry policy during discovery
+// and following. Non-follow reads and a not-yet-created conversation return immediately.
+func retryConversationRead[T any](ctx context.Context, opts taskConversationsGetOpts, read func() (T, error)) (T, error) {
+	for failures := 0; ; failures++ {
+		value, err := read()
+		if err == nil || !opts.follow || errors.Is(err, errNoConversation) || !isTransientPollError(ctx, err) || failures >= maxFollowRetries {
+			return value, err
+		}
+		fmt.Fprintf(followErrOut(opts), "conversation poll failed (%d/%d), retrying: %v\n", failures+1, maxFollowRetries, err)
+		if err := followSleep(opts)(ctx, time.Duration(opts.intervalSec)*time.Second); err != nil {
+			return value, err
+		}
+	}
 }
 
 // isTransientPollError reports failures a later poll may not hit: rate
-// limits, server errors and transport errors without an HTTP status.
+// limits, server errors, network failures and truncated response bodies.
 func isTransientPollError(ctx context.Context, err error) bool {
 	if ctx.Err() != nil {
 		return false
 	}
 	status, ok := apiErrorStatus(err)
 	if !ok {
-		return true
+		var networkError net.Error
+		return errors.As(err, &networkError) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 	}
-	return status == 429 || status >= 500
+	return status == 408 || status == 429 || status >= 500
 }
 
 // awaitMainConversation waits for a live attempt to open its Durable store.
@@ -264,12 +285,16 @@ func awaitMainConversation(ctx context.Context, client *moltnetapi.Client, taskI
 	sleep := followSleep(opts)
 	announced := false
 	for {
-		live, err := attemptIsLive(ctx, client, taskID, teamID, attemptN)
+		live, err := retryConversationRead(ctx, opts, func() (bool, error) {
+			return attemptIsLive(ctx, client, taskID, teamID, attemptN)
+		})
 		if err != nil {
 			return "", err
 		}
 		if !live {
-			return mainConversationID(ctx, client, taskID, teamID, attemptN)
+			return retryConversationRead(ctx, opts, func() (string, error) {
+				return mainConversationID(ctx, client, taskID, teamID, attemptN)
+			})
 		}
 		if !announced {
 			fmt.Fprintf(followErrOut(opts), "waiting for attempt %d to open its Durable conversation…\n", attemptN)
@@ -278,7 +303,9 @@ func awaitMainConversation(ctx context.Context, client *moltnetapi.Client, taskI
 		if err := sleep(ctx, time.Duration(opts.intervalSec)*time.Second); err != nil {
 			return "", err
 		}
-		id, err := mainConversationID(ctx, client, taskID, teamID, attemptN)
+		id, err := retryConversationRead(ctx, opts, func() (string, error) {
+			return mainConversationID(ctx, client, taskID, teamID, attemptN)
+		})
 		if !errors.Is(err, errNoConversation) {
 			return id, err
 		}
@@ -306,7 +333,7 @@ func followSleep(opts taskConversationsGetOpts) func(context.Context, time.Durat
 	if opts.sleep != nil {
 		return opts.sleep
 	}
-	return sleepContext
+	return retrySleep
 }
 
 func followErrOut(opts taskConversationsGetOpts) io.Writer {
@@ -316,14 +343,22 @@ func followErrOut(opts taskConversationsGetOpts) io.Writer {
 	return io.Discard
 }
 
-// withUnseenOlderPages prepends older pages until one holds a message already
-// printed, or the conversation starts. Messages are returned oldest first.
-func withUnseenOlderPages(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, snapshot *moltnetapi.GetTaskConversationOK, seen map[string]bool) ([]moltnetapi.GetTaskConversationOKMessagesItem, error) {
+// withUnseenOlderPages prepends older pages until the cursor reaches the last
+// committed entry printed, or the conversation starts. Messages are returned oldest first.
+func withUnseenOlderPages(ctx context.Context, client *moltnetapi.Client, params moltnetapi.GetTaskConversationParams, snapshot *moltnetapi.GetTaskConversationOK, lastEntry uint64) ([]moltnetapi.GetTaskConversationOKMessagesItem, error) {
 	pages := [][]moltnetapi.GetTaskConversationOKMessagesItem{snapshot.Messages}
 	next := snapshot.NextBeforeEntryId
-	for !anySeen(pages[len(pages)-1], seen) {
+	for {
 		before, ok := next.Get()
 		if !ok {
+			break
+		}
+		boundary, err := strconv.ParseUint(before, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid conversation cursor %q: %w", before, err)
+		}
+		// The cursor is exclusive; entries at or below the checkpoint were printed.
+		if boundary <= lastEntry+1 {
 			break
 		}
 		older := params
@@ -342,15 +377,6 @@ func withUnseenOlderPages(ctx context.Context, client *moltnetapi.Client, params
 	return messages, nil
 }
 
-func anySeen(messages []moltnetapi.GetTaskConversationOKMessagesItem, seen map[string]bool) bool {
-	for _, message := range messages {
-		if seen[message.ID] {
-			return true
-		}
-	}
-	return false
-}
-
 func printFollowedMessage(opts taskConversationsGetOpts, message moltnetapi.GetTaskConversationOKMessagesItem) error {
 	if opts.format == "json" {
 		// MarshalJSON has a pointer receiver; a value would be reflected and
@@ -367,15 +393,6 @@ func printFollowedMessage(opts taskConversationsGetOpts, message moltnetapi.GetT
 
 func isLiveAttemptStatus(status string) bool {
 	return status == string(moltnetapi.TaskAttemptStatusClaimed) || status == string(moltnetapi.TaskAttemptStatusRunning)
-}
-
-func sleepContext(ctx context.Context, d time.Duration) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(d):
-		return nil
-	}
 }
 
 func parseConversationIDs(taskID, teamID string) (uuid.UUID, uuid.UUID, error) {
