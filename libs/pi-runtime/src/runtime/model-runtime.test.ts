@@ -21,7 +21,7 @@ afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
 });
 
-it.each(['environment', 'auth', 'classifier-only'])(
+it.each(['environment', 'auth', 'classifier-only', 'classifier-only-chat-api'])(
   'uses configured %s credentials for a classifier and preserves the same provider chat catalog',
   async (source) => {
     const piDir = mkdtempSync(join(tmpdir(), 'classifier-runtime-'));
@@ -45,7 +45,7 @@ it.each(['environment', 'auth', 'classifier-only'])(
             ? { apiKeyEnvRef: '$TEST_CLASSIFIER_API_KEY' }
             : {}),
           models: [
-            ...(source === 'classifier-only' ? [] : [{ id: 'chat' }]),
+            ...(source.startsWith('classifier-only') ? [] : [{ id: 'chat' }]),
             {
               id: 'decisions',
               type: 'classifier',
@@ -66,7 +66,7 @@ it.each(['environment', 'auth', 'classifier-only'])(
     });
     const models = await createRuntimeModels(piDir);
     expect(Boolean(models.getModel('team', 'chat'))).toBe(
-      source !== 'classifier-only',
+      !source.startsWith('classifier-only'),
     );
     expect(models.getModel('team', 'decisions')).toBeUndefined();
     const model = models.getModelOfType('classifier', 'team', 'decisions');
@@ -173,7 +173,9 @@ it('preserves native catalogs, model types and provider overrides across refresh
   });
   // The native JSON loader and the classifier adapter must read the same JSONC.
   const path = join(piDir, 'models.json');
-  const document = JSON.parse(readFileSync(path, 'utf8'));
+  const document = JSON.parse(readFileSync(path, 'utf8')) as {
+    providers: { typesafe: { modelOverrides?: Record<string, unknown> } };
+  };
   document.providers.typesafe.modelOverrides = {
     shared: { contextWindow: 12345 },
   };
