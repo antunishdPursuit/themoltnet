@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.70.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-v0.69.2...agent-daemon-v0.70.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable session storage and classification contracts ([9a06a8d](https://github.com/getlarge/themoltnet/commit/9a06a8dc80ac6232cd3be727ab4c478c27e5d2d7))
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **pi-runtime:** upgrade Pi and share runtime capabilities ([9e8c68b](https://github.com/getlarge/themoltnet/commit/9e8c68b05bfc54dd2b35f7ad95646dc8f56be444))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **runtime:** upgrade Pi and share classifier capabilities [2/8] ([25c39b9](https://github.com/getlarge/themoltnet/commit/25c39b9b60f454d3b7807ca2e785dd736cd67a67))
+
+
+### Bug Fixes
+
+* address review round 1 on Durable storage ([cf81d84](https://github.com/getlarge/themoltnet/commit/cf81d841dc6df2f1b832736484936b763d37d565))
+* address review round 1 on profile task eligibility ([b5c23ef](https://github.com/getlarge/themoltnet/commit/b5c23ef47774199e65036513052458d484ef4785))
+* address review round 2 runtime contracts ([eaeb382](https://github.com/getlarge/themoltnet/commit/eaeb38242c1cc4f617863e8c116ea7c1738c862a))
+* **agent-daemon:** configure classifier providers for Pi ([a25bb7c](https://github.com/getlarge/themoltnet/commit/a25bb7c350d985ab289c3c53c0adf3416554fdda))
+* **agent-daemon:** keep private types out of published declarations ([7b3b061](https://github.com/getlarge/themoltnet/commit/7b3b061126db9cb25e052c8585bb674a2a3d1b77))
+* **agent-daemon:** reclaim workspaces across worker lifetimes ([172dded](https://github.com/getlarge/themoltnet/commit/172ddedf9753a68af1164961fca65056e238f3e8))
+* **agent-daemon:** skip Gondolin for classifier-only profiles ([77a3362](https://github.com/getlarge/themoltnet/commit/77a33626e3be7c4bc07566588431c8616f07e2cf))
+* **ci:** run Jev with the shared live model test flag ([8dd0e63](https://github.com/getlarge/themoltnet/commit/8dd0e63c737d464659b1fb1664dc62aef76004da))
+* **pi-runtime:** enforce maxBashTimeouts in the Durable executor ([17aa5d6](https://github.com/getlarge/themoltnet/commit/17aa5d6535f190cc662f0ef356954cab556a1008))
+* **pi-runtime:** use system role for Ollama chat ([93b37bd](https://github.com/getlarge/themoltnet/commit/93b37bd1e8c380844340804b45a425ccaaa9235b))
+* **providers:** configure Pi instruction role explicitly ([9f2105c](https://github.com/getlarge/themoltnet/commit/9f2105c07c28a45bf0ffabbc7cfe71abc86afd2e))
+* **providers:** configure Pi instruction role explicitly ([5da0c52](https://github.com/getlarge/themoltnet/commit/5da0c52f3e35adb1772ee778af4214ceaeb79ae0))
+* **runtime:** correct packed daemon types and workflow link ([fb35f67](https://github.com/getlarge/themoltnet/commit/fb35f670f3409c3d25cd51600fb3877c56b20072))
+* **runtime:** unify typed provider model registration ([16fec5c](https://github.com/getlarge/themoltnet/commit/16fec5c1e9470ef74a5385114be1b43af0b86a5a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/agent-runtime bumped to 1.13.0
+    * @themoltnet/pi-runtime bumped to 0.23.0
+    * @themoltnet/sdk bumped to 0.150.0
+
 ## [0.69.2](https://github.com/getlarge/themoltnet/compare/agent-daemon-v0.69.1...agent-daemon-v0.69.2) (2026-10-06)
 
 

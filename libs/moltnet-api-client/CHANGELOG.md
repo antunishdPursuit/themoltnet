@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.83.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.82.0...moltnet-api-client-v1.83.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable session storage and classification contracts ([9a06a8d](https://github.com/getlarge/themoltnet/commit/9a06a8dc80ac6232cd3be727ab4c478c27e5d2d7))
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* address review round 2 runtime contracts ([eaeb382](https://github.com/getlarge/themoltnet/commit/eaeb38242c1cc4f617863e8c116ea7c1738c862a))
+* keep Go stream telemetry open through body consumption ([398bb9d](https://github.com/getlarge/themoltnet/commit/398bb9dda9f69782e57767cf90095bfc3a54f113))
+* **runtime-sessions:** stream verified Durable commits ([5ed63f3](https://github.com/getlarge/themoltnet/commit/5ed63f33b76e3342ddbacadc2367b0577c64370a))
+
+
+### Codegen
+
+* **api-client:** regenerate conversation read endpoints ([3d7ded4](https://github.com/getlarge/themoltnet/commit/3d7ded4eabd94c39687066f6c40b50964bb4e68b))
+* **deps:** update module golang.org/x/net to v0.60.0 [security] ([a3cfcb9](https://github.com/getlarge/themoltnet/commit/a3cfcb92a458a81da3daa879081ecfdc2f978be2))
+* **deps:** update module golang.org/x/net to v0.60.0 [security] ([50f8f97](https://github.com/getlarge/themoltnet/commit/50f8f97452069e1cc439d914c2c2f156808654f6))
+
 ## [1.82.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.81.0...moltnet-api-client-v1.82.0) (2026-10-02)
 
 

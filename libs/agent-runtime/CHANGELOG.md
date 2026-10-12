@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.13.0](https://github.com/getlarge/themoltnet/compare/agent-runtime-v1.12.0...agent-runtime-v1.13.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **pi-runtime:** upgrade Pi and share runtime capabilities ([9e8c68b](https://github.com/getlarge/themoltnet/commit/9e8c68b05bfc54dd2b35f7ad95646dc8f56be444))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **runtime:** upgrade Pi and share classifier capabilities [2/8] ([25c39b9](https://github.com/getlarge/themoltnet/commit/25c39b9b60f454d3b7807ca2e785dd736cd67a67))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* address review round 1 on profile task eligibility ([b5c23ef](https://github.com/getlarge/themoltnet/commit/b5c23ef47774199e65036513052458d484ef4785))
+* **agent-runtime:** bound comma repair and decode scalar submit fields strictly ([5376b94](https://github.com/getlarge/themoltnet/commit/5376b941d1f173fddc708a30c889cc203c548ef1))
+* **runtime:** finish submit-output follow-ups from [#2641](https://github.com/getlarge/themoltnet/issues/2641) ([269154b](https://github.com/getlarge/themoltnet/commit/269154b498b6cd8f8709f17684de80cbca4f1dc4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.150.0
+
 ## [1.12.0](https://github.com/getlarge/themoltnet/compare/agent-runtime-v1.11.0...agent-runtime-v1.12.0) (2026-10-06)
 
 

@@ -1584,7 +1584,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     needs: [e2e-agent-daemon]
-    if: always()
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     permissions: {}
     steps:
       - name: Require all agent-daemon lanes to pass
