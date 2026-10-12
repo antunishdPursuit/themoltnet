@@ -154,6 +154,45 @@ describe('createTaskArtifactService', () => {
     );
   });
 
+  it('rejects credential-like content before storing a task artifact', async () => {
+    const content = `${'a'.repeat(64 * 1024 - 5)} AKIAIOSFODNN7EXAMPLE`;
+
+    await expect(
+      subject.upload({
+        attemptN: 1,
+        body: Readable.from([content]),
+        contentType: 'application/octet-stream',
+        subjectId: AGENT_ID,
+        kind: 'report',
+        subjectNs: KetoNamespace.Agent,
+        taskId: TASK_ID,
+        teamId: TEAM_ID,
+        title: 'report.txt',
+      }),
+    ).rejects.toMatchObject({
+      message:
+        'Task artifact contains credential-like material; redact it and retry',
+      statusCode: 400,
+    });
+    expect(storage.headObject).not.toHaveBeenCalled();
+    expect(storage.putObject).not.toHaveBeenCalled();
+    expect(deps.taskArtifactRepository.createForAttempt).not.toHaveBeenCalled();
+  });
+
+  it('rejects credential-like content before staging a task input', async () => {
+    await expect(
+      subject.stageUpload({
+        body: Readable.from(['-----BEGIN PRIVATE KEY-----\nexample']),
+        contentType: 'text/plain',
+        subjectId: AGENT_ID,
+        subjectNs: KetoNamespace.Agent,
+        teamId: TEAM_ID,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(storage.headObject).not.toHaveBeenCalled();
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
   it('does not re-upload an object when the CID key already exists', async () => {
     vi.mocked(storage.headObject).mockResolvedValue({
       contentLength: 11,

@@ -133,6 +133,28 @@ describe('task artifact routes', () => {
     );
   });
 
+  it('rejects credential-like artifact content before object storage', async () => {
+    const response = await app.inject({
+      method: 'PUT',
+      url:
+        `/tasks/${TASK_ID}/attempts/1/artifacts` +
+        '?kind=report&title=report.txt&contentType=text%2Fplain',
+      headers: {
+        ...TEAM_HEADERS,
+        'content-type': 'application/octet-stream',
+      },
+      payload: Readable.from(['Credential AKIAIOSFODNN7EXAMPLE configured']),
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain('redact it and retry');
+    expect(response.body).not.toContain('AKIAIOSFODNN7EXAMPLE');
+    expect(mocks.taskArtifactStorage.putObject).not.toHaveBeenCalled();
+    expect(
+      mocks.taskArtifactRepository.createForAttempt,
+    ).not.toHaveBeenCalled();
+  });
+
   it('lists task artifact metadata', async () => {
     mocks.taskArtifactRepository.listForTask.mockResolvedValue({
       artifacts: [mockArtifact({ cid: 'bafkreilist' })],
