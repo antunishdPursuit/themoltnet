@@ -51,6 +51,16 @@ export interface ToolPolicyLogger {
   warn: (obj: Record<string, unknown>, msg: string) => void;
 }
 
+/** JSON lines on stderr, for callers that did not inject a logger. */
+export function createStderrToolPolicyLogger(
+  bindings: Record<string, unknown> = {},
+): ToolPolicyLogger {
+  const write =
+    (level: 'info' | 'warn') => (obj: Record<string, unknown>, msg: string) =>
+      console.error(JSON.stringify({ level, msg, ...bindings, ...obj }));
+  return { debug: () => {}, info: write('info'), warn: write('warn') };
+}
+
 /** Minimal shape of the SDK method the resolver needs (keeps deps testable). */
 export interface AllowedToolsClient {
   runtimeProfiles: {
@@ -405,37 +415,122 @@ function reportDecision(
   if (!deps.onDecision) {
     return;
   }
-  const missing = 'missing' in gateDecision ? gateDecision.missing : undefined;
-  const shell =
-    'missingShellCommands' in gateDecision
-      ? gateDecision.missingShellCommands
-      : undefined;
   try {
-    deps.onDecision({
-      decision,
-      tool_name: event.toolName,
-      ...(event.toolCallId ? { tool_call_id: event.toolCallId } : {}),
-      reason_code: gateDecision.reasonCode,
-      enforcement: deps.policy.enforcement,
-      ...(missing?.length ? { unauthorized_executables: missing } : {}),
-      ...(shell?.length ? { shell_fingerprints: shell } : {}),
-      degraded: deps.policy.degraded === true,
-      ...(deps.policy.executionPolicySnapshotHash
-        ? { policy_snapshot_hash: deps.policy.executionPolicySnapshotHash }
-        : {}),
-      ...(deps.policy.executionRuntimeProfileRevision !== undefined
-        ? {
-            runtime_profile_revision:
-              deps.policy.executionRuntimeProfileRevision,
-          }
-        : {}),
-    });
+    deps.onDecision(
+      toolPolicyDecisionRecord(deps.policy, decision, event, gateDecision),
+    );
   } catch (error) {
     deps.logger.warn(
       { err: error instanceof Error ? error.message : String(error) },
       'tool_policy.decision_report_failed',
     );
   }
+}
+
+function toolPolicyDecisionRecord(
+  policy: SessionToolPolicy,
+  decision: 'blocked' | 'would_block',
+  event: { toolName: string; toolCallId?: string },
+  gateDecision: GateDecision,
+): ToolPolicyDecisionRecord {
+  const missing = 'missing' in gateDecision ? gateDecision.missing : undefined;
+  const shell =
+    'missingShellCommands' in gateDecision
+      ? gateDecision.missingShellCommands
+      : undefined;
+  return {
+    decision,
+    tool_name: event.toolName,
+    ...(event.toolCallId ? { tool_call_id: event.toolCallId } : {}),
+    reason_code: gateDecision.reasonCode,
+    enforcement: policy.enforcement,
+    ...(missing?.length ? { unauthorized_executables: missing } : {}),
+    ...(shell?.length ? { shell_fingerprints: shell } : {}),
+    degraded: policy.degraded === true,
+    ...(policy.executionPolicySnapshotHash
+      ? { policy_snapshot_hash: policy.executionPolicySnapshotHash }
+      : {}),
+    ...(policy.executionRuntimeProfileRevision !== undefined
+      ? { runtime_profile_revision: policy.executionRuntimeProfileRevision }
+      : {}),
+  };
+}
+
+/**
+ * Decide one Durable tool call. Returns the block reason, or `undefined` when
+ * the call may run. Durable authorizes from an async hook, so a refusal is
+ * reported before the verdict returns instead of through a drained sink; a
+ * reporting failure is logged and never changes the verdict.
+ */
+export async function authorizeDurableToolCall(input: {
+  policy: SessionToolPolicy;
+  analyze: ShellCommandAnalyzer['analyze'];
+  logger: ToolPolicyLogger;
+  context: { taskId: string; attemptN: number };
+  toolName: string;
+  args: Record<string, unknown>;
+  onDecision(record: ToolPolicyDecisionRecord): Promise<void>;
+}): Promise<string | undefined> {
+  const { policy } = input;
+  const decision = decideToolCall({
+    enforcement: policy.enforcement,
+    allowedTools: policy.allowedTools,
+    allowedShellCommands: policy.allowedShellCommands,
+    toolName: input.toolName,
+    command:
+      typeof input.args.command === 'string' ? input.args.command : undefined,
+    analyze: input.analyze,
+  });
+  const outcome =
+    'audit' in decision
+      ? 'would_block'
+      : 'allow' in decision && !decision.allow
+        ? 'blocked'
+        : 'allowed';
+  // Same events and fields as the session extension, so dashboards keep working.
+  const fields = {
+    ...input.context,
+    toolName: input.toolName,
+    decision: outcome === 'would_block' ? 'audit' : outcome,
+    reason: decision.reasonCode,
+    ...('matchedShellCommands' in decision &&
+    decision.matchedShellCommands?.length
+      ? { shellFingerprints: decision.matchedShellCommands }
+      : {}),
+    ...('missing' in decision && decision.missing?.length
+      ? { unauthorizedExecutables: decision.missing }
+      : {}),
+  };
+  if (outcome === 'blocked') input.logger.warn(fields, 'tool_policy.blocked');
+  else
+    input.logger.info(
+      fields,
+      outcome === 'allowed' ? 'tool_policy.allowed' : 'tool_policy.audit',
+    );
+  recordToolPolicyDecisionMetric({
+    decision: outcome,
+    reason: decision.reasonCode,
+    enforcement: policy.enforcement,
+    degraded: policy.degraded === true,
+  });
+  if (outcome !== 'allowed') {
+    try {
+      await input.onDecision(
+        toolPolicyDecisionRecord(
+          policy,
+          outcome,
+          { toolName: input.toolName },
+          decision,
+        ),
+      );
+    } catch (error) {
+      input.logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        'tool_policy.decision_report_failed',
+      );
+    }
+  }
+  return 'allow' in decision && !decision.allow ? decision.reason : undefined;
 }
 
 function decisionContext(

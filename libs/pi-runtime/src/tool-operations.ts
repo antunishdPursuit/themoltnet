@@ -149,12 +149,13 @@ function toHostToolPath(
 
 /**
  * Map a host-side absolute path to a guest-side workspace path.
- * Throws if the path escapes the workspace.
+ * Throws if the path escapes the workspace and every `extraGuestRoots` entry.
  */
 export function toGuestPath(
   localCwd: string,
   localPath: string,
   guestWorkspace: string,
+  extraGuestRoots: readonly string[] = [],
 ): string {
   const normalizedGuestWorkspace = normalizeGuestPath(guestWorkspace);
   const normalizedLocalPath = normalizeGuestPath(localPath);
@@ -176,6 +177,13 @@ export function toGuestPath(
   ) {
     return normalizedLocalPath;
   }
+  if (
+    extraGuestRoots.some((root) =>
+      isSameOrInsidePosixPath(normalizedLocalPath, normalizeGuestPath(root)),
+    )
+  ) {
+    return normalizedLocalPath;
+  }
   const rel = path.relative(localCwd, localPath);
   if (rel === '') return normalizedGuestWorkspace;
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
@@ -189,23 +197,25 @@ export function createGondolinReadOps(
   vm: VM,
   localCwd: string,
   guestWorkspace: string,
+  extraGuestRoots: readonly string[] = [],
 ): ReadOperations {
   return {
     readFile: async (p) => {
       const content = await vm.fs.readFile(
-        toGuestPath(localCwd, p, guestWorkspace),
+        toGuestPath(localCwd, p, guestWorkspace, extraGuestRoots),
       );
       return typeof content === 'string'
         ? Buffer.from(content, 'utf8')
         : Buffer.from(content);
     },
-    access: async (p) => vm.fs.access(toGuestPath(localCwd, p, guestWorkspace)),
+    access: async (p) =>
+      vm.fs.access(toGuestPath(localCwd, p, guestWorkspace, extraGuestRoots)),
     detectImageMimeType: async (p) => {
       try {
         const r = await vm.exec([
           '/bin/sh',
           '-lc',
-          `file --mime-type -b ${shQuote(toGuestPath(localCwd, p, guestWorkspace))}`,
+          `file --mime-type -b ${shQuote(toGuestPath(localCwd, p, guestWorkspace, extraGuestRoots))}`,
         ]);
         if (!r.ok) return null;
         const m = r.stdout.trim();

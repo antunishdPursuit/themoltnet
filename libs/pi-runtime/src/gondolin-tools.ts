@@ -59,13 +59,20 @@ export function createGondolinReadToolDefinitions(config: {
   cwdPath: string;
   guestWorkspace: string;
   lifecycle: GondolinToolLifecycle;
+  /** Guest directories outside the workspace that `read` may open. */
+  readableGuestRoots?: readonly string[];
 }): ToolDefinition[] {
   const { vm, cwdPath, guestWorkspace, lifecycle } = config;
   const grepTool = createGrepToolDefinition(cwdPath);
   return guardGondolinToolDefinitions(
     [
       createReadToolDefinition(cwdPath, {
-        operations: createGondolinReadOps(vm, cwdPath, guestWorkspace),
+        operations: createGondolinReadOps(
+          vm,
+          cwdPath,
+          guestWorkspace,
+          config.readableGuestRoots,
+        ),
       }),
       createLsToolDefinition(cwdPath, {
         operations: createGondolinLsOps(vm, cwdPath, guestWorkspace),

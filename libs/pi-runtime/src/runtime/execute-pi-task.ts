@@ -84,6 +84,7 @@ import {
 import { createToolPolicyDecisionSink } from '../tool-policy/decision-sink.js';
 import type { ToolEnforcement } from '../tool-policy/gate.js';
 import {
+  createStderrToolPolicyLogger,
   createToolPolicyExtension,
   resolveSessionToolPolicy,
   type ToolPolicyDecisionContext,
@@ -1295,13 +1296,8 @@ export async function executePiTask(
         argvPrefix: readonly [string, ...string[]];
       }> = [];
       let verifiedGuestExecutables: string[] = [];
-      const toolPolicyLogger: ToolPolicyLogger = opts.toolPolicyLogger ?? {
-        debug: () => {},
-        info: (obj: Record<string, unknown>, msg: string) =>
-          console.error(JSON.stringify({ level: 'info', msg, ...obj })),
-        warn: (obj: Record<string, unknown>, msg: string) =>
-          console.error(JSON.stringify({ level: 'warn', msg, ...obj })),
-      };
+      const toolPolicyLogger: ToolPolicyLogger =
+        opts.toolPolicyLogger ?? createStderrToolPolicyLogger();
       const toolPolicyDecisionContext = buildToolPolicyDecisionContext(
         claimedTask,
         opts.runtimeProfileId,
