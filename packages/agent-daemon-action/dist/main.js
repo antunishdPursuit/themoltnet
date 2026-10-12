@@ -23499,6 +23499,176 @@ var setRuntimeProfilePolicies = (options) => (options.client ?? client).put({
 		...options.headers
 	}
 });
+var getRuntimeStoreForAttempt = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/attempt",
+	...options
+});
+var openRuntimeStore = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/open",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var appendRuntimeStoreCommit = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/commits",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var mintRuntimeStoreId = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/ids",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var releaseRuntimeStore = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/release",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+var renewRuntimeStore = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-sessions/durable/{storeId}/renew",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
 /**
 * Get metadata for the durable team-scoped runtime session for a task attempt.
 */
@@ -26840,261 +27010,6 @@ function createRuntimeProfilesNamespace(context) {
 	};
 }
 //#endregion
-//#region ../../libs/sdk/src/namespaces/runtime-sessions.ts
-function createRuntimeSessionsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async getForAttempt(path, options) {
-			try {
-				return unwrapResult(await getRuntimeSession({
-					client,
-					auth,
-					headers: requiredTeamHeaders(options),
-					path
-				}));
-			} catch (err) {
-				if (err instanceof MoltNetError && err.statusCode === 404) return null;
-				throw err;
-			}
-		},
-		async upload(path, body, query, options) {
-			return unwrapResult(await uploadRuntimeSession({
-				auth,
-				body,
-				client,
-				duplex: "half",
-				headers: {
-					...requiredTeamHeaders(options),
-					"content-type": "application/octet-stream"
-				},
-				path,
-				query
-			}));
-		},
-		async download(path, options) {
-			const stream = unwrapResult(await client.request({
-				auth,
-				headers: requiredTeamHeaders(options),
-				method: "GET",
-				parseAs: "stream",
-				path,
-				security: [{
-					scheme: "bearer",
-					type: "http"
-				}],
-				url: "/runtime-sessions/{taskId}/{attemptN}/content"
-			}));
-			if (stream instanceof Readable) return stream;
-			if (stream instanceof ReadableStream) return Readable.fromWeb(stream);
-			throw new MoltNetError("Unexpected runtime session download response stream", { code: "INVALID_RESPONSE" });
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/runtime-slots.ts
-function createRuntimeSlotsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async begin(body, options) {
-			return unwrapResult(await beginRuntimeSlot({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				body
-			}));
-		},
-		async finish(body, options) {
-			return unwrapResult(await finishRuntimeSlot({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				body
-			}));
-		},
-		async findLatestForAttempt(query, options) {
-			try {
-				return unwrapResult(await findLatestRuntimeSlotForAttempt({
-					client,
-					auth,
-					headers: requiredTeamHeaders(options),
-					query
-				}));
-			} catch (err) {
-				if (err instanceof MoltNetError && err.statusCode === 404) return null;
-				throw err;
-			}
-		},
-		async list(query, options) {
-			return unwrapResult(await listRuntimeSlots({
-				auth,
-				client,
-				headers: requiredTeamHeaders(options),
-				query: stripUndefinedQuery(query)
-			})).items;
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/signing-credentials.ts
-function createSigningCredentialsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(query, options) {
-			return unwrapResult(await listSigningCredentials({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				query
-			}));
-		},
-		async get(id, options) {
-			return unwrapResult(await getSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		},
-		async startRegistration(body, options) {
-			return unwrapResult(await beginSigningCredentialRegistration({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				body
-			}));
-		},
-		async completeRegistration(id, body, options) {
-			return unwrapResult(await completeSigningCredentialRegistration({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		},
-		async approve(id, options) {
-			return unwrapResult(await approveSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		},
-		async suspend(id, options) {
-			return unwrapResult(await suspendSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		},
-		async revoke(id, options) {
-			return unwrapResult(await revokeSigningCredential({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id }
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/signing-requests.ts
-function createSigningRequestsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(query) {
-			return unwrapResult(await listSigningRequests({
-				client,
-				auth,
-				query
-			}));
-		},
-		async create(body) {
-			return unwrapResult(await createSigningRequest({
-				client,
-				auth,
-				body
-			}));
-		},
-		async get(id) {
-			return unwrapResult(await getSigningRequest({
-				client,
-				auth,
-				path: { id }
-			}));
-		},
-		async submit(id, body) {
-			return unwrapResult(await submitSignature({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async claim(id, body, options) {
-			return unwrapResult(await claimSigningRequest({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		},
-		async complete(id, body, options) {
-			return unwrapResult(await completeSigningRequest({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		},
-		async reject(id, body, options) {
-			return unwrapResult(await rejectSigningRequest({
-				client,
-				auth,
-				headers: requiredTeamHeaders(options),
-				path: { id },
-				body
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/task-grants.ts
-function createTaskGrantsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async create(taskId, body, options) {
-			return unwrapResult(await createTaskGrant({
-				client,
-				auth,
-				path: { id: taskId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async list(taskId, options) {
-			return unwrapResult(await listTaskGrants({
-				client,
-				auth,
-				path: { id: taskId },
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async revoke(taskId, body, options) {
-			return unwrapResult(await revokeTaskGrant({
-				client,
-				auth,
-				path: { id: taskId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		}
-	};
-}
-//#endregion
 //#region ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/system/memory/metrics.mjs
 /** TypeBox instantiation metrics */
 var Metrics = {
@@ -30414,85 +30329,1759 @@ function AddImmutable(type, options = {}) {
 	return AddImmutableAction(type, options);
 }
 //#endregion
-//#region ../../libs/tasks/src/output-contract-schema.ts
-function isObject(value) {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-/** Reject unsupported or oversized task-supplied schemas before execution. */
-function validateOutputContractSchema(schema) {
-	if (!isObject(schema) || schema.type !== "object") return "outputContract.schema must be a JSON Schema object with type \"object\"";
-	let encoded;
-	try {
-		encoded = JSON.stringify(schema);
-	} catch {
-		return "outputContract.schema must be JSON serializable";
-	}
-	if (encoded.length > 16384) return "outputContract.schema must be at most 16 KiB";
-	let nodes = 0;
-	const visit = (node, path, depth) => {
-		if (!isObject(node) || depth > 10 || ++nodes > 200) return `${path} must be a schema object within the depth and size limits`;
-		const nullable = Array.isArray(node.type) && node.type.length === 2 && node.type.includes("null") && node.type.filter((value) => value !== "null").length === 1;
-		const type = nullable ? node.type.find((value) => value !== "null") : node.type;
-		if (![
-			"object",
-			"array",
-			"string",
-			"number",
-			"integer",
-			"boolean"
-		].includes(type) || nullable && (type === "object" || type === "array")) return `${path}.type must be object, array, string, number, integer, boolean, or a nullable primitive`;
-		const common = [
-			"type",
-			"description",
-			"title",
-			"enum"
-		];
-		const specific = type === "object" ? [
-			"properties",
-			"required",
-			"additionalProperties"
-		] : type === "array" ? [
-			"items",
-			"minItems",
-			"maxItems"
-		] : type === "string" ? ["minLength", "maxLength"] : type === "number" || type === "integer" ? ["minimum", "maximum"] : [];
-		const unknownKey = Object.keys(node).find((key) => !common.includes(key) && !specific.includes(key));
-		if (unknownKey) return `${path}.${unknownKey} is not supported`;
-		if (node.description !== void 0 && typeof node.description !== "string") return `${path}.description must be a string`;
-		if (node.title !== void 0 && typeof node.title !== "string") return `${path}.title must be a string`;
-		if (node.enum !== void 0 && (type === "object" || type === "array" || !Array.isArray(node.enum) || node.enum.length === 0 || node.enum.some((value) => value === null && nullable ? false : type === "integer" ? !Number.isInteger(value) : typeof value !== type))) return `${path}.enum must contain values of the declared primitive type`;
-		if (type === "object") {
-			if (!isObject(node.properties) || node.additionalProperties !== false) return `${path} needs properties and additionalProperties: false`;
-			const keys = Object.keys(node.properties);
-			if (keys.length > 50 || keys.some((key) => [
-				"__proto__",
-				"prototype",
-				"constructor"
-			].includes(key))) return `${path}.properties has too many or reserved keys`;
-			if (!Array.isArray(node.required) || node.required.some((key) => typeof key !== "string" || !keys.includes(key)) || new Set(node.required).size !== node.required.length) return `${path}.required must list unique declared properties`;
-			for (const key of keys) {
-				const error = visit(node.properties[key], `${path}.properties.${key}`, depth + 1);
-				if (error) return error;
-			}
-		} else if (type === "array") {
-			if (!isObject(node.items)) return `${path}.items must be a schema object`;
-			for (const key of ["minItems", "maxItems"]) if (node[key] !== void 0 && (!Number.isInteger(node[key]) || node[key] < 0 || node[key] > 100)) return `${path}.${key} must be an integer between 0 and 100`;
-			if (typeof node.minItems === "number" && typeof node.maxItems === "number" && node.minItems > node.maxItems) return `${path}.minItems must not exceed maxItems`;
-			return visit(node.items, `${path}.items`, depth + 1);
-		} else {
-			const bounds = type === "string" ? ["minLength", "maxLength"] : ["minimum", "maximum"];
-			for (const key of bounds) if (node[key] !== void 0 && (typeof node[key] !== "number" || !Number.isFinite(node[key]) || type === "string" && (!Number.isInteger(node[key]) || node[key] < 0))) return `${path}.${key} must be a valid number`;
-			const [minKey, maxKey] = bounds;
-			if (typeof node[minKey] === "number" && typeof node[maxKey] === "number" && node[minKey] > node[maxKey]) return `${path}.${minKey} must not exceed ${maxKey}`;
+//#region ../../libs/runtime-profiles/src/context.ts
+/**
+* How an executor delivers a context entry to its underlying LLM.
+* V1 bindings only; Tier-2 (reference_file, mcp_resource, imported_file,
+* tool_response_seed, additional_context_hook) ship in a later slice.
+*/
+var CONTEXT_BINDINGS = [
+	"skill",
+	"context_inline",
+	"prompt_prefix",
+	"user_inline"
+];
+/** Maximum UTF-16 code units accepted in one ContextRef content field. */
+var CONTEXT_REF_MAX_CONTENT_LENGTH = 65536;
+var ContextBinding = Unsafe(Union(CONTEXT_BINDINGS.map((binding) => Literal(binding)), { $id: "ContextBinding" }));
+/** Reusable input fragment for any task type. Soft cap at 5 items. */
+var TaskContext = _Array_(_Object_({
+	slug: String$1({
+		minLength: 1,
+		maxLength: 64,
+		pattern: "^[a-zA-Z0-9_-]+$"
+	}),
+	binding: ContextBinding,
+	content: String$1({
+		minLength: 1,
+		maxLength: CONTEXT_REF_MAX_CONTENT_LENGTH
+	})
+}, {
+	$id: "ContextRef",
+	additionalProperties: false
+}), {
+	$id: "TaskContext",
+	maxItems: 5
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-models.ts
+/**
+* Runtime model catalog: a list of supported provider/model couples that
+* MoltNet daemons can target. Backed by the `runtime_models` table.
+*
+* Scope is intrinsic to the row:
+*   - `teamId == null`  => global entry (MoltNet-seeded, read-only to most callers)
+*   - `teamId != null`  => team-owned custom entry
+*
+* The REST API exposes a single shape regardless of scope; the team header
+* gates which rows are returned.
+*/
+var RuntimeModelProvider = String$1({
+	minLength: 1,
+	maxLength: 100,
+	pattern: "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$"
+});
+var RuntimeModelName = String$1({
+	minLength: 1,
+	maxLength: 200,
+	pattern: "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"
+});
+var RuntimeModelCapabilities = Record(String$1({
+	minLength: 1,
+	maxLength: 64
+}), Union([
+	Boolean$1(),
+	Number$1(),
+	String$1({ maxLength: 256 })
+]));
+_Object_({
+	id: String$1({ format: "uuid" }),
+	teamId: Union([String$1({ format: "uuid" }), Null()]),
+	provider: RuntimeModelProvider,
+	model: RuntimeModelName,
+	displayName: Union([String$1({ maxLength: 200 }), Null()]),
+	description: Union([String$1({ maxLength: 4096 }), Null()]),
+	capabilities: RuntimeModelCapabilities,
+	isActive: Boolean$1(),
+	createdByAgentId: Union([String$1({ format: "uuid" }), Null()]),
+	createdByHumanId: Union([String$1({ format: "uuid" }), Null()]),
+	createdAt: String$1({ format: "date-time" }),
+	updatedAt: String$1({ format: "date-time" })
+}, {
+	$id: "RuntimeModel",
+	additionalProperties: false
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-profile-context-recipes.ts
+var RUNTIME_PROFILE_CONTEXT_CATALOGUE = {
+	version: 1,
+	fragments: {
+		"artifact-planner-v1": {
+			binding: "prompt_prefix",
+			content: "# Bounded artifact planner\n\n- The typed task facts, embedded bounded manifest, exact bound artifact references, registered tools, and runtime capability section are the complete contract. Do not search diaries, inspect a mounted repository, enumerate unrelated tasks or artifacts, modify a checkout, commit, branch, push, or contact GitHub.\n- Read only the exact artifact CIDs named by the task, and only when the embedded manifest does not provide enough evidence. Use the registered task-artifact tools for artifact access; never use shell or CLI wrappers to fetch artifacts, paginate, or discover them speculatively.\n- If the effective runtime exposes a local calculator or shell, use it only inside scratch for coverage accounting, budget arithmetic, and JSON validation. The runtime capability section and policy are authoritative; do not assume a static executable list.\n- Perform semantic classification and planning from supplied content and producer/consumer evidence. Do not substitute filename, directory, language, ecosystem, or repository-specific exclusion rules for evidence.\n- Write and upload exactly the requested versioned plan artifact, then reference its returned metadata through the registered submit-output tool. Do not emit a second prose or JSON representation.",
+			slug: "artifact-planner-v1"
+		},
+		"accountable-delivery-v1": {
+			binding: "prompt_prefix",
+			content: "# Accountable delivery\n\n- Pair every commit made during this task with a task-provenance diary entry created by the `moltnet_create_entry` custom tool. Put the returned id in a `MoltNet-Diary: <id>` commit trailer. The tool does not currently promise a content signature unless you pass `signed: true` while the runtime kernel declares the `agent-signing` host capability; never describe an entry as signed otherwise.\n- When the runtime kernel declares `agent-signing`, sign commits normally with `git commit -S`: the signature is brokered to the trusted host through `SSH_AUTH_SOCK` and no private key exists in the guest. Without that capability commits are unsigned; do not disable signing the runtime provides, and never try to obtain a key from host configuration.\n- Push a branch and open or update a pull request only when the task asks for it. Use a host-brokered GitHub placeholder only when the runtime kernel declares one; if no GitHub credential is active, the authenticated operation is unavailable.\n- Keep changes, commits, and any requested pull request coherent enough to review independently.",
+			slug: "accountable-delivery-v1"
+		},
+		"judgment-diary-v1": {
+			binding: "prompt_prefix",
+			content: "# Judgment diary discipline\n\n- For an `assess_brief` or `judge_pack` task, create a diary entry with the `moltnet_create_entry` custom tool before submitting the structured judgment. Capture the rationale and evidence that support the verdict. Do not claim a content signature unless you created the entry with `signed: true` under a runtime that declares the `agent-signing` host capability.\n- Add the `judgment` tag and the active task type tag (`assess_brief` or `judge_pack`). For `judge_pack`, also add `rubric:<rubricId>` from the task facts.\n- Do not use a shell `moltnet entry` command: task provenance is injected only by the custom tool.",
+			slug: "judgment-diary-v1"
+		},
+		"proactive-memory-v1": {
+			binding: "prompt_prefix",
+			content: "# Proactive memory use\n\n- Before non-trivial investigation, debugging, code changes, or review, check the task diary for relevant prior knowledge instead of waiting for a human to ask. Use `moltnet_diary_tags` for cheap reconnaissance, `moltnet_list_entries` when tags or task provenance are known, and `moltnet_search_entries` for semantic similarity. Do not search randomly: pass `taskFilter` for task-local or correlation-local queries, and pass `tags` / `entryTypes` for broader prior-knowledge queries using known tags such as `incident`, `decision`, or `scope:<area>`. Broaden only after constrained searches miss.\n- Before creating an `episodic` incident entry, search for similar incidents using the proposed title, root cause, error text, affected subsystem, and watch-for terms, filtered by `entryTypes: [\"episodic\", \"semantic\"]` and any known `scope:*` or task-provenance tags. If a close prior match exists, do not create an isolated duplicate: reference the prior entry in your response or diary content, update or link it when the new occurrence adds material evidence, or create a new recurrence entry only when the recurrence itself is important signal.\n- When you create a recurrence entry, include the prior matching entry id(s) in the content and explain what is new about this occurrence.",
+			slug: "proactive-memory-v1"
+		},
+		"run-eval-direct-v1": {
+			binding: "prompt_prefix",
+			content: "# Direct evaluation run\n\nThe supplied scenario, typed task facts, injected context, and registered submit-output tool are the complete task contract. Do not search diaries, create diary entries, modify a repository, commit, branch, push, or open a pull request unless a task fact explicitly requires it. Submit the agent-authored payload in the first turn; correction turns exist only to recover a rejected or missing submission.",
+			slug: "run-eval-direct-v1"
+		},
+		"task-diary-discipline-v1": {
+			binding: "prompt_prefix",
+			content: "# Task diary discipline\n\n- During a daemon task, create diary entries only through the `moltnet_create_entry` custom tool. It binds entries to the current task diary and injects task, type, attempt, and correlation provenance tags.\n- Do not shell out to `moltnet entry create`, `moltnet entry create-signed`, or any other `moltnet entry` subcommand from bash while a task is running. For a content-signed entry pass `signed: true` to the custom tool instead; it signs on the trusted host. Those shell paths bypass the custom tool's task-tag injection, so task-filtered diary queries cannot find the entry.\n- You may add useful tags, but do not try to replace task provenance supplied by the runtime.",
+			slug: "task-diary-discipline-v1"
+		},
+		"verification-and-artifacts-v1": {
+			binding: "prompt_prefix",
+			content: "# Verification and artifacts\n\n- Run relevant verification before submitting. When task facts include `successCriteria`, assess them honestly in the generated verification contract; a fail or skip with evidence is better than a fabricated pass.\n- The registered submit-output tool owns the exact agent submission schema and validation recovery. Use that schema; do not invent a JSON shape in prose.\n- Upload only task-relevant artifacts, and inspect each before uploading. Never upload secrets, credentials, API keys, auth tokens or headers, .env files, or personal or customer data; redact sensitive values, and prefer minimal, sanitized excerpts over whole logs, bundles, or datasets. Include artifact metadata only where the typed submit contract permits it.\n- If the task depends on prior artifacts, list and download the exact referenced artifact before judging or continuing that work.",
+			slug: "verification-and-artifacts-v1"
 		}
-		return null;
-	};
-	return visit(schema, "outputContract.schema", 0);
+	},
+	recipes: {
+		"artifact-planner@v1": {
+			description: "Minimal artifact-only context for bounded semantic classification and planning.",
+			fragments: ["artifact-planner-v1"]
+		},
+		"run-eval-direct@v1": {
+			description: "Minimal direct context for a short, isolated evaluation run.",
+			fragments: ["run-eval-direct-v1"]
+		},
+		"standard-engineering@v1": {
+			description: "Full opt-in operating guidance for engineering tasks that need diary research, accountable delivery, and verification discipline.",
+			fragments: [
+				"proactive-memory-v1",
+				"task-diary-discipline-v1",
+				"accountable-delivery-v1",
+				"judgment-diary-v1",
+				"verification-and-artifacts-v1"
+			]
+		}
+	}
+};
+function deepFreeze(value) {
+	if (value && typeof value === "object") {
+		for (const key of Object.keys(value)) deepFreeze(value[key]);
+		Object.freeze(value);
+	}
+	return value;
 }
-function outputContractResultSchema(input) {
-	if (!isObject(input) || !isObject(input.outputContract) || input.outputContract.version !== 1 || validateOutputContractSchema(input.outputContract.schema)) return null;
-	return Unsafe(input.outputContract.schema);
+deepFreeze(RUNTIME_PROFILE_CONTEXT_CATALOGUE);
+Object.freeze(Object.keys(RUNTIME_PROFILE_CONTEXT_CATALOGUE.recipes));
+//#endregion
+//#region ../../libs/models/src/credential-scopes.ts
+var CREDENTIAL_SCOPES = {
+	AgentProfile: "agent:profile",
+	ConnectorInvoke: "connector:invoke",
+	CryptoSign: "crypto:sign",
+	DiaryManage: "diary:manage",
+	DiaryRead: "diary:read",
+	DiaryWrite: "diary:write",
+	HumanProfile: "human:profile",
+	KeyManage: "key:manage",
+	PackRead: "pack:read",
+	PackWrite: "pack:write",
+	RuntimeManage: "runtime:manage",
+	RuntimeRead: "runtime:read",
+	TaskClaim: "task:claim",
+	TaskExecute: "task:execute",
+	TaskManage: "task:manage",
+	TaskRead: "task:read",
+	TaskWrite: "task:write",
+	TeamJoin: "team:join",
+	TeamManage: "team:manage",
+	TeamRead: "team:read"
+};
+var ALL_CREDENTIAL_SCOPES = Object.freeze(Object.values(CREDENTIAL_SCOPES));
+/**
+* What the agent daemon cannot run without, checked against
+* `GET /agents/whoami` at startup. Task credentials attenuate it further to
+* `task:execute` alone.
+*
+* This is the **boot floor**, and deliberately not the same list as
+* `AGENT_CREDENTIAL_SCOPES`. A credential's scopes are fixed when it is minted
+* and `POST /agent-keys` caps a new key at the scopes of the credential
+* requesting it, so no key can ever widen itself. A scope added here therefore
+* stops every daemon already in the field, and only a human with a Console
+* session can mint the replacement. Add one only when the daemon genuinely
+* cannot work without it; anything a caller merely benefits from belongs in
+* `DAEMON_OPTIONAL_SCOPES`, where absence costs a capability instead.
+*
+* `crypto:sign` is part of the minimum because host-capability signing runs on
+* the daemon's own credential: the local seed signer calls the signing-request
+* endpoints, which require it. A grant without it produces a daemon that boots
+* cleanly and then fails the first time guest code signs a diary entry or a
+* commit.
+*/
+var DAEMON_MINIMUM_SCOPES = [
+	CREDENTIAL_SCOPES.AgentProfile,
+	CREDENTIAL_SCOPES.CryptoSign,
+	CREDENTIAL_SCOPES.RuntimeRead,
+	CREDENTIAL_SCOPES.TaskRead,
+	CREDENTIAL_SCOPES.TaskClaim,
+	CREDENTIAL_SCOPES.TaskExecute
+];
+/**
+* Read and enrollment authority a daemon uses when it has it, and runs without
+* when it does not: reading the teams it belongs to and their diaries, and
+* joining a team it is not yet a member of.
+*
+* Which product surface each one enables is deliberately not recorded here.
+* That mapping belongs to whatever consumes the scope and changes with it,
+* while the scope names are the contract and do not.
+*/
+var DAEMON_OPTIONAL_SCOPES = [
+	CREDENTIAL_SCOPES.DiaryRead,
+	CREDENTIAL_SCOPES.TeamRead,
+	CREDENTIAL_SCOPES.TeamJoin
+];
+[...[...DAEMON_MINIMUM_SCOPES, ...DAEMON_OPTIONAL_SCOPES], CREDENTIAL_SCOPES.DiaryWrite];
+CREDENTIAL_SCOPES.AgentProfile, CREDENTIAL_SCOPES.TaskRead, CREDENTIAL_SCOPES.TaskWrite;
+CREDENTIAL_SCOPES.AgentProfile, CREDENTIAL_SCOPES.DiaryRead, CREDENTIAL_SCOPES.PackRead, CREDENTIAL_SCOPES.RuntimeRead, CREDENTIAL_SCOPES.TaskRead, CREDENTIAL_SCOPES.TeamRead;
+/** Full grant ceiling for first-party agent OAuth2 clients. */
+var AGENT_OAUTH_SCOPES = Object.freeze(ALL_CREDENTIAL_SCOPES.filter((scope) => scope !== CREDENTIAL_SCOPES.HumanProfile));
+/**
+* REST capabilities exercised by the current MCP tool surface.
+*
+* Intentionally excludes connector invocation, key management, runtime
+* management/read, and task claiming because MCP exposes none of those
+* operations.
+*/
+var MCP_CLIENT_SCOPES = [
+	CREDENTIAL_SCOPES.AgentProfile,
+	CREDENTIAL_SCOPES.CryptoSign,
+	CREDENTIAL_SCOPES.DiaryManage,
+	CREDENTIAL_SCOPES.DiaryRead,
+	CREDENTIAL_SCOPES.DiaryWrite,
+	CREDENTIAL_SCOPES.HumanProfile,
+	CREDENTIAL_SCOPES.PackRead,
+	CREDENTIAL_SCOPES.PackWrite,
+	CREDENTIAL_SCOPES.TaskExecute,
+	CREDENTIAL_SCOPES.TaskManage,
+	CREDENTIAL_SCOPES.TaskRead,
+	CREDENTIAL_SCOPES.TaskWrite,
+	CREDENTIAL_SCOPES.TeamJoin,
+	CREDENTIAL_SCOPES.TeamManage,
+	CREDENTIAL_SCOPES.TeamRead
+];
+MCP_CLIENT_SCOPES.filter((scope) => scope !== CREDENTIAL_SCOPES.HumanProfile);
+/**
+* OIDC protocol scopes. Not MoltNet capabilities — they carry no REST
+* authorization — so every capability cap has to allow them through
+* explicitly rather than treating them as over-grants.
+*/
+var OIDC_PROTOCOL_SCOPES = [
+	"openid",
+	"offline",
+	"offline_access"
+];
+/** Optional OIDC identity claims requested by some interactive MCP clients. */
+var OIDC_IDENTITY_SCOPES = ["email", "profile"];
+/** Registration defaults do not grant identity claims unless requested. */
+var DCR_DEFAULT_SCOPES = Object.freeze([...OIDC_PROTOCOL_SCOPES, ...MCP_CLIENT_SCOPES]);
+Object.freeze([...DCR_DEFAULT_SCOPES, ...OIDC_IDENTITY_SCOPES]);
+Object.freeze({
+	protocolVersion: 2,
+	provisioningScope: "moltnet:provision",
+	localControlScope: "moltnet:local-control",
+	provisioningAudience: "moltnet:provisioning",
+	localControlAudience: "moltnet:agent-server",
+	/**
+	* Administratively registered public PKCE clients. The consent handler
+	* compares a token's `client_id` against these, so server and Desktop must
+	* agree: a mismatch rejects every approval with an opaque 403.
+	*/
+	nativeClientId: "moltnet-native",
+	approvalTransportGraceSeconds: 30,
+	callbackPort: 17375,
+	nativeLifetimeSeconds: 300,
+	serverPort: 17374
+});
+Object.freeze({
+	clientId: "tailscale-login",
+	redirectUri: "https://login.tailscale.com/a/oauth_response",
+	scopes: [
+		"openid",
+		"profile",
+		"email"
+	],
+	scope: "openid profile email"
+});
+//#endregion
+//#region ../../libs/models/src/preview-sign.ts
+function schemaRef$1(schema, id) {
+	return Unsafe(Ref$2(id));
 }
+var PreviewSignBase64UrlSchema = String$1({
+	$id: "PreviewSignBase64Url",
+	minLength: 1,
+	maxLength: 5462,
+	pattern: "^[A-Za-z0-9_-]+$"
+});
+var PreviewSignSha256Base64UrlSchema = String$1({
+	$id: "PreviewSignSha256Base64Url",
+	minLength: 43,
+	maxLength: 43,
+	pattern: "^[A-Za-z0-9_-]+$"
+});
+var PreviewSignP256DerSignatureBase64UrlSchema = String$1({
+	$id: "PreviewSignP256DerSignatureBase64Url",
+	minLength: 11,
+	maxLength: 96,
+	pattern: "^[A-Za-z0-9_-]+$"
+});
+var PreviewSignEs256PublicKeySchema = _Object_({
+	kty: Literal(2),
+	algorithm: Literal(-7),
+	curve: Literal(1),
+	x: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
+	y: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url")
+}, {
+	$id: "PreviewSignEs256PublicKey",
+	additionalProperties: false
+});
+var PreviewSignEcdhEsHkdf256PublicKeySchema = _Object_({
+	kty: Literal(2),
+	algorithm: Literal(-25),
+	curve: Literal(1),
+	x: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
+	y: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url")
+}, {
+	$id: "PreviewSignEcdhEsHkdf256PublicKey",
+	additionalProperties: false
+});
+var PreviewSignEsp256PublicKeySchema = _Object_({
+	kty: Literal(2),
+	algorithm: Literal(-9),
+	curve: Literal(1),
+	x: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
+	y: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url")
+}, {
+	$id: "PreviewSignEsp256PublicKey",
+	additionalProperties: false
+});
+var PreviewSignArkgSeedPublicKeySchema = _Object_({
+	kty: Literal(-65537),
+	algorithm: Literal(-65700),
+	derivedAlgorithm: Literal(-9),
+	blindingKey: schemaRef$1(PreviewSignEs256PublicKeySchema, "PreviewSignEs256PublicKey"),
+	kemKey: schemaRef$1(PreviewSignEcdhEsHkdf256PublicKeySchema, "PreviewSignEcdhEsHkdf256PublicKey")
+}, {
+	$id: "PreviewSignArkgSeedPublicKey",
+	additionalProperties: false
+});
+var PreviewSignPublicMaterialSchema = _Object_({
+	version: Literal(1),
+	outerCredentialId: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
+	outerPublicKey: schemaRef$1(PreviewSignEs256PublicKeySchema, "PreviewSignEs256PublicKey"),
+	previewKeyHandle: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
+	seedPublicKey: schemaRef$1(PreviewSignArkgSeedPublicKeySchema, "PreviewSignArkgSeedPublicKey")
+}, {
+	$id: "PreviewSignPublicMaterial",
+	additionalProperties: false
+});
+var PreviewSignChallengeSchema = _Object_({
+	verificationMethod: Literal("human-hardware-previewsign"),
+	version: Literal(1),
+	envelope: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
+	digest: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
+	additionalArguments: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
+	outerCredentialId: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
+	outerPublicKey: schemaRef$1(PreviewSignEs256PublicKeySchema, "PreviewSignEs256PublicKey"),
+	previewKeyHandle: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url")
+}, {
+	$id: "PreviewSignChallenge",
+	additionalProperties: false
+});
+var PreviewSignChallengeValueSchema = _Object_({
+	verificationMethod: Literal("human-hardware-previewsign"),
+	value: schemaRef$1(PreviewSignChallengeSchema, "PreviewSignChallenge")
+}, {
+	$id: "PreviewSignChallengeValue",
+	additionalProperties: false
+});
+var PreviewSignChallengeOperationSchema = Union([Literal("credential-registration"), Literal("signing-request")], { $id: "PreviewSignChallengeOperation" });
+var PreviewSignReceiptSchema = _Object_({
+	version: Literal(1),
+	signature: schemaRef$1(PreviewSignP256DerSignatureBase64UrlSchema, "PreviewSignP256DerSignatureBase64Url")
+}, {
+	$id: "PreviewSignReceipt",
+	additionalProperties: false
+});
+var PreviewSignReceiptValueSchema = _Object_({
+	verificationMethod: Literal("human-hardware-previewsign"),
+	value: schemaRef$1(PreviewSignReceiptSchema, "PreviewSignReceipt")
+}, {
+	$id: "PreviewSignReceiptValue",
+	additionalProperties: false
+});
+var previewSignSchemaContext = {
+	PreviewSignBase64Url: PreviewSignBase64UrlSchema,
+	PreviewSignSha256Base64Url: PreviewSignSha256Base64UrlSchema,
+	PreviewSignP256DerSignatureBase64Url: PreviewSignP256DerSignatureBase64UrlSchema,
+	PreviewSignEs256PublicKey: PreviewSignEs256PublicKeySchema,
+	PreviewSignEcdhEsHkdf256PublicKey: PreviewSignEcdhEsHkdf256PublicKeySchema,
+	PreviewSignEsp256PublicKey: PreviewSignEsp256PublicKeySchema,
+	PreviewSignArkgSeedPublicKey: PreviewSignArkgSeedPublicKeySchema,
+	PreviewSignPublicMaterial: PreviewSignPublicMaterialSchema,
+	PreviewSignChallenge: PreviewSignChallengeSchema,
+	PreviewSignChallengeValue: PreviewSignChallengeValueSchema,
+	PreviewSignChallengeOperation: PreviewSignChallengeOperationSchema,
+	PreviewSignReceipt: PreviewSignReceiptSchema,
+	PreviewSignReceiptValue: PreviewSignReceiptValueSchema
+};
+//#endregion
+//#region ../../libs/models/src/verification-method.ts
+/**
+* Persisted and wire-level signing verification method identifiers.
+*
+* This vocabulary is append-only. Never rename, remove, or change an existing
+* value: PostgreSQL rows, workflow inputs, and API clients persist these exact
+* strings. Future signing methods must add a new property and value.
+*/
+var VERIFICATION_METHOD = {
+	AgentEd25519: "agent-ed25519",
+	HumanHardwarePreviewSign: "human-hardware-previewsign"
+};
+VERIFICATION_METHOD.AgentEd25519, VERIFICATION_METHOD.HumanHardwarePreviewSign;
+//#endregion
+//#region ../../libs/models/src/schemas.ts
+var UuidSchema = String$1({
+	format: "uuid",
+	description: "UUID v4 identifier"
+});
+var TimestampSchema = String$1({
+	format: "date-time",
+	description: "ISO 8601 timestamp"
+});
+Union([Literal(VERIFICATION_METHOD.AgentEd25519), Literal(VERIFICATION_METHOD.HumanHardwarePreviewSign)], { description: "Stable signing verification method identifier" });
+Union([
+	Literal("private"),
+	Literal("moltnet"),
+	Literal("public")
+], { description: "Entry visibility level" });
+var ENTRY_TYPE_VALUES = [
+	"episodic",
+	"semantic",
+	"procedural",
+	"reflection"
+];
+var EntryTypeSchema = Union([
+	Literal("episodic"),
+	Literal("semantic"),
+	Literal("procedural"),
+	Literal("reflection")
+], { description: "Entry memory type" });
+/** Regex fragment matching a single entry type value. */
+var ENTRY_TYPE_PATTERN = `(${ENTRY_TYPE_VALUES.join("|")})`;
+`${ENTRY_TYPE_PATTERN}${ENTRY_TYPE_PATTERN}`, ENTRY_TYPE_VALUES.length - 1;
+var PublicKeySchema = String$1({
+	pattern: "^ed25519:[A-Za-z0-9+/=]+$",
+	description: "Ed25519 public key with prefix"
+});
+var FingerprintSchema = String$1({
+	pattern: "^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$",
+	description: "Key fingerprint (A1B2-C3D4-E5F6-G7H8)"
+});
+var AgentAliasSchema = String$1({
+	pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$",
+	minLength: 1,
+	maxLength: 63,
+	description: "Case-preserving network alias; self-asserted, not unique, never used for authorization or lookup"
+});
+_Object_({
+	title: Optional(String$1({ maxLength: 255 })),
+	content: String$1({
+		minLength: 1,
+		maxLength: 1e5
+	}),
+	tags: Optional(_Array_(String$1({ maxLength: 128 }), { maxItems: 20 }))
+});
+_Object_({
+	title: Optional(String$1({ maxLength: 255 })),
+	content: Optional(String$1({
+		minLength: 1,
+		maxLength: 1e5
+	})),
+	tags: Optional(_Array_(String$1({ maxLength: 128 }), { maxItems: 20 }))
+});
+_Object_({
+	query: Optional(String$1({
+		minLength: 1,
+		maxLength: 500
+	})),
+	tags: Optional(_Array_(String$1({ maxLength: 128 }), {
+		minItems: 1,
+		maxItems: 20,
+		description: "Filter: entry must have ALL specified tags"
+	})),
+	limit: Optional(Number$1({
+		minimum: 1,
+		maximum: 100,
+		default: 20
+	})),
+	offset: Optional(Number$1({
+		minimum: 0,
+		default: 0
+	}))
+});
+_Object_({
+	identityId: UuidSchema,
+	publicKey: PublicKeySchema,
+	fingerprint: FingerprintSchema,
+	createdAt: TimestampSchema
+});
+_Object_({
+	publicKey: PublicKeySchema,
+	fingerprint: FingerprintSchema
+});
+_Object_({ message: String$1({
+	minLength: 1,
+	maxLength: 1e4
+}) });
+_Object_({
+	message: String$1(),
+	signature: String$1({ description: "Base64 encoded Ed25519 signature" }),
+	publicKey: PublicKeySchema
+});
+_Object_({
+	message: String$1({
+		minLength: 1,
+		maxLength: 1e4
+	}),
+	signature: String$1({ description: "Base64 encoded signature" }),
+	publicKey: PublicKeySchema
+});
+_Object_({
+	valid: Boolean$1(),
+	signer: Optional(_Object_({ fingerprint: FingerprintSchema }))
+});
+var BaseAuthContextSchema = _Object_({
+	identityId: UuidSchema,
+	scopes: _Array_(String$1()),
+	subjectType: Union([Literal("agent"), Literal("human")]),
+	currentTeamId: Union([UuidSchema, Null()])
+});
+Union([Intersect([BaseAuthContextSchema, _Object_({
+	subjectType: Literal("agent"),
+	publicKey: PublicKeySchema,
+	fingerprint: FingerprintSchema,
+	clientId: String$1()
+})]), Intersect([BaseAuthContextSchema, _Object_({
+	subjectType: Literal("human"),
+	clientId: Union([String$1(), Null()])
+})])]);
+_Object_({
+	success: Boolean$1(),
+	message: Optional(String$1())
+});
+_Object_({ diaryId: UuidSchema });
+_Object_({
+	diaryId: UuidSchema,
+	entryId: UuidSchema
+});
+_Object_({ entryId: UuidSchema });
+_Object_({ id: UuidSchema });
+_Object_({
+	publicKey: PublicKeySchema,
+	fingerprint: FingerprintSchema,
+	proof: String$1({
+		minLength: 1,
+		maxLength: 256
+	}),
+	credentialType: Literal("oauth2"),
+	agentName: String$1({
+		minLength: 1,
+		maxLength: 34
+	}),
+	org: Optional(String$1({
+		minLength: 1,
+		maxLength: 39,
+		pattern: "^[a-zA-Z0-9-]+$",
+		description: "GitHub organization name. When provided, the GitHub App will be created under this org instead of the personal account."
+	}))
+});
+_Object_({
+	workflowId: String$1(),
+	manifestFormUrl: String$1()
+});
+_Object_({
+	status: Union([
+		Literal("awaiting_github"),
+		Literal("github_code_ready"),
+		Literal("awaiting_installation"),
+		Literal("completed"),
+		Literal("failed")
+	]),
+	githubCode: Optional(String$1({ description: "GitHub manifest code sealed to the onboarding agent public key." })),
+	identityId: Optional(String$1()),
+	clientId: Optional(String$1()),
+	clientSecret: Optional(String$1({ description: "OAuth2 client secret sealed to the onboarding agent public key." })),
+	installationId: Optional(String$1())
+});
+_Object_({
+	wf: String$1({
+		minLength: 1,
+		description: "Workflow ID baked into setup_url"
+	}),
+	installation_id: String$1({ minLength: 1 }),
+	setup_action: Optional(String$1())
+});
+_Object_({ id: UuidSchema });
+_Object_({
+	id: UuidSchema,
+	subjectId: UuidSchema
+});
+_Object_({
+	id: UuidSchema,
+	inviteId: UuidSchema
+});
+_Object_({ name: String$1({
+	minLength: 1,
+	maxLength: 255
+}) });
+_Object_({
+	role: Optional(Union([
+		Literal("manager"),
+		Literal("executor"),
+		Literal("member")
+	])),
+	expiresInHours: Optional(Integer({
+		minimum: 1,
+		maximum: 720,
+		default: 168
+	}))
+});
+_Object_({
+	code: String$1({ minLength: 1 }),
+	issueAgentKey: Optional(Literal(true)),
+	expectedTeamId: Optional(UuidSchema)
+});
+_Object_({ role: Union([
+	Literal("manager"),
+	Literal("executor"),
+	Literal("member")
+]) });
+var TeamRoleSchema = Union([
+	Literal("owner"),
+	Literal("manager"),
+	Literal("executor"),
+	Literal("member")
+]);
+_Object_({
+	id: UuidSchema,
+	name: String$1()
+});
+var DateTimeUnsafe = Unsafe(String$1({ format: "date-time" }));
+_Object_({
+	id: UuidSchema,
+	code: String$1(),
+	role: Union([
+		Literal("manager"),
+		Literal("executor"),
+		Literal("member")
+	]),
+	usedAt: Union([String$1({ format: "date-time" }), Null()]),
+	expiresAt: DateTimeUnsafe,
+	createdAt: DateTimeUnsafe
+});
+var TeamMemberSchema = _Object_({
+	subjectId: UuidSchema,
+	subjectType: Union([Literal("agent"), Literal("human")]),
+	role: TeamRoleSchema,
+	displayName: String$1(),
+	alias: Optional(AgentAliasSchema),
+	fingerprint: Optional(String$1()),
+	email: Optional(String$1())
+});
+_Object_({
+	id: UuidSchema,
+	name: String$1(),
+	personal: Boolean$1(),
+	status: String$1(),
+	role: TeamRoleSchema
+});
+_Object_({
+	id: UuidSchema,
+	name: String$1(),
+	status: String$1(),
+	personal: Boolean$1(),
+	createdAt: DateTimeUnsafe,
+	updatedAt: DateTimeUnsafe,
+	members: _Array_(TeamMemberSchema)
+});
+_Object_({
+	teamId: UuidSchema,
+	role: TeamRoleSchema
+});
+_Object_({
+	updated: Boolean$1(),
+	role: Union([
+		Literal("manager"),
+		Literal("executor"),
+		Literal("member")
+	])
+});
+_Object_({ deleted: Boolean$1() });
+_Object_({ removed: Boolean$1() });
+var FoundingMemberSchema = _Object_({
+	subjectId: UuidSchema,
+	subjectNs: Union([Literal("Agent"), Literal("Human")]),
+	role: Union([
+		Literal("owner"),
+		Literal("manager"),
+		Literal("executor"),
+		Literal("member")
+	])
+});
+_Object_({
+	name: String$1({
+		minLength: 1,
+		maxLength: 255
+	}),
+	foundingMembers: Optional(_Array_(FoundingMemberSchema, { minItems: 1 }))
+});
+_Object_({
+	id: UuidSchema,
+	name: String$1(),
+	status: String$1(),
+	workflowId: Optional(String$1())
+});
+_Object_({});
+_Object_({
+	accepted: Boolean$1(),
+	teamStatus: String$1()
+});
+_Object_({ destinationTeamId: UuidSchema });
+_Object_({ transferId: UuidSchema });
+_Object_({ items: _Array_(_Object_({
+	id: UuidSchema,
+	diaryId: UuidSchema,
+	sourceTeamId: UuidSchema,
+	destinationTeamId: UuidSchema,
+	status: String$1(),
+	initiatedBy: UuidSchema,
+	expiresAt: Unsafe(String$1({ format: "date-time" })),
+	createdAt: Unsafe(String$1({ format: "date-time" }))
+})) });
+_Object_({ groupId: UuidSchema });
+_Object_({
+	groupId: UuidSchema,
+	subjectId: UuidSchema
+});
+_Object_({ name: String$1({
+	minLength: 1,
+	maxLength: 255
+}) });
+_Object_({
+	subjectId: UuidSchema,
+	subjectNs: Optional(Union([Literal("Agent"), Literal("Human")]))
+});
+_Object_({
+	id: UuidSchema,
+	name: String$1(),
+	teamId: UuidSchema
+});
+var GroupMemberResponseSchema = _Object_({
+	subjectId: UuidSchema,
+	subjectNs: String$1()
+});
+_Object_({
+	id: UuidSchema,
+	name: String$1(),
+	teamId: UuidSchema,
+	createdAt: DateTimeUnsafe,
+	members: _Array_(GroupMemberResponseSchema)
+});
+var DiaryGrantRoleSchema = Union([Literal("writer"), Literal("manager")]);
+var GrantSubjectNsSchema = Union([
+	Literal("Agent"),
+	Literal("Human"),
+	Literal("Group")
+]);
+_Object_({
+	subjectId: UuidSchema,
+	subjectNs: GrantSubjectNsSchema,
+	role: DiaryGrantRoleSchema
+});
+_Object_({
+	subjectId: UuidSchema,
+	subjectNs: GrantSubjectNsSchema,
+	role: DiaryGrantRoleSchema
+});
+_Object_({ grants: _Array_(_Object_({
+	subjectId: UuidSchema,
+	subjectNs: GrantSubjectNsSchema,
+	role: DiaryGrantRoleSchema
+})) });
+_Object_({ revoked: Boolean$1() });
+var TaskGrantRoleSchema = Union([Literal("writer"), Literal("manager")]);
+_Object_({
+	subjectId: UuidSchema,
+	subjectNs: GrantSubjectNsSchema,
+	role: TaskGrantRoleSchema
+});
+_Object_({
+	subjectId: UuidSchema,
+	subjectNs: GrantSubjectNsSchema,
+	role: TaskGrantRoleSchema
+});
+_Object_({ grants: _Array_(_Object_({
+	subjectId: UuidSchema,
+	subjectNs: GrantSubjectNsSchema,
+	role: TaskGrantRoleSchema
+})) });
+_Object_({ "x-moltnet-team-id": String$1({
+	format: "uuid",
+	description: "Team ID (UUID) that will own the resource. Required."
+}) });
+_Object_({ "x-moltnet-team-id": Optional(String$1({
+	format: "uuid",
+	description: "Team ID (UUID) for scoping the request. Optional."
+})) });
+_Object_({
+	kind: Literal("agent"),
+	/**
+	* Internal MoltNet agent ID — stable for the life of the agent and the
+	* value every agent foreign key and Keto tuple refers to.
+	*/
+	agentId: UuidSchema,
+	/**
+	* Ory Kratos identity bound to this agent, or null when it has none.
+	*
+	* Null is not a registration race (agents are created synchronously, with
+	* no webhook): it means the Kratos identity is gone or not yet
+	* reprovisioned. Keeping this nullable is what stops an identity loss from
+	* turning every read of that agent's resources into a serialization error.
+	*/
+	identityId: Union([UuidSchema, Null()]),
+	fingerprint: FingerprintSchema,
+	publicKey: PublicKeySchema
+}, {
+	$id: "AgentPrincipal",
+	additionalProperties: false
+});
+_Object_({
+	kind: Literal("human"),
+	humanId: UuidSchema,
+	identityId: Union([UuidSchema, Null()])
+}, {
+	$id: "HumanPrincipal",
+	additionalProperties: false
+});
+var principalUnionVariants = [_Object_({
+	kind: Literal("agent"),
+	agentId: UuidSchema,
+	identityId: Union([UuidSchema, Null()]),
+	fingerprint: FingerprintSchema,
+	publicKey: PublicKeySchema
+}, { additionalProperties: false }), _Object_({
+	kind: Literal("human"),
+	humanId: UuidSchema,
+	identityId: Union([UuidSchema, Null()])
+}, { additionalProperties: false })];
+Union(principalUnionVariants, {
+	$id: "PrincipalIdentity",
+	discriminator: { propertyName: "kind" }
+});
+/**
+* `$id`-less twin of `PrincipalIdentitySchema`. Required anywhere the
+* schema is **embedded** inline into another schema (MCP `outputSchema`
+* — every tool that returns a creator-bearing object embeds its own
+* copy; provenance-graph node `meta.creator`, etc.). Ajv 8 throws
+* `reference "PrincipalIdentity" resolves to more than one schema` if
+* the same `$id` appears twice in the same compilation pass, which is
+* exactly what happens when the MCP server lists tools and Ajv
+* traverses every advertised `outputSchema`.
+*
+* Structurally identical to `PrincipalIdentitySchema` (they share the
+* variants array); change one, change both.
+*/
+var PrincipalIdentitySchemaInline = Union(principalUnionVariants, { discriminator: { propertyName: "kind" } });
+//#endregion
+//#region ../../libs/models/src/problem-details.ts
+var ProblemCodeSchema = Union([
+	Literal("UNAUTHORIZED"),
+	Literal("FORBIDDEN"),
+	Literal("NOT_FOUND"),
+	Literal("CONFLICT"),
+	Literal("PROJECT_MISMATCH"),
+	Literal("UNSUPPORTED_MEDIA_TYPE"),
+	Literal("VALIDATION_FAILED"),
+	Literal("INVALID_CHALLENGE"),
+	Literal("INVALID_SIGNATURE"),
+	Literal("RATE_LIMIT_EXCEEDED"),
+	Literal("SERIALIZATION_EXHAUSTED"),
+	Literal("SIGNING_REQUEST_EXPIRED"),
+	Literal("SIGNING_REQUEST_ALREADY_COMPLETED"),
+	Literal("SIGNING_REQUEST_LIMIT_REACHED"),
+	Literal("REGISTRATION_FAILED"),
+	Literal("UPSTREAM_ERROR"),
+	Literal("SERVICE_UNAVAILABLE"),
+	Literal("INTERNAL_SERVER_ERROR"),
+	Literal("TEAM_PERSONAL_IMMUTABLE"),
+	Literal("TEAM_NOT_ACTIVE"),
+	Literal("INVITE_EXPIRED"),
+	Literal("INVITE_EXHAUSTED"),
+	Literal("TEAM_LAST_OWNER"),
+	Literal("TEAM_ALREADY_ACTIVE"),
+	Literal("TEAM_NOT_FOUNDING"),
+	Literal("FOUNDING_ALREADY_ACCEPTED"),
+	Literal("DIARY_TRANSFER_PENDING"),
+	Literal("DIARY_TRANSFER_NOT_FOUND"),
+	Literal("DIARY_TRANSFER_ALREADY_RESOLVED")
+]);
+var ProblemDetailsSchema = _Object_({
+	type: String$1({ format: "uri" }),
+	title: String$1(),
+	status: Integer({
+		minimum: 100,
+		maximum: 599
+	}),
+	code: ProblemCodeSchema,
+	detail: Optional(String$1()),
+	instance: Optional(String$1()),
+	retryAfter: Optional(Integer({
+		minimum: 0,
+		description: "Non-negative delay in seconds before retrying, matching the Retry-After response header when present."
+	}))
+}, {
+	$id: "ProblemDetails",
+	additionalProperties: true
+});
+_Object_({
+	field: String$1(),
+	message: String$1(),
+	/**
+	* Optional machine-readable code for branch-able client handling
+	* (e.g. `freeform.sourceTaskNotFound`). Free-form by convention:
+	* `<scope>.<failure>` with dot-namespacing. Absent when the producer
+	* didn't emit one — older code paths just send `field` + `message`.
+	*/
+	code: Optional(String$1())
+}, {
+	$id: "ValidationError",
+	additionalProperties: false
+});
+_Object_({
+	resource: String$1(),
+	id: Optional(String$1({ format: "uuid" })),
+	keys: Optional(Record(String$1(), String$1()))
+}, {
+	$id: "ConflictTarget",
+	additionalProperties: false
+});
+_Object_({
+	constraint: Optional(String$1()),
+	target: Optional(Ref$2("ConflictTarget"))
+}, {
+	$id: "ConflictError",
+	additionalProperties: false
+});
+var ConflictProblemDetailsSchema = Intersect([ProblemDetailsSchema, _Object_({ conflict: Ref$2("ConflictError") })], { $id: "ConflictProblemDetails" });
+_Object_({
+	type: String$1(),
+	severity: Number$1(),
+	match: String$1()
+}, {
+	$id: "InjectionThreat",
+	additionalProperties: false
+});
+Intersect([ConflictProblemDetailsSchema, _Object_({ flagged: Optional(_Array_(_Object_({
+	id: String$1({ format: "uuid" }),
+	threats: _Array_(Ref$2("InjectionThreat"))
+}, { additionalProperties: false }))) })], { $id: "InjectionConflictProblemDetails" });
+Intersect([ProblemDetailsSchema, _Object_({ errors: _Array_(Ref$2("ValidationError")) })], { $id: "ValidationProblemDetails" });
+_Object_({
+	id: String$1({ format: "uuid" }),
+	teamId: String$1({ format: "uuid" }),
+	creatorAgentId: Union([String$1({ format: "uuid" }), Null()]),
+	creatorHumanId: Union([String$1({ format: "uuid" }), Null()]),
+	name: String$1(),
+	description: Union([String$1(), Null()]),
+	defaultDiaryId: Union([String$1({ format: "uuid" }), Null()]),
+	archived: Boolean$1(),
+	createdAt: String$1({ format: "date-time" }),
+	updatedAt: String$1({ format: "date-time" })
+});
+_Object_({
+	...Partial(_Object_({
+		name: String$1({
+			minLength: 1,
+			maxLength: 255,
+			pattern: "\\S"
+		}),
+		description: Optional(Union([String$1({ maxLength: 1e4 }), Null()])),
+		defaultDiaryId: Optional(Union([String$1({ format: "uuid" }), Null()]))
+	}, { additionalProperties: false })).properties,
+	archived: Optional(Boolean$1())
+}, {
+	additionalProperties: false,
+	minProperties: 1
+});
+Union([
+	Literal("pack"),
+	Literal("entry"),
+	Literal("rendered_pack")
+]);
+var ProvenanceGraphEdgeKindSchema = Union([
+	Literal("includes"),
+	Literal("supersedes"),
+	Literal("rendered_from")
+]);
+var ProvenanceGraphPackMetaSchema = _Object_({
+	packId: UuidSchema,
+	diaryId: UuidSchema,
+	packCid: String$1(),
+	packType: String$1(),
+	packCodec: String$1(),
+	pinned: Boolean$1(),
+	createdAt: TimestampSchema,
+	expiresAt: Union([TimestampSchema, Null()]),
+	supersedesPackId: Union([UuidSchema, Null()])
+});
+/**
+* Discriminated creator embedded inside provenance-node response
+* payloads. Re-uses the shared `PrincipalIdentitySchemaInline` (the
+* `$id`-less twin) — embedding the named `PrincipalIdentitySchema`
+* here would clash with the top-level registration via @fastify/swagger
+* (`reference "PrincipalIdentity" resolves to more than one schema`).
+*/
+var ProvenanceGraphCreatorSchema = PrincipalIdentitySchemaInline;
+var ProvenanceGraphEntryMetaSchema = _Object_({
+	entryId: UuidSchema,
+	diaryId: UuidSchema,
+	entryType: EntryTypeSchema,
+	contentHash: Union([String$1(), Null()]),
+	createdAt: TimestampSchema,
+	updatedAt: TimestampSchema,
+	signed: Boolean$1(),
+	title: Union([String$1(), Null()]),
+	tags: _Array_(String$1()),
+	creator: Optional(ProvenanceGraphCreatorSchema)
+});
+var ProvenanceGraphPackNodeSchema = _Object_({
+	id: String$1(),
+	kind: Literal("pack"),
+	label: String$1(),
+	cid: Union([String$1(), Null()]),
+	meta: Intersect([ProvenanceGraphPackMetaSchema, _Object_({ creator: Optional(ProvenanceGraphCreatorSchema) })])
+});
+var ProvenanceGraphEntryNodeSchema = _Object_({
+	id: String$1(),
+	kind: Literal("entry"),
+	label: String$1(),
+	cid: Union([String$1(), Null()]),
+	meta: ProvenanceGraphEntryMetaSchema
+});
+var ProvenanceGraphRenderedPackMetaSchema = _Object_({
+	renderedPackId: UuidSchema,
+	sourcePackId: UuidSchema,
+	diaryId: UuidSchema,
+	packCid: String$1(),
+	renderMethod: String$1(),
+	totalTokens: Number$1(),
+	pinned: Boolean$1(),
+	createdAt: TimestampSchema,
+	expiresAt: Union([TimestampSchema, Null()]),
+	creator: Optional(ProvenanceGraphCreatorSchema)
+});
+var ProvenanceGraphNodeSchema = Union([
+	ProvenanceGraphPackNodeSchema,
+	ProvenanceGraphEntryNodeSchema,
+	_Object_({
+		id: String$1(),
+		kind: Literal("rendered_pack"),
+		label: String$1(),
+		cid: Union([String$1(), Null()]),
+		meta: ProvenanceGraphRenderedPackMetaSchema
+	})
+]);
+var ProvenanceGraphEdgeSchema = _Object_({
+	id: String$1(),
+	from: String$1(),
+	to: String$1(),
+	kind: ProvenanceGraphEdgeKindSchema,
+	label: Optional(String$1()),
+	meta: Optional(Record(String$1(), Union([
+		String$1(),
+		Number$1(),
+		Boolean$1(),
+		Null()
+	])))
+});
+_Object_({
+	metadata: _Object_({
+		format: Literal("moltnet.provenance-graph/v1"),
+		generatedAt: TimestampSchema,
+		rootNodeId: String$1(),
+		rootPackId: UuidSchema,
+		depth: Number$1({ minimum: 0 })
+	}),
+	nodes: _Array_(ProvenanceGraphNodeSchema),
+	edges: _Array_(ProvenanceGraphEdgeSchema)
+}, { $id: "ProvenanceGraph" });
+//#endregion
+//#region ../../libs/models/src/render-method.ts
+/**
+* The `renderMethod` convention for rendered packs (#1857).
+*
+* `renderedPacks.renderMethod` is a free-text `varchar(100)`. The server
+* bifurcates on exactly one thing — whether the label starts with `server:`
+* — and everything else is a caller-authored render whose markdown the
+* caller must supply. This module is the single owner of that convention:
+* the service, the API schemas, the runtime default and the console's
+* trust-tier derivation all read from here.
+*
+* The Go CLI (`apps/moltnet-cli/cobra_pack.go`) cannot import this module;
+* it carries a pointer comment and its default must be kept in sync with
+* `DEFAULT_SERVER_RENDER_METHOD` by hand.
+*
+* Values observed in production data and accepted unchanged:
+* `server:pack-to-docs-v1`, `agent:pack-to-docs-v1`, `agent-refined`.
+* `pi:pack-to-docs-v1` is the live pi-runtime default.
+*/
+/** Labels carrying this prefix are rendered deterministically by the server. */
+var SERVER_RENDER_PREFIX = "server:";
+/**
+* Prefixes that identify caller-authored markdown.
+*
+* `agent:` is the canonical documented label, `pi:` is what the pi-runtime
+* emits by default, and `agent-` covers the `agent-refined` family that is
+* live in production data.
+*/
+var CALLER_AUTHORED_PREFIXES = [
+	"agent:",
+	"pi:",
+	"agent-"
+];
+var DEFAULT_SERVER_RENDER_METHOD = "server:pack-to-docs-v1";
+var DEFAULT_AGENT_RENDER_METHOD = "agent:pack-to-docs-v1";
+var RenderMethodSchema = String$1({
+	minLength: 1,
+	maxLength: 100,
+	pattern: `^(${[SERVER_RENDER_PREFIX, ...CALLER_AUTHORED_PREFIXES].join("|")})\\S+$`,
+	description: "Render method label. Server render methods start with \"server:\" and must omit renderedMarkdown; caller-authored methods start with \"agent:\", \"pi:\" or \"agent-\" and require it.",
+	examples: [DEFAULT_SERVER_RENDER_METHOD, DEFAULT_AGENT_RENDER_METHOD]
+});
+//#endregion
+//#region ../../libs/models/src/signer-constraint.ts
+var SIGNER_CONSTRAINT_TYPE = {
+	Human: "human",
+	TeamRole: "team-role",
+	Group: "group"
+};
+Union([
+	_Object_({
+		type: Literal(SIGNER_CONSTRAINT_TYPE.Human),
+		id: String$1({ format: "uuid" })
+	}),
+	_Object_({
+		type: Literal(SIGNER_CONSTRAINT_TYPE.TeamRole),
+		id: TeamRoleSchema
+	}),
+	_Object_({
+		type: Literal(SIGNER_CONSTRAINT_TYPE.Group),
+		id: String$1({ format: "uuid" })
+	})
+]);
+//#endregion
+//#region ../../libs/models/src/signer-protocol.ts
+function schemaRef(schema) {
+	return Ref$2(schemaId(schema));
+}
+function schemaId(schema) {
+	const id = schema.$id;
+	if (typeof id !== "string" || id.length === 0) throw new Error("Signer protocol schemas must have an identifier");
+	return id;
+}
+var SignerBase64UrlSchema = PreviewSignBase64UrlSchema;
+var SignerUuidSchema = String$1({
+	$id: "SignerUuid",
+	pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+});
+var SignerOperationSchema = Union([
+	Literal("credential-enrollment"),
+	Literal("credential-registration"),
+	Literal("signing-request")
+], { $id: "SignerOperation" });
+var SignerChallengeOperationSchema = PreviewSignChallengeOperationSchema;
+var SignerPreviewSignPublicMaterialSchema = PreviewSignPublicMaterialSchema;
+var SignerPreviewSignChallengeValueSchema = PreviewSignChallengeValueSchema;
+var SignerProblemSchema = _Object_({
+	code: String$1({ minLength: 1 }),
+	message: String$1({ minLength: 1 })
+}, {
+	$id: "SignerProblem",
+	additionalProperties: false
+});
+var SignerCeremonyParamsSchema = _Object_({ ceremonyId: Unsafe(schemaRef(SignerBase64UrlSchema)) }, {
+	$id: "SignerCeremonyParams",
+	additionalProperties: false
+});
+var SignerSessionSchema = _Object_({
+	version: Literal(1),
+	token: Unsafe(schemaRef(SignerBase64UrlSchema)),
+	expiresAt: String$1()
+}, {
+	$id: "SignerSession",
+	additionalProperties: false
+});
+var SignerEnrollmentCeremonyRequestSchema = _Object_({
+	version: Literal(1),
+	operation: Literal("credential-enrollment"),
+	label: String$1({
+		minLength: 1,
+		maxLength: 255
+	}),
+	teamId: Unsafe(schemaRef(SignerUuidSchema))
+}, {
+	$id: "SignerEnrollmentCeremonyRequest",
+	additionalProperties: false
+});
+var SignerChallengeCeremonyRequestSchema = _Object_({
+	version: Literal(1),
+	operation: Unsafe(schemaRef(SignerChallengeOperationSchema)),
+	resourceId: Unsafe(schemaRef(SignerUuidSchema)),
+	challenge: Unsafe(schemaRef(SignerPreviewSignChallengeValueSchema))
+}, {
+	$id: "SignerChallengeCeremonyRequest",
+	additionalProperties: false
+});
+var SignerCeremonyRequestSchema = Union([Unsafe(schemaRef(SignerEnrollmentCeremonyRequestSchema)), Unsafe(schemaRef(SignerChallengeCeremonyRequestSchema))], { $id: "SignerCeremonyRequest" });
+var SignerCeremonySchema = _Object_({
+	version: Literal(1),
+	id: Unsafe(schemaRef(SignerBase64UrlSchema)),
+	operation: Unsafe(schemaRef(SignerOperationSchema)),
+	approvalUrl: String$1(),
+	expiresAt: String$1()
+}, {
+	$id: "SignerCeremony",
+	additionalProperties: false
+});
+var SignerPendingResultSchema = _Object_({
+	version: Literal(1),
+	status: Literal("pending"),
+	operation: Unsafe(schemaRef(SignerOperationSchema))
+}, {
+	$id: "SignerPendingResult",
+	additionalProperties: false
+});
+var SignerEnrollmentResultSchema = _Object_({
+	version: Literal(1),
+	status: Literal("completed"),
+	operation: Literal("credential-enrollment"),
+	publicMaterial: Unsafe(schemaRef(SignerPreviewSignPublicMaterialSchema))
+}, {
+	$id: "SignerEnrollmentResult",
+	additionalProperties: false
+});
+var SignerReceiptSchema = PreviewSignReceiptValueSchema;
+var SignerSignatureResultSchema = _Object_({
+	version: Literal(1),
+	status: Literal("completed"),
+	operation: Unsafe(schemaRef(SignerChallengeOperationSchema)),
+	receipt: Unsafe(schemaRef(SignerReceiptSchema))
+}, {
+	$id: "SignerSignatureResult",
+	additionalProperties: false
+});
+var SignerFailedResultSchema = _Object_({
+	version: Literal(1),
+	status: Literal("failed"),
+	operation: Unsafe(schemaRef(SignerOperationSchema)),
+	code: String$1(),
+	message: String$1()
+}, {
+	$id: "SignerFailedResult",
+	additionalProperties: false
+});
+var SignerCeremonyResultSchema = Union([
+	Unsafe(schemaRef(SignerPendingResultSchema)),
+	Unsafe(schemaRef(SignerEnrollmentResultSchema)),
+	Unsafe(schemaRef(SignerSignatureResultSchema)),
+	Unsafe(schemaRef(SignerFailedResultSchema))
+], { $id: "SignerCeremonyResult" });
+({ ...previewSignSchemaContext }), schemaId(SignerUuidSchema), schemaId(SignerOperationSchema), schemaId(SignerProblemSchema), schemaId(SignerCeremonyParamsSchema), schemaId(SignerSessionSchema), schemaId(SignerEnrollmentCeremonyRequestSchema), schemaId(SignerChallengeCeremonyRequestSchema), schemaId(SignerCeremonyRequestSchema), schemaId(SignerCeremonySchema), schemaId(SignerPendingResultSchema), schemaId(SignerEnrollmentResultSchema), schemaId(SignerSignatureResultSchema), schemaId(SignerFailedResultSchema), schemaId(SignerCeremonyResultSchema);
+//#endregion
+//#region ../../libs/models/src/tool-enforcement.ts
+var TOOL_ENFORCEMENT_VALUES = [
+	"off",
+	"watch",
+	"enforce"
+];
+var ToolEnforcementSchema = Union([
+	Literal(TOOL_ENFORCEMENT_VALUES[0]),
+	Literal(TOOL_ENFORCEMENT_VALUES[1]),
+	Literal(TOOL_ENFORCEMENT_VALUES[2])
+], { description: "Runtime tool-policy enforcement mode: off (inert), watch (audit only), enforce (block disallowed tools, fail-closed)." });
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-profiles.ts
+var RuntimeProfileName = String$1({
+	minLength: 1,
+	maxLength: 100,
+	pattern: "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$"
+});
+var RuntimeProfileEnvName = String$1({
+	minLength: 1,
+	maxLength: 128,
+	pattern: "^[A-Z_][A-Z0-9_]*$"
+});
+var RuntimeProfileToolName = String$1({
+	minLength: 1,
+	maxLength: 128,
+	pattern: "^[a-zA-Z0-9._/-]+$"
+});
+var RUNTIME_PROFILE_RUNTIME_KIND_PATTERN = "^[a-z][a-z0-9._-]{0,99}$";
+new RegExp(RUNTIME_PROFILE_RUNTIME_KIND_PATTERN);
+var RuntimeProfileRuntimeKind = String$1({
+	minLength: 1,
+	maxLength: 100,
+	pattern: RUNTIME_PROFILE_RUNTIME_KIND_PATTERN
+});
+var RuntimeProfileWorkspaceMode = Union([
+	Literal("none"),
+	Literal("shared_mount"),
+	Literal("dedicated_worktree")
+]);
+/**
+* Tool-policy enforcement mode for the profile's runtime `tool_call` gate:
+* `off` (inert), `watch` (audit only), `enforce` (block disallowed tools,
+* fail-closed). Read by the daemon via `GET /runtime-profiles/:id/allowed-tools`.
+*/
+var RuntimeProfileToolEnforcement = ToolEnforcementSchema;
+var RuntimeProfileAllowedWorkspaceModes = _Array_(RuntimeProfileWorkspaceMode, {
+	minItems: 1,
+	maxItems: 3,
+	uniqueItems: true
+});
+var RuntimeProfileThinkingLevelOptions = [
+	Literal("off"),
+	Literal("minimal"),
+	Literal("low"),
+	Literal("medium"),
+	Literal("high"),
+	Literal("xhigh")
+];
+Union([...RuntimeProfileThinkingLevelOptions]);
+var RuntimeProfileNullableThinkingLevel = Union([...RuntimeProfileThinkingLevelOptions, Null()]);
+var RuntimeProfileNullableTemperature = Union([Null(), Number$1({
+	minimum: 0,
+	maximum: 2
+})]);
+var RuntimeProfileNullableTopP = Union([Null(), Number$1({
+	minimum: 0,
+	maximum: 1
+})]);
+var RuntimeProfileNullableTopK = Union([Integer({
+	minimum: 1,
+	maximum: 1e4
+}), Null()]);
+var RuntimeProfileNullableMaxOutputTokens = Union([Integer({
+	minimum: 1,
+	maximum: 1e6
+}), Null()]);
+var RuntimeProfileAllowedHost = String$1({
+	minLength: 1,
+	maxLength: 255,
+	pattern: "^(?:\\*\\.)?(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$"
+});
+var RuntimeProfileSandbox = _Object_({
+	network: Optional(_Object_({
+		allowedHosts: Optional(_Array_(RuntimeProfileAllowedHost, { maxItems: 50 })),
+		allowedInternalHosts: Optional(_Array_(RuntimeProfileAllowedHost, { maxItems: 50 }))
+	}, { additionalProperties: false })),
+	vfs: Optional(_Object_({
+		shadow: Optional(_Array_(String$1({
+			minLength: 1,
+			maxLength: 255
+		}), { maxItems: 100 })),
+		shadowMode: Optional(Union([Literal("deny"), Literal("tmpfs")]))
+	}, { additionalProperties: false })),
+	env: Optional(Record(RuntimeProfileEnvName, String$1({ maxLength: 4096 }))),
+	hostExec: Optional(_Object_({ autoApprove: Optional(Literal(false)) }, { additionalProperties: false })),
+	resources: Optional(_Object_({
+		memory: Optional(String$1({
+			minLength: 2,
+			maxLength: 16,
+			pattern: "^[0-9]+[KMG]?$"
+		})),
+		cpus: Optional(Integer({
+			minimum: 1,
+			maximum: 32
+		}))
+	}, { additionalProperties: false }))
+}, {
+	$id: "RuntimeProfileSandbox",
+	additionalProperties: false
+});
+var RuntimeProfileContext = _Object_({
+	slug: String$1({
+		minLength: 1,
+		maxLength: 64,
+		pattern: "^[a-zA-Z0-9_-]+$"
+	}),
+	binding: Union([
+		Literal("skill"),
+		Literal("context_inline"),
+		Literal("prompt_prefix"),
+		Literal("user_inline")
+	]),
+	content: String$1({
+		minLength: 1,
+		maxLength: 65536
+	})
+}, {
+	$id: "RuntimeProfileContext",
+	additionalProperties: false
+});
+var RuntimeProfileRef = _Object_({ profileId: String$1({ format: "uuid" }) }, {
+	$id: "RuntimeProfileRef",
+	additionalProperties: false
+});
+var RuntimeProfileMaxTurns = Integer({
+	minimum: 0,
+	maximum: 1e4
+});
+var RuntimeProfileMaxBashTimeouts = Integer({
+	minimum: 0,
+	maximum: 1e3
+});
+var RuntimeProfileModelSelection = _Object_({
+	provider: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	model: String$1({
+		minLength: 1,
+		maxLength: 200
+	})
+}, { additionalProperties: false });
+var RuntimeProfileModels = _Object_({
+	generation: Optional(_Object_({
+		...RuntimeProfileModelSelection.properties,
+		thinkingLevel: Optional(RuntimeProfileNullableThinkingLevel),
+		temperature: Optional(RuntimeProfileNullableTemperature),
+		topP: Optional(RuntimeProfileNullableTopP),
+		topK: Optional(RuntimeProfileNullableTopK),
+		maxOutputTokens: Optional(RuntimeProfileNullableMaxOutputTokens)
+	}, { additionalProperties: false })),
+	classification: Optional(RuntimeProfileModelSelection)
+}, {
+	additionalProperties: false,
+	minProperties: 1
+});
+_Object_({
+	id: String$1({ format: "uuid" }),
+	teamId: String$1({ format: "uuid" }),
+	name: RuntimeProfileName,
+	description: Union([String$1({ maxLength: 4096 }), Null()]),
+	models: RuntimeProfileModels,
+	runtimeKind: RuntimeProfileRuntimeKind,
+	sandbox: RuntimeProfileSandbox,
+	defaultWorkspaceMode: Union([RuntimeProfileWorkspaceMode, Null()]),
+	allowedWorkspaceModes: RuntimeProfileAllowedWorkspaceModes,
+	maxTurns: RuntimeProfileMaxTurns,
+	maxBashTimeouts: RuntimeProfileMaxBashTimeouts,
+	toolEnforcement: RuntimeProfileToolEnforcement,
+	requiredEnv: _Array_(RuntimeProfileEnvName, { maxItems: 100 }),
+	requiredTools: _Array_(RuntimeProfileToolName, { maxItems: 100 }),
+	requiredExecutables: _Array_(RuntimeProfileToolName, { maxItems: 100 }),
+	context: _Array_(RuntimeProfileContext, { maxItems: 5 }),
+	revision: Integer({ minimum: 1 }),
+	definitionCid: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	createdByAgentId: Union([String$1({ format: "uuid" }), Null()]),
+	createdByHumanId: Union([String$1({ format: "uuid" }), Null()]),
+	createdAt: String$1({ format: "date-time" }),
+	updatedAt: String$1({ format: "date-time" })
+}, {
+	$id: "RuntimeProfile",
+	additionalProperties: false
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-sessions.ts
+var RuntimeSessionKind = Union([
+	Literal("root"),
+	Literal("extend"),
+	Literal("fork")
+]);
+var RuntimeSessionCheckpointKind = Union([Literal("attempt_final")]);
+_Object_({
+	id: String$1({ format: "uuid" }),
+	teamId: String$1({ format: "uuid" }),
+	taskId: String$1({ format: "uuid" }),
+	attemptN: Integer({ minimum: 1 }),
+	sourceSlotId: Union([String$1({ format: "uuid" }), Null()]),
+	sourceRuntimeProfileId: Union([String$1({ format: "uuid" }), Null()]),
+	sessionKind: RuntimeSessionKind,
+	parentSessionId: Union([String$1({ format: "uuid" }), Null()]),
+	contentType: String$1({
+		minLength: 1,
+		maxLength: 200
+	}),
+	contentEncoding: Union([String$1({
+		minLength: 1,
+		maxLength: 100
+	}), Null()]),
+	sizeBytes: Integer({ minimum: 0 }),
+	sha256: String$1({
+		minLength: 64,
+		maxLength: 64
+	}),
+	storageClass: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	checkpointKind: RuntimeSessionCheckpointKind,
+	uploadedAt: String$1({ format: "date-time" })
+}, { $id: "RuntimeSession" });
+_Object_({
+	sourceSlotId: Optional(String$1({ format: "uuid" })),
+	sourceRuntimeProfileId: Optional(String$1({ format: "uuid" })),
+	sessionKind: RuntimeSessionKind,
+	parentSessionId: Optional(String$1({ format: "uuid" }))
+}, {
+	$id: "UploadRuntimeSessionQuery",
+	additionalProperties: false
+});
+String$1({
+	$id: "RuntimeSessionContent",
+	description: "Runtime session content stream.",
+	format: "binary"
+});
+_Object_({
+	taskId: String$1({ format: "uuid" }),
+	attemptN: Integer({ minimum: 1 })
+}, {
+	$id: "RuntimeSessionAttemptParams",
+	additionalProperties: false
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-slots.ts
+var RuntimeWorkspaceKind = Union([
+	Literal("origin"),
+	Literal("fork"),
+	Literal("scratch")
+]);
+var RuntimeSlotState = Union([Literal("active"), Literal("idle")]);
+var RuntimeWorkspace = _Object_({
+	id: String$1({ format: "uuid" }),
+	teamId: String$1({ format: "uuid" }),
+	workspaceId: String$1({ minLength: 1 }),
+	worktreePath: String$1({ minLength: 1 }),
+	worktreeBranch: Union([String$1({ minLength: 1 }), Null()]),
+	kind: RuntimeWorkspaceKind,
+	createdAtMs: Integer({ minimum: 0 }),
+	lastUsedAtMs: Integer({ minimum: 0 })
+}, { $id: "RuntimeWorkspace" });
+_Object_({ items: _Array_(_Object_({
+	slot: _Object_({
+		id: String$1({ format: "uuid" }),
+		teamId: String$1({ format: "uuid" }),
+		agentName: String$1({
+			minLength: 1,
+			maxLength: 100
+		}),
+		runtimeProfileId: Union([String$1({ format: "uuid" }), Null()]),
+		provider: String$1({
+			minLength: 1,
+			maxLength: 100
+		}),
+		model: String$1({
+			minLength: 1,
+			maxLength: 200
+		}),
+		slotKey: String$1({ minLength: 1 }),
+		taskType: String$1({
+			minLength: 1,
+			maxLength: 100
+		}),
+		state: RuntimeSlotState,
+		lastTaskId: String$1({ format: "uuid" }),
+		lastAttemptN: Integer({ minimum: 1 }),
+		sessionDir: Union([String$1({ minLength: 1 }), Null()]),
+		sessionPath: Union([String$1({ minLength: 1 }), Null()]),
+		workspaceRowId: Union([String$1({ format: "uuid" }), Null()]),
+		createdAtMs: Integer({ minimum: 0 }),
+		lastUsedAtMs: Integer({ minimum: 0 }),
+		expiresAtMs: Integer({ minimum: 0 })
+	}, { $id: "RuntimeSlot" }),
+	workspace: Union([RuntimeWorkspace, Null()])
+}, { $id: "ResolvedRuntimeSlot" })) }, { $id: "RuntimeSlotListResponse" });
+var MAX_RUNTIME_WARM_RETENTION_SEC = 86400;
+_Object_({
+	agentName: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	runtimeProfileId: String$1({ format: "uuid" }),
+	provider: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	model: String$1({
+		minLength: 1,
+		maxLength: 200
+	}),
+	slotKey: String$1({ minLength: 1 }),
+	taskType: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	sessionDir: Optional(String$1({ minLength: 1 })),
+	sessionPath: Optional(String$1({ minLength: 1 })),
+	workspaceId: Optional(String$1({ minLength: 1 })),
+	worktreePath: Optional(String$1({ minLength: 1 })),
+	worktreeBranch: Optional(String$1({ minLength: 1 })),
+	workspaceKind: Optional(RuntimeWorkspaceKind),
+	lastTaskId: String$1({ format: "uuid" }),
+	lastAttemptN: Integer({ minimum: 1 }),
+	warmRetentionSec: Integer({
+		minimum: 0,
+		maximum: MAX_RUNTIME_WARM_RETENTION_SEC
+	})
+}, {
+	$id: "BeginRuntimeSlotBody",
+	additionalProperties: false
+});
+_Object_({
+	agentName: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	runtimeProfileId: String$1({ format: "uuid" }),
+	provider: String$1({
+		minLength: 1,
+		maxLength: 100
+	}),
+	model: String$1({
+		minLength: 1,
+		maxLength: 200
+	}),
+	slotKey: String$1({ minLength: 1 }),
+	taskId: String$1({ format: "uuid" }),
+	attemptN: Integer({ minimum: 1 }),
+	sessionPath: Optional(String$1({ minLength: 1 })),
+	warmRetentionSec: Integer({
+		minimum: 0,
+		maximum: MAX_RUNTIME_WARM_RETENTION_SEC
+	})
+}, {
+	$id: "FinishRuntimeSlotBody",
+	additionalProperties: false
+});
+_Object_({
+	taskId: String$1({ format: "uuid" }),
+	attemptN: Integer({ minimum: 1 })
+}, {
+	$id: "FindLatestRuntimeSlotForAttemptQuery",
+	additionalProperties: false
+});
+_Object_({
+	agentName: Optional(String$1({
+		minLength: 1,
+		maxLength: 100
+	})),
+	runtimeProfileId: Optional(String$1({ format: "uuid" })),
+	state: Optional(RuntimeSlotState),
+	limit: Optional(Integer({
+		minimum: 1,
+		maximum: 200
+	}))
+}, {
+	$id: "ListRuntimeSlotsQuery",
+	additionalProperties: false
+});
+//#endregion
+//#region ../../libs/runtime-profiles/src/runtime-stores.ts
+var uuid = String$1({ format: "uuid" });
+var integer = Integer({
+	minimum: 0,
+	maximum: Number.MAX_SAFE_INTEGER
+});
+var strict$1 = { additionalProperties: false };
+var RuntimeStoreWriter = _Object_({
+	..._Object_({
+		taskId: uuid,
+		attemptN: Integer({ minimum: 1 }),
+		leaseId: uuid,
+		executorFingerprint: String$1({ minLength: 1 })
+	}, {
+		$id: "RuntimeStoreAuthority",
+		...strict$1
+	}).properties,
+	writerToken: uuid
+}, {
+	$id: "RuntimeStoreWriter",
+	...strict$1
+});
+_Object_({
+	storeId: uuid,
+	format: Literal("pi-durable.v1"),
+	headSeq: integer,
+	writerToken: uuid,
+	writerExpiresAt: String$1({ format: "date-time" })
+}, {
+	$id: "RuntimeStoreHandle",
+	...strict$1
+});
+_Object_({ storeId: uuid }, strict$1);
+_Object_({
+	...RuntimeStoreWriter.properties,
+	commitId: uuid,
+	expectedSeq: integer,
+	writes: _Array_(Record(String$1(), Unknown()))
+}, {
+	$id: "AppendRuntimeStoreCommit",
+	...strict$1
+});
+var RuntimeStoreCommit = _Object_({
+	seq: integer,
+	commitId: uuid,
+	sha256: String$1({ pattern: "^[0-9a-f]{64}$" }),
+	writes: _Array_(Record(String$1(), Unknown()))
+}, {
+	$id: "RuntimeStoreCommit",
+	...strict$1
+});
+_Object_({ seq: integer }, strict$1);
+_Object_({ id: integer }, strict$1);
+_Object_({
+	afterSeq: Optional(integer),
+	limit: Optional(Integer({
+		minimum: 1,
+		maximum: 100
+	}))
+}, strict$1);
+_Object_({
+	taskId: uuid,
+	attemptN: Integer({ minimum: 1 })
+}, strict$1);
+Union([_Object_({
+	storeId: uuid,
+	format: Literal("pi-durable.v1"),
+	headSeq: integer
+}, {
+	$id: "RuntimeStoreInfo",
+	...strict$1
+}), Null()]);
 //#endregion
 //#region ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/schema/types/_refine.mjs
 /**
@@ -32785,6 +34374,42 @@ function Errors$1(...args) {
 	}))];
 }
 //#endregion
+//#region ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/schema/check.mjs
+/** Checks a value against the provided schema */
+function Check$1(...args) {
+	const [context, schema, value] = Match$3(args, {
+		3: (context, schema, value) => [
+			context,
+			schema,
+			value
+		],
+		2: (schema, value) => [
+			{},
+			schema,
+			value
+		]
+	});
+	return CheckSchema(new Stack(context, schema), new CheckContext(), schema, value);
+}
+//#endregion
+//#region ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/value/check/check.mjs
+/** Checks a value matches the provided type. */
+function Check(...args) {
+	const [context, type, value] = Match$3(args, {
+		3: (context, type, value) => [
+			context,
+			type,
+			value
+		],
+		2: (type, value) => [
+			{},
+			type,
+			value
+		]
+	});
+	return Check$1(context, type, value);
+}
+//#endregion
 //#region ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/value/errors/errors.mjs
 /** Returns an array of validation errors for the given value. */
 function Errors(...args) {
@@ -32822,1674 +34447,458 @@ Union([
 	})
 ]);
 //#endregion
-//#region ../../libs/runtime-profiles/src/context.ts
-/**
-* How an executor delivers a context entry to its underlying LLM.
-* V1 bindings only; Tier-2 (reference_file, mcp_resource, imported_file,
-* tool_response_seed, additional_context_hook) ship in a later slice.
-*/
-var CONTEXT_BINDINGS = [
-	"skill",
-	"context_inline",
-	"prompt_prefix",
-	"user_inline"
-];
-/** Maximum UTF-16 code units accepted in one ContextRef content field. */
-var CONTEXT_REF_MAX_CONTENT_LENGTH = 65536;
-var ContextBinding = Unsafe(Union(CONTEXT_BINDINGS.map((binding) => Literal(binding)), { $id: "ContextBinding" }));
-/** Reusable input fragment for any task type. Soft cap at 5 items. */
-var TaskContext = _Array_(_Object_({
-	slug: String$1({
-		minLength: 1,
-		maxLength: 64,
-		pattern: "^[a-zA-Z0-9_-]+$"
-	}),
-	binding: ContextBinding,
-	content: String$1({
-		minLength: 1,
-		maxLength: CONTEXT_REF_MAX_CONTENT_LENGTH
-	})
-}, {
-	$id: "ContextRef",
-	additionalProperties: false
-}), {
-	$id: "TaskContext",
-	maxItems: 5
-});
-//#endregion
-//#region ../../libs/runtime-profiles/src/runtime-models.ts
-/**
-* Runtime model catalog: a list of supported provider/model couples that
-* MoltNet daemons can target. Backed by the `runtime_models` table.
-*
-* Scope is intrinsic to the row:
-*   - `teamId == null`  => global entry (MoltNet-seeded, read-only to most callers)
-*   - `teamId != null`  => team-owned custom entry
-*
-* The REST API exposes a single shape regardless of scope; the team header
-* gates which rows are returned.
-*/
-var RuntimeModelProvider = String$1({
-	minLength: 1,
-	maxLength: 100,
-	pattern: "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$"
-});
-var RuntimeModelName = String$1({
-	minLength: 1,
-	maxLength: 200,
-	pattern: "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"
-});
-var RuntimeModelCapabilities = Record(String$1({
-	minLength: 1,
-	maxLength: 64
-}), Union([
-	Boolean$1(),
-	Number$1(),
-	String$1({ maxLength: 256 })
-]));
-_Object_({
-	id: String$1({ format: "uuid" }),
-	teamId: Union([String$1({ format: "uuid" }), Null()]),
-	provider: RuntimeModelProvider,
-	model: RuntimeModelName,
-	displayName: Union([String$1({ maxLength: 200 }), Null()]),
-	description: Union([String$1({ maxLength: 4096 }), Null()]),
-	capabilities: RuntimeModelCapabilities,
-	isActive: Boolean$1(),
-	createdByAgentId: Union([String$1({ format: "uuid" }), Null()]),
-	createdByHumanId: Union([String$1({ format: "uuid" }), Null()]),
-	createdAt: String$1({ format: "date-time" }),
-	updatedAt: String$1({ format: "date-time" })
-}, {
-	$id: "RuntimeModel",
-	additionalProperties: false
-});
-//#endregion
-//#region ../../libs/runtime-profiles/src/runtime-profile-context-recipes.ts
-var RUNTIME_PROFILE_CONTEXT_CATALOGUE = {
-	version: 1,
-	fragments: {
-		"artifact-planner-v1": {
-			binding: "prompt_prefix",
-			content: "# Bounded artifact planner\n\n- The typed task facts, embedded bounded manifest, exact bound artifact references, registered tools, and runtime capability section are the complete contract. Do not search diaries, inspect a mounted repository, enumerate unrelated tasks or artifacts, modify a checkout, commit, branch, push, or contact GitHub.\n- Read only the exact artifact CIDs named by the task, and only when the embedded manifest does not provide enough evidence. Use the registered task-artifact tools for artifact access; never use shell or CLI wrappers to fetch artifacts, paginate, or discover them speculatively.\n- If the effective runtime exposes a local calculator or shell, use it only inside scratch for coverage accounting, budget arithmetic, and JSON validation. The runtime capability section and policy are authoritative; do not assume a static executable list.\n- Perform semantic classification and planning from supplied content and producer/consumer evidence. Do not substitute filename, directory, language, ecosystem, or repository-specific exclusion rules for evidence.\n- Write and upload exactly the requested versioned plan artifact, then reference its returned metadata through the registered submit-output tool. Do not emit a second prose or JSON representation.",
-			slug: "artifact-planner-v1"
+//#region ../../libs/sdk/src/namespaces/runtime-sessions.ts
+function createRuntimeSessionsNamespace(context) {
+	const { client, auth } = context;
+	const request = (options) => ({
+		client,
+		auth,
+		signal: options.signal,
+		headers: requiredTeamHeaders(options)
+	});
+	return {
+		async getDurableForAttempt(taskId, attemptN, options) {
+			return unwrapResult(await getRuntimeStoreForAttempt({
+				...request(options),
+				query: {
+					taskId,
+					attemptN
+				}
+			}));
 		},
-		"accountable-delivery-v1": {
-			binding: "prompt_prefix",
-			content: "# Accountable delivery\n\n- Pair every commit made during this task with a task-provenance diary entry created by the `moltnet_create_entry` custom tool. Put the returned id in a `MoltNet-Diary: <id>` commit trailer. The tool does not currently promise a content signature unless you pass `signed: true` while the runtime kernel declares the `agent-signing` host capability; never describe an entry as signed otherwise.\n- When the runtime kernel declares `agent-signing`, sign commits normally with `git commit -S`: the signature is brokered to the trusted host through `SSH_AUTH_SOCK` and no private key exists in the guest. Without that capability commits are unsigned; do not disable signing the runtime provides, and never try to obtain a key from host configuration.\n- Push a branch and open or update a pull request only when the task asks for it. Use a host-brokered GitHub placeholder only when the runtime kernel declares one; if no GitHub credential is active, the authenticated operation is unavailable.\n- Keep changes, commits, and any requested pull request coherent enough to review independently.",
-			slug: "accountable-delivery-v1"
+		async open(body, options) {
+			return unwrapResult(await openRuntimeStore({
+				...request(options),
+				body
+			}));
 		},
-		"judgment-diary-v1": {
-			binding: "prompt_prefix",
-			content: "# Judgment diary discipline\n\n- For an `assess_brief` or `judge_pack` task, create a diary entry with the `moltnet_create_entry` custom tool before submitting the structured judgment. Capture the rationale and evidence that support the verdict. Do not claim a content signature unless you created the entry with `signed: true` under a runtime that declares the `agent-signing` host capability.\n- Add the `judgment` tag and the active task type tag (`assess_brief` or `judge_pack`). For `judge_pack`, also add `rubric:<rubricId>` from the task facts.\n- Do not use a shell `moltnet entry` command: task provenance is injected only by the custom tool.",
-			slug: "judgment-diary-v1"
+		async renew(storeId, body, options) {
+			return unwrapResult(await renewRuntimeStore({
+				...request(options),
+				path: { storeId },
+				body
+			}));
 		},
-		"proactive-memory-v1": {
-			binding: "prompt_prefix",
-			content: "# Proactive memory use\n\n- Before non-trivial investigation, debugging, code changes, or review, check the task diary for relevant prior knowledge instead of waiting for a human to ask. Use `moltnet_diary_tags` for cheap reconnaissance, `moltnet_list_entries` when tags or task provenance are known, and `moltnet_search_entries` for semantic similarity. Do not search randomly: pass `taskFilter` for task-local or correlation-local queries, and pass `tags` / `entryTypes` for broader prior-knowledge queries using known tags such as `incident`, `decision`, or `scope:<area>`. Broaden only after constrained searches miss.\n- Before creating an `episodic` incident entry, search for similar incidents using the proposed title, root cause, error text, affected subsystem, and watch-for terms, filtered by `entryTypes: [\"episodic\", \"semantic\"]` and any known `scope:*` or task-provenance tags. If a close prior match exists, do not create an isolated duplicate: reference the prior entry in your response or diary content, update or link it when the new occurrence adds material evidence, or create a new recurrence entry only when the recurrence itself is important signal.\n- When you create a recurrence entry, include the prior matching entry id(s) in the content and explain what is new about this occurrence.",
-			slug: "proactive-memory-v1"
+		async release(storeId, body, options) {
+			const result = await releaseRuntimeStore({
+				...request(options),
+				path: { storeId },
+				body
+			});
+			if (result.error) unwrapResult(result);
 		},
-		"run-eval-direct-v1": {
-			binding: "prompt_prefix",
-			content: "# Direct evaluation run\n\nThe supplied scenario, typed task facts, injected context, and registered submit-output tool are the complete task contract. Do not search diaries, create diary entries, modify a repository, commit, branch, push, or open a pull request unless a task fact explicitly requires it. Submit the agent-authored payload in the first turn; correction turns exist only to recover a rejected or missing submission.",
-			slug: "run-eval-direct-v1"
+		async mintId(storeId, body, options) {
+			return unwrapResult(await mintRuntimeStoreId({
+				...request(options),
+				path: { storeId },
+				body
+			}));
 		},
-		"task-diary-discipline-v1": {
-			binding: "prompt_prefix",
-			content: "# Task diary discipline\n\n- During a daemon task, create diary entries only through the `moltnet_create_entry` custom tool. It binds entries to the current task diary and injects task, type, attempt, and correlation provenance tags.\n- Do not shell out to `moltnet entry create`, `moltnet entry create-signed`, or any other `moltnet entry` subcommand from bash while a task is running. For a content-signed entry pass `signed: true` to the custom tool instead; it signs on the trusted host. Those shell paths bypass the custom tool's task-tag injection, so task-filtered diary queries cannot find the entry.\n- You may add useful tags, but do not try to replace task provenance supplied by the runtime.",
-			slug: "task-diary-discipline-v1"
+		async append(storeId, body, options) {
+			return unwrapResult(await appendRuntimeStoreCommit({
+				...request(options),
+				path: { storeId },
+				body
+			}));
 		},
-		"verification-and-artifacts-v1": {
-			binding: "prompt_prefix",
-			content: "# Verification and artifacts\n\n- Run relevant verification before submitting. When task facts include `successCriteria`, assess them honestly in the generated verification contract; a fail or skip with evidence is better than a fabricated pass.\n- The registered submit-output tool owns the exact agent submission schema and validation recovery. Use that schema; do not invent a JSON shape in prose.\n- Upload only task-relevant artifacts, and inspect each before uploading. Never upload secrets, credentials, API keys, auth tokens or headers, .env files, or personal or customer data; redact sensitive values, and prefer minimal, sanitized excerpts over whole logs, bundles, or datasets. Include artifact metadata only where the typed submit contract permits it.\n- If the task depends on prior artifacts, list and download the exact referenced artifact before judging or continuing that work.",
-			slug: "verification-and-artifacts-v1"
+		async read(storeId, afterSeq, options) {
+			const body = unwrapResult(await client.request({
+				...request(options),
+				method: "GET",
+				parseAs: "stream",
+				security: [{
+					scheme: "bearer",
+					type: "http"
+				}],
+				url: "/runtime-sessions/durable/{storeId}/commits",
+				path: { storeId },
+				query: { afterSeq }
+			}));
+			const stream = body instanceof Readable ? body : body instanceof ReadableStream ? Readable.fromWeb(body) : null;
+			if (!stream) throw invalidStoreResponse();
+			const lines = storeLines(stream);
+			try {
+				const first = await lines.next();
+				if (first.done) throw invalidStoreResponse();
+				const header = JSON.parse(first.value);
+				if (!Number.isSafeInteger(header.headSeq) || header.headSeq < afterSeq || !Number.isSafeInteger(header.count) || header.count < 0 || header.count > 100 || header.count > header.headSeq - afterSeq) throw invalidStoreResponse();
+				async function* items() {
+					let count = 0;
+					try {
+						for await (const line of lines) {
+							const commit = JSON.parse(line);
+							if (!Check(RuntimeStoreCommit, commit) || commit.seq !== afterSeq + count + 1 || count >= header.count) throw invalidStoreResponse();
+							count++;
+							yield commit;
+						}
+						if (count !== header.count) throw invalidStoreResponse();
+					} finally {
+						stream.destroy();
+					}
+				}
+				return {
+					headSeq: header.headSeq,
+					items: items(),
+					close: () => stream.destroy()
+				};
+			} catch (error) {
+				await lines.return(void 0);
+				stream.destroy();
+				throw error;
+			}
+		},
+		async getForAttempt(path, options) {
+			try {
+				return unwrapResult(await getRuntimeSession({
+					...request(options),
+					path
+				}));
+			} catch (err) {
+				if (err instanceof MoltNetError && err.statusCode === 404) return null;
+				throw err;
+			}
+		},
+		async upload(path, body, query, options) {
+			return unwrapResult(await uploadRuntimeSession({
+				...request(options),
+				body,
+				client,
+				duplex: "half",
+				headers: {
+					...requiredTeamHeaders(options),
+					"content-type": "application/octet-stream"
+				},
+				path,
+				query
+			}));
+		},
+		async download(path, options) {
+			const stream = unwrapResult(await client.request({
+				...request(options),
+				method: "GET",
+				parseAs: "stream",
+				path,
+				security: [{
+					scheme: "bearer",
+					type: "http"
+				}],
+				url: "/runtime-sessions/{taskId}/{attemptN}/content"
+			}));
+			if (stream instanceof Readable) return stream;
+			if (stream instanceof ReadableStream) return Readable.fromWeb(stream);
+			throw new MoltNetError("Unexpected runtime session download response stream", { code: "INVALID_RESPONSE" });
 		}
-	},
-	recipes: {
-		"artifact-planner@v1": {
-			description: "Minimal artifact-only context for bounded semantic classification and planning.",
-			fragments: ["artifact-planner-v1"]
-		},
-		"run-eval-direct@v1": {
-			description: "Minimal direct context for a short, isolated evaluation run.",
-			fragments: ["run-eval-direct-v1"]
-		},
-		"standard-engineering@v1": {
-			description: "Full opt-in operating guidance for engineering tasks that need diary research, accountable delivery, and verification discipline.",
-			fragments: [
-				"proactive-memory-v1",
-				"task-diary-discipline-v1",
-				"accountable-delivery-v1",
-				"judgment-diary-v1",
-				"verification-and-artifacts-v1"
-			]
+	};
+}
+function invalidStoreResponse() {
+	return new MoltNetError("Invalid or incomplete runtime store stream", { code: "INVALID_RESPONSE" });
+}
+/** Bound unfinished records and preserve UTF-8 across arbitrary network chunks. */
+async function* storeLines(stream) {
+	const decoder = new TextDecoder("utf-8", { fatal: true });
+	let pending = "";
+	try {
+		for await (const chunk of stream) {
+			pending += decoder.decode(chunk, { stream: true });
+			let newline;
+			while ((newline = pending.indexOf("\n")) !== -1) {
+				if (newline > 2097152) throw invalidStoreResponse();
+				const line = pending.slice(0, newline);
+				pending = pending.slice(newline + 1);
+				yield line;
+			}
+			if (pending.length > 2097152) throw invalidStoreResponse();
 		}
+		pending += decoder.decode();
+		if (pending.length) throw invalidStoreResponse();
+	} finally {
+		stream.destroy();
 	}
-};
-function deepFreeze(value) {
-	if (value && typeof value === "object") {
-		for (const key of Object.keys(value)) deepFreeze(value[key]);
-		Object.freeze(value);
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/runtime-slots.ts
+function createRuntimeSlotsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async begin(body, options) {
+			return unwrapResult(await beginRuntimeSlot({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async finish(body, options) {
+			return unwrapResult(await finishRuntimeSlot({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async findLatestForAttempt(query, options) {
+			try {
+				return unwrapResult(await findLatestRuntimeSlotForAttempt({
+					client,
+					auth,
+					headers: requiredTeamHeaders(options),
+					query
+				}));
+			} catch (err) {
+				if (err instanceof MoltNetError && err.statusCode === 404) return null;
+				throw err;
+			}
+		},
+		async list(query, options) {
+			return unwrapResult(await listRuntimeSlots({
+				auth,
+				client,
+				headers: requiredTeamHeaders(options),
+				query: stripUndefinedQuery(query)
+			})).items;
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/signing-credentials.ts
+function createSigningCredentialsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(query, options) {
+			return unwrapResult(await listSigningCredentials({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				query
+			}));
+		},
+		async get(id, options) {
+			return unwrapResult(await getSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		},
+		async startRegistration(body, options) {
+			return unwrapResult(await beginSigningCredentialRegistration({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async completeRegistration(id, body, options) {
+			return unwrapResult(await completeSigningCredentialRegistration({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		},
+		async approve(id, options) {
+			return unwrapResult(await approveSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		},
+		async suspend(id, options) {
+			return unwrapResult(await suspendSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		},
+		async revoke(id, options) {
+			return unwrapResult(await revokeSigningCredential({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id }
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/signing-requests.ts
+function createSigningRequestsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(query) {
+			return unwrapResult(await listSigningRequests({
+				client,
+				auth,
+				query
+			}));
+		},
+		async create(body) {
+			return unwrapResult(await createSigningRequest({
+				client,
+				auth,
+				body
+			}));
+		},
+		async get(id) {
+			return unwrapResult(await getSigningRequest({
+				client,
+				auth,
+				path: { id }
+			}));
+		},
+		async submit(id, body) {
+			return unwrapResult(await submitSignature({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async claim(id, body, options) {
+			return unwrapResult(await claimSigningRequest({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		},
+		async complete(id, body, options) {
+			return unwrapResult(await completeSigningRequest({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		},
+		async reject(id, body, options) {
+			return unwrapResult(await rejectSigningRequest({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				path: { id },
+				body
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/task-grants.ts
+function createTaskGrantsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(taskId, body, options) {
+			return unwrapResult(await createTaskGrant({
+				client,
+				auth,
+				path: { id: taskId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async list(taskId, options) {
+			return unwrapResult(await listTaskGrants({
+				client,
+				auth,
+				path: { id: taskId },
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async revoke(taskId, body, options) {
+			return unwrapResult(await revokeTaskGrant({
+				client,
+				auth,
+				path: { id: taskId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/tasks/src/output-contract-schema.ts
+function isObject(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** Reject unsupported or oversized task-supplied schemas before execution. */
+function validateOutputContractSchema(schema) {
+	if (!isObject(schema) || schema.type !== "object") return "outputContract.schema must be a JSON Schema object with type \"object\"";
+	let encoded;
+	try {
+		encoded = JSON.stringify(schema);
+	} catch {
+		return "outputContract.schema must be JSON serializable";
 	}
-	return value;
+	if (encoded.length > 16384) return "outputContract.schema must be at most 16 KiB";
+	let nodes = 0;
+	const visit = (node, path, depth) => {
+		if (!isObject(node) || depth > 10 || ++nodes > 200) return `${path} must be a schema object within the depth and size limits`;
+		const nullable = Array.isArray(node.type) && node.type.length === 2 && node.type.includes("null") && node.type.filter((value) => value !== "null").length === 1;
+		const type = nullable ? node.type.find((value) => value !== "null") : node.type;
+		if (![
+			"object",
+			"array",
+			"string",
+			"number",
+			"integer",
+			"boolean"
+		].includes(type) || nullable && (type === "object" || type === "array")) return `${path}.type must be object, array, string, number, integer, boolean, or a nullable primitive`;
+		const common = [
+			"type",
+			"description",
+			"title",
+			"enum"
+		];
+		const specific = type === "object" ? [
+			"properties",
+			"required",
+			"additionalProperties"
+		] : type === "array" ? [
+			"items",
+			"minItems",
+			"maxItems"
+		] : type === "string" ? ["minLength", "maxLength"] : type === "number" || type === "integer" ? ["minimum", "maximum"] : [];
+		const unknownKey = Object.keys(node).find((key) => !common.includes(key) && !specific.includes(key));
+		if (unknownKey) return `${path}.${unknownKey} is not supported`;
+		if (node.description !== void 0 && typeof node.description !== "string") return `${path}.description must be a string`;
+		if (node.title !== void 0 && typeof node.title !== "string") return `${path}.title must be a string`;
+		if (node.enum !== void 0 && (type === "object" || type === "array" || !Array.isArray(node.enum) || node.enum.length === 0 || node.enum.some((value) => value === null && nullable ? false : type === "integer" ? !Number.isInteger(value) : typeof value !== type))) return `${path}.enum must contain values of the declared primitive type`;
+		if (type === "object") {
+			if (!isObject(node.properties) || node.additionalProperties !== false) return `${path} needs properties and additionalProperties: false`;
+			const keys = Object.keys(node.properties);
+			if (keys.length > 50 || keys.some((key) => [
+				"__proto__",
+				"prototype",
+				"constructor"
+			].includes(key))) return `${path}.properties has too many or reserved keys`;
+			if (!Array.isArray(node.required) || node.required.some((key) => typeof key !== "string" || !keys.includes(key)) || new Set(node.required).size !== node.required.length) return `${path}.required must list unique declared properties`;
+			for (const key of keys) {
+				const error = visit(node.properties[key], `${path}.properties.${key}`, depth + 1);
+				if (error) return error;
+			}
+		} else if (type === "array") {
+			if (!isObject(node.items)) return `${path}.items must be a schema object`;
+			for (const key of ["minItems", "maxItems"]) if (node[key] !== void 0 && (!Number.isInteger(node[key]) || node[key] < 0 || node[key] > 100)) return `${path}.${key} must be an integer between 0 and 100`;
+			if (typeof node.minItems === "number" && typeof node.maxItems === "number" && node.minItems > node.maxItems) return `${path}.minItems must not exceed maxItems`;
+			return visit(node.items, `${path}.items`, depth + 1);
+		} else {
+			const bounds = type === "string" ? ["minLength", "maxLength"] : ["minimum", "maximum"];
+			for (const key of bounds) if (node[key] !== void 0 && (typeof node[key] !== "number" || !Number.isFinite(node[key]) || type === "string" && (!Number.isInteger(node[key]) || node[key] < 0))) return `${path}.${key} must be a valid number`;
+			const [minKey, maxKey] = bounds;
+			if (typeof node[minKey] === "number" && typeof node[maxKey] === "number" && node[minKey] > node[maxKey]) return `${path}.${minKey} must not exceed ${maxKey}`;
+		}
+		return null;
+	};
+	return visit(schema, "outputContract.schema", 0);
 }
-deepFreeze(RUNTIME_PROFILE_CONTEXT_CATALOGUE);
-Object.freeze(Object.keys(RUNTIME_PROFILE_CONTEXT_CATALOGUE.recipes));
-//#endregion
-//#region ../../libs/models/src/credential-scopes.ts
-var CREDENTIAL_SCOPES = {
-	AgentProfile: "agent:profile",
-	ConnectorInvoke: "connector:invoke",
-	CryptoSign: "crypto:sign",
-	DiaryManage: "diary:manage",
-	DiaryRead: "diary:read",
-	DiaryWrite: "diary:write",
-	HumanProfile: "human:profile",
-	KeyManage: "key:manage",
-	PackRead: "pack:read",
-	PackWrite: "pack:write",
-	RuntimeManage: "runtime:manage",
-	RuntimeRead: "runtime:read",
-	TaskClaim: "task:claim",
-	TaskExecute: "task:execute",
-	TaskManage: "task:manage",
-	TaskRead: "task:read",
-	TaskWrite: "task:write",
-	TeamJoin: "team:join",
-	TeamManage: "team:manage",
-	TeamRead: "team:read"
-};
-var ALL_CREDENTIAL_SCOPES = Object.freeze(Object.values(CREDENTIAL_SCOPES));
-/**
-* What the agent daemon cannot run without, checked against
-* `GET /agents/whoami` at startup. Task credentials attenuate it further to
-* `task:execute` alone.
-*
-* This is the **boot floor**, and deliberately not the same list as
-* `AGENT_CREDENTIAL_SCOPES`. A credential's scopes are fixed when it is minted
-* and `POST /agent-keys` caps a new key at the scopes of the credential
-* requesting it, so no key can ever widen itself. A scope added here therefore
-* stops every daemon already in the field, and only a human with a Console
-* session can mint the replacement. Add one only when the daemon genuinely
-* cannot work without it; anything a caller merely benefits from belongs in
-* `DAEMON_OPTIONAL_SCOPES`, where absence costs a capability instead.
-*
-* `crypto:sign` is part of the minimum because host-capability signing runs on
-* the daemon's own credential: the local seed signer calls the signing-request
-* endpoints, which require it. A grant without it produces a daemon that boots
-* cleanly and then fails the first time guest code signs a diary entry or a
-* commit.
-*/
-var DAEMON_MINIMUM_SCOPES = [
-	CREDENTIAL_SCOPES.AgentProfile,
-	CREDENTIAL_SCOPES.CryptoSign,
-	CREDENTIAL_SCOPES.RuntimeRead,
-	CREDENTIAL_SCOPES.TaskRead,
-	CREDENTIAL_SCOPES.TaskClaim,
-	CREDENTIAL_SCOPES.TaskExecute
-];
-/**
-* Read and enrollment authority a daemon uses when it has it, and runs without
-* when it does not: reading the teams it belongs to and their diaries, and
-* joining a team it is not yet a member of.
-*
-* Which product surface each one enables is deliberately not recorded here.
-* That mapping belongs to whatever consumes the scope and changes with it,
-* while the scope names are the contract and do not.
-*/
-var DAEMON_OPTIONAL_SCOPES = [
-	CREDENTIAL_SCOPES.DiaryRead,
-	CREDENTIAL_SCOPES.TeamRead,
-	CREDENTIAL_SCOPES.TeamJoin
-];
-[...[...DAEMON_MINIMUM_SCOPES, ...DAEMON_OPTIONAL_SCOPES], CREDENTIAL_SCOPES.DiaryWrite];
-CREDENTIAL_SCOPES.AgentProfile, CREDENTIAL_SCOPES.TaskRead, CREDENTIAL_SCOPES.TaskWrite;
-CREDENTIAL_SCOPES.AgentProfile, CREDENTIAL_SCOPES.DiaryRead, CREDENTIAL_SCOPES.PackRead, CREDENTIAL_SCOPES.RuntimeRead, CREDENTIAL_SCOPES.TaskRead, CREDENTIAL_SCOPES.TeamRead;
-/** Full grant ceiling for first-party agent OAuth2 clients. */
-var AGENT_OAUTH_SCOPES = Object.freeze(ALL_CREDENTIAL_SCOPES.filter((scope) => scope !== CREDENTIAL_SCOPES.HumanProfile));
-/**
-* REST capabilities exercised by the current MCP tool surface.
-*
-* Intentionally excludes connector invocation, key management, runtime
-* management/read, and task claiming because MCP exposes none of those
-* operations.
-*/
-var MCP_CLIENT_SCOPES = [
-	CREDENTIAL_SCOPES.AgentProfile,
-	CREDENTIAL_SCOPES.CryptoSign,
-	CREDENTIAL_SCOPES.DiaryManage,
-	CREDENTIAL_SCOPES.DiaryRead,
-	CREDENTIAL_SCOPES.DiaryWrite,
-	CREDENTIAL_SCOPES.HumanProfile,
-	CREDENTIAL_SCOPES.PackRead,
-	CREDENTIAL_SCOPES.PackWrite,
-	CREDENTIAL_SCOPES.TaskExecute,
-	CREDENTIAL_SCOPES.TaskManage,
-	CREDENTIAL_SCOPES.TaskRead,
-	CREDENTIAL_SCOPES.TaskWrite,
-	CREDENTIAL_SCOPES.TeamJoin,
-	CREDENTIAL_SCOPES.TeamManage,
-	CREDENTIAL_SCOPES.TeamRead
-];
-MCP_CLIENT_SCOPES.filter((scope) => scope !== CREDENTIAL_SCOPES.HumanProfile);
-/**
-* OIDC protocol scopes. Not MoltNet capabilities — they carry no REST
-* authorization — so every capability cap has to allow them through
-* explicitly rather than treating them as over-grants.
-*/
-var OIDC_PROTOCOL_SCOPES = [
-	"openid",
-	"offline",
-	"offline_access"
-];
-/** Optional OIDC identity claims requested by some interactive MCP clients. */
-var OIDC_IDENTITY_SCOPES = ["email", "profile"];
-/** Registration defaults do not grant identity claims unless requested. */
-var DCR_DEFAULT_SCOPES = Object.freeze([...OIDC_PROTOCOL_SCOPES, ...MCP_CLIENT_SCOPES]);
-Object.freeze([...DCR_DEFAULT_SCOPES, ...OIDC_IDENTITY_SCOPES]);
-Object.freeze({
-	protocolVersion: 2,
-	provisioningScope: "moltnet:provision",
-	localControlScope: "moltnet:local-control",
-	provisioningAudience: "moltnet:provisioning",
-	localControlAudience: "moltnet:agent-server",
-	/**
-	* Administratively registered public PKCE clients. The consent handler
-	* compares a token's `client_id` against these, so server and Desktop must
-	* agree: a mismatch rejects every approval with an opaque 403.
-	*/
-	nativeClientId: "moltnet-native",
-	approvalTransportGraceSeconds: 30,
-	callbackPort: 17375,
-	nativeLifetimeSeconds: 300,
-	serverPort: 17374
-});
-Object.freeze({
-	clientId: "tailscale-login",
-	redirectUri: "https://login.tailscale.com/a/oauth_response",
-	scopes: [
-		"openid",
-		"profile",
-		"email"
-	],
-	scope: "openid profile email"
-});
-//#endregion
-//#region ../../libs/models/src/preview-sign.ts
-function schemaRef$1(schema, id) {
-	return Unsafe(Ref$2(id));
+function outputContractResultSchema(input) {
+	if (!isObject(input) || !isObject(input.outputContract) || input.outputContract.version !== 1 || validateOutputContractSchema(input.outputContract.schema)) return null;
+	return Unsafe(input.outputContract.schema);
 }
-var PreviewSignBase64UrlSchema = String$1({
-	$id: "PreviewSignBase64Url",
-	minLength: 1,
-	maxLength: 5462,
-	pattern: "^[A-Za-z0-9_-]+$"
-});
-var PreviewSignSha256Base64UrlSchema = String$1({
-	$id: "PreviewSignSha256Base64Url",
-	minLength: 43,
-	maxLength: 43,
-	pattern: "^[A-Za-z0-9_-]+$"
-});
-var PreviewSignP256DerSignatureBase64UrlSchema = String$1({
-	$id: "PreviewSignP256DerSignatureBase64Url",
-	minLength: 11,
-	maxLength: 96,
-	pattern: "^[A-Za-z0-9_-]+$"
-});
-var PreviewSignEs256PublicKeySchema = _Object_({
-	kty: Literal(2),
-	algorithm: Literal(-7),
-	curve: Literal(1),
-	x: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
-	y: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url")
-}, {
-	$id: "PreviewSignEs256PublicKey",
-	additionalProperties: false
-});
-var PreviewSignEcdhEsHkdf256PublicKeySchema = _Object_({
-	kty: Literal(2),
-	algorithm: Literal(-25),
-	curve: Literal(1),
-	x: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
-	y: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url")
-}, {
-	$id: "PreviewSignEcdhEsHkdf256PublicKey",
-	additionalProperties: false
-});
-var PreviewSignEsp256PublicKeySchema = _Object_({
-	kty: Literal(2),
-	algorithm: Literal(-9),
-	curve: Literal(1),
-	x: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
-	y: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url")
-}, {
-	$id: "PreviewSignEsp256PublicKey",
-	additionalProperties: false
-});
-var PreviewSignArkgSeedPublicKeySchema = _Object_({
-	kty: Literal(-65537),
-	algorithm: Literal(-65700),
-	derivedAlgorithm: Literal(-9),
-	blindingKey: schemaRef$1(PreviewSignEs256PublicKeySchema, "PreviewSignEs256PublicKey"),
-	kemKey: schemaRef$1(PreviewSignEcdhEsHkdf256PublicKeySchema, "PreviewSignEcdhEsHkdf256PublicKey")
-}, {
-	$id: "PreviewSignArkgSeedPublicKey",
-	additionalProperties: false
-});
-var PreviewSignPublicMaterialSchema = _Object_({
-	version: Literal(1),
-	outerCredentialId: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
-	outerPublicKey: schemaRef$1(PreviewSignEs256PublicKeySchema, "PreviewSignEs256PublicKey"),
-	previewKeyHandle: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
-	seedPublicKey: schemaRef$1(PreviewSignArkgSeedPublicKeySchema, "PreviewSignArkgSeedPublicKey")
-}, {
-	$id: "PreviewSignPublicMaterial",
-	additionalProperties: false
-});
-var PreviewSignChallengeSchema = _Object_({
-	verificationMethod: Literal("human-hardware-previewsign"),
-	version: Literal(1),
-	envelope: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
-	digest: schemaRef$1(PreviewSignSha256Base64UrlSchema, "PreviewSignSha256Base64Url"),
-	additionalArguments: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
-	outerCredentialId: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url"),
-	outerPublicKey: schemaRef$1(PreviewSignEs256PublicKeySchema, "PreviewSignEs256PublicKey"),
-	previewKeyHandle: schemaRef$1(PreviewSignBase64UrlSchema, "PreviewSignBase64Url")
-}, {
-	$id: "PreviewSignChallenge",
-	additionalProperties: false
-});
-var PreviewSignChallengeValueSchema = _Object_({
-	verificationMethod: Literal("human-hardware-previewsign"),
-	value: schemaRef$1(PreviewSignChallengeSchema, "PreviewSignChallenge")
-}, {
-	$id: "PreviewSignChallengeValue",
-	additionalProperties: false
-});
-var PreviewSignChallengeOperationSchema = Union([Literal("credential-registration"), Literal("signing-request")], { $id: "PreviewSignChallengeOperation" });
-var PreviewSignReceiptSchema = _Object_({
-	version: Literal(1),
-	signature: schemaRef$1(PreviewSignP256DerSignatureBase64UrlSchema, "PreviewSignP256DerSignatureBase64Url")
-}, {
-	$id: "PreviewSignReceipt",
-	additionalProperties: false
-});
-var PreviewSignReceiptValueSchema = _Object_({
-	verificationMethod: Literal("human-hardware-previewsign"),
-	value: schemaRef$1(PreviewSignReceiptSchema, "PreviewSignReceipt")
-}, {
-	$id: "PreviewSignReceiptValue",
-	additionalProperties: false
-});
-var previewSignSchemaContext = {
-	PreviewSignBase64Url: PreviewSignBase64UrlSchema,
-	PreviewSignSha256Base64Url: PreviewSignSha256Base64UrlSchema,
-	PreviewSignP256DerSignatureBase64Url: PreviewSignP256DerSignatureBase64UrlSchema,
-	PreviewSignEs256PublicKey: PreviewSignEs256PublicKeySchema,
-	PreviewSignEcdhEsHkdf256PublicKey: PreviewSignEcdhEsHkdf256PublicKeySchema,
-	PreviewSignEsp256PublicKey: PreviewSignEsp256PublicKeySchema,
-	PreviewSignArkgSeedPublicKey: PreviewSignArkgSeedPublicKeySchema,
-	PreviewSignPublicMaterial: PreviewSignPublicMaterialSchema,
-	PreviewSignChallenge: PreviewSignChallengeSchema,
-	PreviewSignChallengeValue: PreviewSignChallengeValueSchema,
-	PreviewSignChallengeOperation: PreviewSignChallengeOperationSchema,
-	PreviewSignReceipt: PreviewSignReceiptSchema,
-	PreviewSignReceiptValue: PreviewSignReceiptValueSchema
-};
-//#endregion
-//#region ../../libs/models/src/verification-method.ts
-/**
-* Persisted and wire-level signing verification method identifiers.
-*
-* This vocabulary is append-only. Never rename, remove, or change an existing
-* value: PostgreSQL rows, workflow inputs, and API clients persist these exact
-* strings. Future signing methods must add a new property and value.
-*/
-var VERIFICATION_METHOD = {
-	AgentEd25519: "agent-ed25519",
-	HumanHardwarePreviewSign: "human-hardware-previewsign"
-};
-VERIFICATION_METHOD.AgentEd25519, VERIFICATION_METHOD.HumanHardwarePreviewSign;
-//#endregion
-//#region ../../libs/models/src/schemas.ts
-var UuidSchema = String$1({
-	format: "uuid",
-	description: "UUID v4 identifier"
-});
-var TimestampSchema = String$1({
-	format: "date-time",
-	description: "ISO 8601 timestamp"
-});
-Union([Literal(VERIFICATION_METHOD.AgentEd25519), Literal(VERIFICATION_METHOD.HumanHardwarePreviewSign)], { description: "Stable signing verification method identifier" });
-Union([
-	Literal("private"),
-	Literal("moltnet"),
-	Literal("public")
-], { description: "Entry visibility level" });
-var ENTRY_TYPE_VALUES = [
-	"episodic",
-	"semantic",
-	"procedural",
-	"reflection"
-];
-var EntryTypeSchema = Union([
-	Literal("episodic"),
-	Literal("semantic"),
-	Literal("procedural"),
-	Literal("reflection")
-], { description: "Entry memory type" });
-/** Regex fragment matching a single entry type value. */
-var ENTRY_TYPE_PATTERN = `(${ENTRY_TYPE_VALUES.join("|")})`;
-`${ENTRY_TYPE_PATTERN}${ENTRY_TYPE_PATTERN}`, ENTRY_TYPE_VALUES.length - 1;
-var PublicKeySchema = String$1({
-	pattern: "^ed25519:[A-Za-z0-9+/=]+$",
-	description: "Ed25519 public key with prefix"
-});
-var FingerprintSchema = String$1({
-	pattern: "^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$",
-	description: "Key fingerprint (A1B2-C3D4-E5F6-G7H8)"
-});
-var AgentAliasSchema = String$1({
-	pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$",
-	minLength: 1,
-	maxLength: 63,
-	description: "Case-preserving network alias; self-asserted, not unique, never used for authorization or lookup"
-});
-_Object_({
-	title: Optional(String$1({ maxLength: 255 })),
-	content: String$1({
-		minLength: 1,
-		maxLength: 1e5
-	}),
-	tags: Optional(_Array_(String$1({ maxLength: 128 }), { maxItems: 20 }))
-});
-_Object_({
-	title: Optional(String$1({ maxLength: 255 })),
-	content: Optional(String$1({
-		minLength: 1,
-		maxLength: 1e5
-	})),
-	tags: Optional(_Array_(String$1({ maxLength: 128 }), { maxItems: 20 }))
-});
-_Object_({
-	query: Optional(String$1({
-		minLength: 1,
-		maxLength: 500
-	})),
-	tags: Optional(_Array_(String$1({ maxLength: 128 }), {
-		minItems: 1,
-		maxItems: 20,
-		description: "Filter: entry must have ALL specified tags"
-	})),
-	limit: Optional(Number$1({
-		minimum: 1,
-		maximum: 100,
-		default: 20
-	})),
-	offset: Optional(Number$1({
-		minimum: 0,
-		default: 0
-	}))
-});
-_Object_({
-	identityId: UuidSchema,
-	publicKey: PublicKeySchema,
-	fingerprint: FingerprintSchema,
-	createdAt: TimestampSchema
-});
-_Object_({
-	publicKey: PublicKeySchema,
-	fingerprint: FingerprintSchema
-});
-_Object_({ message: String$1({
-	minLength: 1,
-	maxLength: 1e4
-}) });
-_Object_({
-	message: String$1(),
-	signature: String$1({ description: "Base64 encoded Ed25519 signature" }),
-	publicKey: PublicKeySchema
-});
-_Object_({
-	message: String$1({
-		minLength: 1,
-		maxLength: 1e4
-	}),
-	signature: String$1({ description: "Base64 encoded signature" }),
-	publicKey: PublicKeySchema
-});
-_Object_({
-	valid: Boolean$1(),
-	signer: Optional(_Object_({ fingerprint: FingerprintSchema }))
-});
-var BaseAuthContextSchema = _Object_({
-	identityId: UuidSchema,
-	scopes: _Array_(String$1()),
-	subjectType: Union([Literal("agent"), Literal("human")]),
-	currentTeamId: Union([UuidSchema, Null()])
-});
-Union([Intersect([BaseAuthContextSchema, _Object_({
-	subjectType: Literal("agent"),
-	publicKey: PublicKeySchema,
-	fingerprint: FingerprintSchema,
-	clientId: String$1()
-})]), Intersect([BaseAuthContextSchema, _Object_({
-	subjectType: Literal("human"),
-	clientId: Union([String$1(), Null()])
-})])]);
-_Object_({
-	success: Boolean$1(),
-	message: Optional(String$1())
-});
-_Object_({ diaryId: UuidSchema });
-_Object_({
-	diaryId: UuidSchema,
-	entryId: UuidSchema
-});
-_Object_({ entryId: UuidSchema });
-_Object_({ id: UuidSchema });
-_Object_({
-	publicKey: PublicKeySchema,
-	fingerprint: FingerprintSchema,
-	proof: String$1({
-		minLength: 1,
-		maxLength: 256
-	}),
-	credentialType: Literal("oauth2"),
-	agentName: String$1({
-		minLength: 1,
-		maxLength: 34
-	}),
-	org: Optional(String$1({
-		minLength: 1,
-		maxLength: 39,
-		pattern: "^[a-zA-Z0-9-]+$",
-		description: "GitHub organization name. When provided, the GitHub App will be created under this org instead of the personal account."
-	}))
-});
-_Object_({
-	workflowId: String$1(),
-	manifestFormUrl: String$1()
-});
-_Object_({
-	status: Union([
-		Literal("awaiting_github"),
-		Literal("github_code_ready"),
-		Literal("awaiting_installation"),
-		Literal("completed"),
-		Literal("failed")
-	]),
-	githubCode: Optional(String$1({ description: "GitHub manifest code sealed to the onboarding agent public key." })),
-	identityId: Optional(String$1()),
-	clientId: Optional(String$1()),
-	clientSecret: Optional(String$1({ description: "OAuth2 client secret sealed to the onboarding agent public key." })),
-	installationId: Optional(String$1())
-});
-_Object_({
-	wf: String$1({
-		minLength: 1,
-		description: "Workflow ID baked into setup_url"
-	}),
-	installation_id: String$1({ minLength: 1 }),
-	setup_action: Optional(String$1())
-});
-_Object_({ id: UuidSchema });
-_Object_({
-	id: UuidSchema,
-	subjectId: UuidSchema
-});
-_Object_({
-	id: UuidSchema,
-	inviteId: UuidSchema
-});
-_Object_({ name: String$1({
-	minLength: 1,
-	maxLength: 255
-}) });
-_Object_({
-	role: Optional(Union([
-		Literal("manager"),
-		Literal("executor"),
-		Literal("member")
-	])),
-	expiresInHours: Optional(Integer({
-		minimum: 1,
-		maximum: 720,
-		default: 168
-	}))
-});
-_Object_({
-	code: String$1({ minLength: 1 }),
-	issueAgentKey: Optional(Literal(true)),
-	expectedTeamId: Optional(UuidSchema)
-});
-_Object_({ role: Union([
-	Literal("manager"),
-	Literal("executor"),
-	Literal("member")
-]) });
-var TeamRoleSchema = Union([
-	Literal("owner"),
-	Literal("manager"),
-	Literal("executor"),
-	Literal("member")
-]);
-_Object_({
-	id: UuidSchema,
-	name: String$1()
-});
-var DateTimeUnsafe = Unsafe(String$1({ format: "date-time" }));
-_Object_({
-	id: UuidSchema,
-	code: String$1(),
-	role: Union([
-		Literal("manager"),
-		Literal("executor"),
-		Literal("member")
-	]),
-	usedAt: Union([String$1({ format: "date-time" }), Null()]),
-	expiresAt: DateTimeUnsafe,
-	createdAt: DateTimeUnsafe
-});
-var TeamMemberSchema = _Object_({
-	subjectId: UuidSchema,
-	subjectType: Union([Literal("agent"), Literal("human")]),
-	role: TeamRoleSchema,
-	displayName: String$1(),
-	alias: Optional(AgentAliasSchema),
-	fingerprint: Optional(String$1()),
-	email: Optional(String$1())
-});
-_Object_({
-	id: UuidSchema,
-	name: String$1(),
-	personal: Boolean$1(),
-	status: String$1(),
-	role: TeamRoleSchema
-});
-_Object_({
-	id: UuidSchema,
-	name: String$1(),
-	status: String$1(),
-	personal: Boolean$1(),
-	createdAt: DateTimeUnsafe,
-	updatedAt: DateTimeUnsafe,
-	members: _Array_(TeamMemberSchema)
-});
-_Object_({
-	teamId: UuidSchema,
-	role: TeamRoleSchema
-});
-_Object_({
-	updated: Boolean$1(),
-	role: Union([
-		Literal("manager"),
-		Literal("executor"),
-		Literal("member")
-	])
-});
-_Object_({ deleted: Boolean$1() });
-_Object_({ removed: Boolean$1() });
-var FoundingMemberSchema = _Object_({
-	subjectId: UuidSchema,
-	subjectNs: Union([Literal("Agent"), Literal("Human")]),
-	role: Union([
-		Literal("owner"),
-		Literal("manager"),
-		Literal("executor"),
-		Literal("member")
-	])
-});
-_Object_({
-	name: String$1({
-		minLength: 1,
-		maxLength: 255
-	}),
-	foundingMembers: Optional(_Array_(FoundingMemberSchema, { minItems: 1 }))
-});
-_Object_({
-	id: UuidSchema,
-	name: String$1(),
-	status: String$1(),
-	workflowId: Optional(String$1())
-});
-_Object_({});
-_Object_({
-	accepted: Boolean$1(),
-	teamStatus: String$1()
-});
-_Object_({ destinationTeamId: UuidSchema });
-_Object_({ transferId: UuidSchema });
-_Object_({ items: _Array_(_Object_({
-	id: UuidSchema,
-	diaryId: UuidSchema,
-	sourceTeamId: UuidSchema,
-	destinationTeamId: UuidSchema,
-	status: String$1(),
-	initiatedBy: UuidSchema,
-	expiresAt: Unsafe(String$1({ format: "date-time" })),
-	createdAt: Unsafe(String$1({ format: "date-time" }))
-})) });
-_Object_({ groupId: UuidSchema });
-_Object_({
-	groupId: UuidSchema,
-	subjectId: UuidSchema
-});
-_Object_({ name: String$1({
-	minLength: 1,
-	maxLength: 255
-}) });
-_Object_({
-	subjectId: UuidSchema,
-	subjectNs: Optional(Union([Literal("Agent"), Literal("Human")]))
-});
-_Object_({
-	id: UuidSchema,
-	name: String$1(),
-	teamId: UuidSchema
-});
-var GroupMemberResponseSchema = _Object_({
-	subjectId: UuidSchema,
-	subjectNs: String$1()
-});
-_Object_({
-	id: UuidSchema,
-	name: String$1(),
-	teamId: UuidSchema,
-	createdAt: DateTimeUnsafe,
-	members: _Array_(GroupMemberResponseSchema)
-});
-var DiaryGrantRoleSchema = Union([Literal("writer"), Literal("manager")]);
-var GrantSubjectNsSchema = Union([
-	Literal("Agent"),
-	Literal("Human"),
-	Literal("Group")
-]);
-_Object_({
-	subjectId: UuidSchema,
-	subjectNs: GrantSubjectNsSchema,
-	role: DiaryGrantRoleSchema
-});
-_Object_({
-	subjectId: UuidSchema,
-	subjectNs: GrantSubjectNsSchema,
-	role: DiaryGrantRoleSchema
-});
-_Object_({ grants: _Array_(_Object_({
-	subjectId: UuidSchema,
-	subjectNs: GrantSubjectNsSchema,
-	role: DiaryGrantRoleSchema
-})) });
-_Object_({ revoked: Boolean$1() });
-var TaskGrantRoleSchema = Union([Literal("writer"), Literal("manager")]);
-_Object_({
-	subjectId: UuidSchema,
-	subjectNs: GrantSubjectNsSchema,
-	role: TaskGrantRoleSchema
-});
-_Object_({
-	subjectId: UuidSchema,
-	subjectNs: GrantSubjectNsSchema,
-	role: TaskGrantRoleSchema
-});
-_Object_({ grants: _Array_(_Object_({
-	subjectId: UuidSchema,
-	subjectNs: GrantSubjectNsSchema,
-	role: TaskGrantRoleSchema
-})) });
-_Object_({ "x-moltnet-team-id": String$1({
-	format: "uuid",
-	description: "Team ID (UUID) that will own the resource. Required."
-}) });
-_Object_({ "x-moltnet-team-id": Optional(String$1({
-	format: "uuid",
-	description: "Team ID (UUID) for scoping the request. Optional."
-})) });
-_Object_({
-	kind: Literal("agent"),
-	/**
-	* Internal MoltNet agent ID — stable for the life of the agent and the
-	* value every agent foreign key and Keto tuple refers to.
-	*/
-	agentId: UuidSchema,
-	/**
-	* Ory Kratos identity bound to this agent, or null when it has none.
-	*
-	* Null is not a registration race (agents are created synchronously, with
-	* no webhook): it means the Kratos identity is gone or not yet
-	* reprovisioned. Keeping this nullable is what stops an identity loss from
-	* turning every read of that agent's resources into a serialization error.
-	*/
-	identityId: Union([UuidSchema, Null()]),
-	fingerprint: FingerprintSchema,
-	publicKey: PublicKeySchema
-}, {
-	$id: "AgentPrincipal",
-	additionalProperties: false
-});
-_Object_({
-	kind: Literal("human"),
-	humanId: UuidSchema,
-	identityId: Union([UuidSchema, Null()])
-}, {
-	$id: "HumanPrincipal",
-	additionalProperties: false
-});
-var principalUnionVariants = [_Object_({
-	kind: Literal("agent"),
-	agentId: UuidSchema,
-	identityId: Union([UuidSchema, Null()]),
-	fingerprint: FingerprintSchema,
-	publicKey: PublicKeySchema
-}, { additionalProperties: false }), _Object_({
-	kind: Literal("human"),
-	humanId: UuidSchema,
-	identityId: Union([UuidSchema, Null()])
-}, { additionalProperties: false })];
-Union(principalUnionVariants, {
-	$id: "PrincipalIdentity",
-	discriminator: { propertyName: "kind" }
-});
-/**
-* `$id`-less twin of `PrincipalIdentitySchema`. Required anywhere the
-* schema is **embedded** inline into another schema (MCP `outputSchema`
-* — every tool that returns a creator-bearing object embeds its own
-* copy; provenance-graph node `meta.creator`, etc.). Ajv 8 throws
-* `reference "PrincipalIdentity" resolves to more than one schema` if
-* the same `$id` appears twice in the same compilation pass, which is
-* exactly what happens when the MCP server lists tools and Ajv
-* traverses every advertised `outputSchema`.
-*
-* Structurally identical to `PrincipalIdentitySchema` (they share the
-* variants array); change one, change both.
-*/
-var PrincipalIdentitySchemaInline = Union(principalUnionVariants, { discriminator: { propertyName: "kind" } });
-//#endregion
-//#region ../../libs/models/src/problem-details.ts
-var ProblemCodeSchema = Union([
-	Literal("UNAUTHORIZED"),
-	Literal("FORBIDDEN"),
-	Literal("NOT_FOUND"),
-	Literal("CONFLICT"),
-	Literal("PROJECT_MISMATCH"),
-	Literal("UNSUPPORTED_MEDIA_TYPE"),
-	Literal("VALIDATION_FAILED"),
-	Literal("INVALID_CHALLENGE"),
-	Literal("INVALID_SIGNATURE"),
-	Literal("RATE_LIMIT_EXCEEDED"),
-	Literal("SERIALIZATION_EXHAUSTED"),
-	Literal("SIGNING_REQUEST_EXPIRED"),
-	Literal("SIGNING_REQUEST_ALREADY_COMPLETED"),
-	Literal("SIGNING_REQUEST_LIMIT_REACHED"),
-	Literal("REGISTRATION_FAILED"),
-	Literal("UPSTREAM_ERROR"),
-	Literal("SERVICE_UNAVAILABLE"),
-	Literal("INTERNAL_SERVER_ERROR"),
-	Literal("TEAM_PERSONAL_IMMUTABLE"),
-	Literal("TEAM_NOT_ACTIVE"),
-	Literal("INVITE_EXPIRED"),
-	Literal("INVITE_EXHAUSTED"),
-	Literal("TEAM_LAST_OWNER"),
-	Literal("TEAM_ALREADY_ACTIVE"),
-	Literal("TEAM_NOT_FOUNDING"),
-	Literal("FOUNDING_ALREADY_ACCEPTED"),
-	Literal("DIARY_TRANSFER_PENDING"),
-	Literal("DIARY_TRANSFER_NOT_FOUND"),
-	Literal("DIARY_TRANSFER_ALREADY_RESOLVED")
-]);
-var ProblemDetailsSchema = _Object_({
-	type: String$1({ format: "uri" }),
-	title: String$1(),
-	status: Integer({
-		minimum: 100,
-		maximum: 599
-	}),
-	code: ProblemCodeSchema,
-	detail: Optional(String$1()),
-	instance: Optional(String$1()),
-	retryAfter: Optional(Integer({
-		minimum: 0,
-		description: "Non-negative delay in seconds before retrying, matching the Retry-After response header when present."
-	}))
-}, {
-	$id: "ProblemDetails",
-	additionalProperties: true
-});
-_Object_({
-	field: String$1(),
-	message: String$1(),
-	/**
-	* Optional machine-readable code for branch-able client handling
-	* (e.g. `freeform.sourceTaskNotFound`). Free-form by convention:
-	* `<scope>.<failure>` with dot-namespacing. Absent when the producer
-	* didn't emit one — older code paths just send `field` + `message`.
-	*/
-	code: Optional(String$1())
-}, {
-	$id: "ValidationError",
-	additionalProperties: false
-});
-_Object_({
-	resource: String$1(),
-	id: Optional(String$1({ format: "uuid" })),
-	keys: Optional(Record(String$1(), String$1()))
-}, {
-	$id: "ConflictTarget",
-	additionalProperties: false
-});
-_Object_({
-	constraint: Optional(String$1()),
-	target: Optional(Ref$2("ConflictTarget"))
-}, {
-	$id: "ConflictError",
-	additionalProperties: false
-});
-var ConflictProblemDetailsSchema = Intersect([ProblemDetailsSchema, _Object_({ conflict: Ref$2("ConflictError") })], { $id: "ConflictProblemDetails" });
-_Object_({
-	type: String$1(),
-	severity: Number$1(),
-	match: String$1()
-}, {
-	$id: "InjectionThreat",
-	additionalProperties: false
-});
-Intersect([ConflictProblemDetailsSchema, _Object_({ flagged: Optional(_Array_(_Object_({
-	id: String$1({ format: "uuid" }),
-	threats: _Array_(Ref$2("InjectionThreat"))
-}, { additionalProperties: false }))) })], { $id: "InjectionConflictProblemDetails" });
-Intersect([ProblemDetailsSchema, _Object_({ errors: _Array_(Ref$2("ValidationError")) })], { $id: "ValidationProblemDetails" });
-_Object_({
-	id: String$1({ format: "uuid" }),
-	teamId: String$1({ format: "uuid" }),
-	creatorAgentId: Union([String$1({ format: "uuid" }), Null()]),
-	creatorHumanId: Union([String$1({ format: "uuid" }), Null()]),
-	name: String$1(),
-	description: Union([String$1(), Null()]),
-	defaultDiaryId: Union([String$1({ format: "uuid" }), Null()]),
-	archived: Boolean$1(),
-	createdAt: String$1({ format: "date-time" }),
-	updatedAt: String$1({ format: "date-time" })
-});
-_Object_({
-	...Partial(_Object_({
-		name: String$1({
-			minLength: 1,
-			maxLength: 255,
-			pattern: "\\S"
-		}),
-		description: Optional(Union([String$1({ maxLength: 1e4 }), Null()])),
-		defaultDiaryId: Optional(Union([String$1({ format: "uuid" }), Null()]))
-	}, { additionalProperties: false })).properties,
-	archived: Optional(Boolean$1())
-}, {
-	additionalProperties: false,
-	minProperties: 1
-});
-Union([
-	Literal("pack"),
-	Literal("entry"),
-	Literal("rendered_pack")
-]);
-var ProvenanceGraphEdgeKindSchema = Union([
-	Literal("includes"),
-	Literal("supersedes"),
-	Literal("rendered_from")
-]);
-var ProvenanceGraphPackMetaSchema = _Object_({
-	packId: UuidSchema,
-	diaryId: UuidSchema,
-	packCid: String$1(),
-	packType: String$1(),
-	packCodec: String$1(),
-	pinned: Boolean$1(),
-	createdAt: TimestampSchema,
-	expiresAt: Union([TimestampSchema, Null()]),
-	supersedesPackId: Union([UuidSchema, Null()])
-});
-/**
-* Discriminated creator embedded inside provenance-node response
-* payloads. Re-uses the shared `PrincipalIdentitySchemaInline` (the
-* `$id`-less twin) — embedding the named `PrincipalIdentitySchema`
-* here would clash with the top-level registration via @fastify/swagger
-* (`reference "PrincipalIdentity" resolves to more than one schema`).
-*/
-var ProvenanceGraphCreatorSchema = PrincipalIdentitySchemaInline;
-var ProvenanceGraphEntryMetaSchema = _Object_({
-	entryId: UuidSchema,
-	diaryId: UuidSchema,
-	entryType: EntryTypeSchema,
-	contentHash: Union([String$1(), Null()]),
-	createdAt: TimestampSchema,
-	updatedAt: TimestampSchema,
-	signed: Boolean$1(),
-	title: Union([String$1(), Null()]),
-	tags: _Array_(String$1()),
-	creator: Optional(ProvenanceGraphCreatorSchema)
-});
-var ProvenanceGraphPackNodeSchema = _Object_({
-	id: String$1(),
-	kind: Literal("pack"),
-	label: String$1(),
-	cid: Union([String$1(), Null()]),
-	meta: Intersect([ProvenanceGraphPackMetaSchema, _Object_({ creator: Optional(ProvenanceGraphCreatorSchema) })])
-});
-var ProvenanceGraphEntryNodeSchema = _Object_({
-	id: String$1(),
-	kind: Literal("entry"),
-	label: String$1(),
-	cid: Union([String$1(), Null()]),
-	meta: ProvenanceGraphEntryMetaSchema
-});
-var ProvenanceGraphRenderedPackMetaSchema = _Object_({
-	renderedPackId: UuidSchema,
-	sourcePackId: UuidSchema,
-	diaryId: UuidSchema,
-	packCid: String$1(),
-	renderMethod: String$1(),
-	totalTokens: Number$1(),
-	pinned: Boolean$1(),
-	createdAt: TimestampSchema,
-	expiresAt: Union([TimestampSchema, Null()]),
-	creator: Optional(ProvenanceGraphCreatorSchema)
-});
-var ProvenanceGraphNodeSchema = Union([
-	ProvenanceGraphPackNodeSchema,
-	ProvenanceGraphEntryNodeSchema,
-	_Object_({
-		id: String$1(),
-		kind: Literal("rendered_pack"),
-		label: String$1(),
-		cid: Union([String$1(), Null()]),
-		meta: ProvenanceGraphRenderedPackMetaSchema
-	})
-]);
-var ProvenanceGraphEdgeSchema = _Object_({
-	id: String$1(),
-	from: String$1(),
-	to: String$1(),
-	kind: ProvenanceGraphEdgeKindSchema,
-	label: Optional(String$1()),
-	meta: Optional(Record(String$1(), Union([
-		String$1(),
-		Number$1(),
-		Boolean$1(),
-		Null()
-	])))
-});
-_Object_({
-	metadata: _Object_({
-		format: Literal("moltnet.provenance-graph/v1"),
-		generatedAt: TimestampSchema,
-		rootNodeId: String$1(),
-		rootPackId: UuidSchema,
-		depth: Number$1({ minimum: 0 })
-	}),
-	nodes: _Array_(ProvenanceGraphNodeSchema),
-	edges: _Array_(ProvenanceGraphEdgeSchema)
-}, { $id: "ProvenanceGraph" });
-//#endregion
-//#region ../../libs/models/src/render-method.ts
-/**
-* The `renderMethod` convention for rendered packs (#1857).
-*
-* `renderedPacks.renderMethod` is a free-text `varchar(100)`. The server
-* bifurcates on exactly one thing — whether the label starts with `server:`
-* — and everything else is a caller-authored render whose markdown the
-* caller must supply. This module is the single owner of that convention:
-* the service, the API schemas, the runtime default and the console's
-* trust-tier derivation all read from here.
-*
-* The Go CLI (`apps/moltnet-cli/cobra_pack.go`) cannot import this module;
-* it carries a pointer comment and its default must be kept in sync with
-* `DEFAULT_SERVER_RENDER_METHOD` by hand.
-*
-* Values observed in production data and accepted unchanged:
-* `server:pack-to-docs-v1`, `agent:pack-to-docs-v1`, `agent-refined`.
-* `pi:pack-to-docs-v1` is the live pi-runtime default.
-*/
-/** Labels carrying this prefix are rendered deterministically by the server. */
-var SERVER_RENDER_PREFIX = "server:";
-/**
-* Prefixes that identify caller-authored markdown.
-*
-* `agent:` is the canonical documented label, `pi:` is what the pi-runtime
-* emits by default, and `agent-` covers the `agent-refined` family that is
-* live in production data.
-*/
-var CALLER_AUTHORED_PREFIXES = [
-	"agent:",
-	"pi:",
-	"agent-"
-];
-var DEFAULT_SERVER_RENDER_METHOD = "server:pack-to-docs-v1";
-var DEFAULT_AGENT_RENDER_METHOD = "agent:pack-to-docs-v1";
-var RenderMethodSchema = String$1({
-	minLength: 1,
-	maxLength: 100,
-	pattern: `^(${[SERVER_RENDER_PREFIX, ...CALLER_AUTHORED_PREFIXES].join("|")})\\S+$`,
-	description: "Render method label. Server render methods start with \"server:\" and must omit renderedMarkdown; caller-authored methods start with \"agent:\", \"pi:\" or \"agent-\" and require it.",
-	examples: [DEFAULT_SERVER_RENDER_METHOD, DEFAULT_AGENT_RENDER_METHOD]
-});
-//#endregion
-//#region ../../libs/models/src/signer-constraint.ts
-var SIGNER_CONSTRAINT_TYPE = {
-	Human: "human",
-	TeamRole: "team-role",
-	Group: "group"
-};
-Union([
-	_Object_({
-		type: Literal(SIGNER_CONSTRAINT_TYPE.Human),
-		id: String$1({ format: "uuid" })
-	}),
-	_Object_({
-		type: Literal(SIGNER_CONSTRAINT_TYPE.TeamRole),
-		id: TeamRoleSchema
-	}),
-	_Object_({
-		type: Literal(SIGNER_CONSTRAINT_TYPE.Group),
-		id: String$1({ format: "uuid" })
-	})
-]);
-//#endregion
-//#region ../../libs/models/src/signer-protocol.ts
-function schemaRef(schema) {
-	return Ref$2(schemaId(schema));
-}
-function schemaId(schema) {
-	const id = schema.$id;
-	if (typeof id !== "string" || id.length === 0) throw new Error("Signer protocol schemas must have an identifier");
-	return id;
-}
-var SignerBase64UrlSchema = PreviewSignBase64UrlSchema;
-var SignerUuidSchema = String$1({
-	$id: "SignerUuid",
-	pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-});
-var SignerOperationSchema = Union([
-	Literal("credential-enrollment"),
-	Literal("credential-registration"),
-	Literal("signing-request")
-], { $id: "SignerOperation" });
-var SignerChallengeOperationSchema = PreviewSignChallengeOperationSchema;
-var SignerPreviewSignPublicMaterialSchema = PreviewSignPublicMaterialSchema;
-var SignerPreviewSignChallengeValueSchema = PreviewSignChallengeValueSchema;
-var SignerProblemSchema = _Object_({
-	code: String$1({ minLength: 1 }),
-	message: String$1({ minLength: 1 })
-}, {
-	$id: "SignerProblem",
-	additionalProperties: false
-});
-var SignerCeremonyParamsSchema = _Object_({ ceremonyId: Unsafe(schemaRef(SignerBase64UrlSchema)) }, {
-	$id: "SignerCeremonyParams",
-	additionalProperties: false
-});
-var SignerSessionSchema = _Object_({
-	version: Literal(1),
-	token: Unsafe(schemaRef(SignerBase64UrlSchema)),
-	expiresAt: String$1()
-}, {
-	$id: "SignerSession",
-	additionalProperties: false
-});
-var SignerEnrollmentCeremonyRequestSchema = _Object_({
-	version: Literal(1),
-	operation: Literal("credential-enrollment"),
-	label: String$1({
-		minLength: 1,
-		maxLength: 255
-	}),
-	teamId: Unsafe(schemaRef(SignerUuidSchema))
-}, {
-	$id: "SignerEnrollmentCeremonyRequest",
-	additionalProperties: false
-});
-var SignerChallengeCeremonyRequestSchema = _Object_({
-	version: Literal(1),
-	operation: Unsafe(schemaRef(SignerChallengeOperationSchema)),
-	resourceId: Unsafe(schemaRef(SignerUuidSchema)),
-	challenge: Unsafe(schemaRef(SignerPreviewSignChallengeValueSchema))
-}, {
-	$id: "SignerChallengeCeremonyRequest",
-	additionalProperties: false
-});
-var SignerCeremonyRequestSchema = Union([Unsafe(schemaRef(SignerEnrollmentCeremonyRequestSchema)), Unsafe(schemaRef(SignerChallengeCeremonyRequestSchema))], { $id: "SignerCeremonyRequest" });
-var SignerCeremonySchema = _Object_({
-	version: Literal(1),
-	id: Unsafe(schemaRef(SignerBase64UrlSchema)),
-	operation: Unsafe(schemaRef(SignerOperationSchema)),
-	approvalUrl: String$1(),
-	expiresAt: String$1()
-}, {
-	$id: "SignerCeremony",
-	additionalProperties: false
-});
-var SignerPendingResultSchema = _Object_({
-	version: Literal(1),
-	status: Literal("pending"),
-	operation: Unsafe(schemaRef(SignerOperationSchema))
-}, {
-	$id: "SignerPendingResult",
-	additionalProperties: false
-});
-var SignerEnrollmentResultSchema = _Object_({
-	version: Literal(1),
-	status: Literal("completed"),
-	operation: Literal("credential-enrollment"),
-	publicMaterial: Unsafe(schemaRef(SignerPreviewSignPublicMaterialSchema))
-}, {
-	$id: "SignerEnrollmentResult",
-	additionalProperties: false
-});
-var SignerReceiptSchema = PreviewSignReceiptValueSchema;
-var SignerSignatureResultSchema = _Object_({
-	version: Literal(1),
-	status: Literal("completed"),
-	operation: Unsafe(schemaRef(SignerChallengeOperationSchema)),
-	receipt: Unsafe(schemaRef(SignerReceiptSchema))
-}, {
-	$id: "SignerSignatureResult",
-	additionalProperties: false
-});
-var SignerFailedResultSchema = _Object_({
-	version: Literal(1),
-	status: Literal("failed"),
-	operation: Unsafe(schemaRef(SignerOperationSchema)),
-	code: String$1(),
-	message: String$1()
-}, {
-	$id: "SignerFailedResult",
-	additionalProperties: false
-});
-var SignerCeremonyResultSchema = Union([
-	Unsafe(schemaRef(SignerPendingResultSchema)),
-	Unsafe(schemaRef(SignerEnrollmentResultSchema)),
-	Unsafe(schemaRef(SignerSignatureResultSchema)),
-	Unsafe(schemaRef(SignerFailedResultSchema))
-], { $id: "SignerCeremonyResult" });
-({ ...previewSignSchemaContext }), schemaId(SignerUuidSchema), schemaId(SignerOperationSchema), schemaId(SignerProblemSchema), schemaId(SignerCeremonyParamsSchema), schemaId(SignerSessionSchema), schemaId(SignerEnrollmentCeremonyRequestSchema), schemaId(SignerChallengeCeremonyRequestSchema), schemaId(SignerCeremonyRequestSchema), schemaId(SignerCeremonySchema), schemaId(SignerPendingResultSchema), schemaId(SignerEnrollmentResultSchema), schemaId(SignerSignatureResultSchema), schemaId(SignerFailedResultSchema), schemaId(SignerCeremonyResultSchema);
-//#endregion
-//#region ../../libs/models/src/tool-enforcement.ts
-var TOOL_ENFORCEMENT_VALUES = [
-	"off",
-	"watch",
-	"enforce"
-];
-var ToolEnforcementSchema = Union([
-	Literal(TOOL_ENFORCEMENT_VALUES[0]),
-	Literal(TOOL_ENFORCEMENT_VALUES[1]),
-	Literal(TOOL_ENFORCEMENT_VALUES[2])
-], { description: "Runtime tool-policy enforcement mode: off (inert), watch (audit only), enforce (block disallowed tools, fail-closed)." });
-//#endregion
-//#region ../../libs/runtime-profiles/src/runtime-profiles.ts
-var RuntimeProfileName = String$1({
-	minLength: 1,
-	maxLength: 100,
-	pattern: "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$"
-});
-var RuntimeProfileEnvName = String$1({
-	minLength: 1,
-	maxLength: 128,
-	pattern: "^[A-Z_][A-Z0-9_]*$"
-});
-var RuntimeProfileToolName = String$1({
-	minLength: 1,
-	maxLength: 128,
-	pattern: "^[a-zA-Z0-9._/-]+$"
-});
-var RUNTIME_PROFILE_RUNTIME_KIND_PATTERN = "^[a-z][a-z0-9._-]{0,99}$";
-new RegExp(RUNTIME_PROFILE_RUNTIME_KIND_PATTERN);
-var RuntimeProfileRuntimeKind = String$1({
-	minLength: 1,
-	maxLength: 100,
-	pattern: RUNTIME_PROFILE_RUNTIME_KIND_PATTERN
-});
-var RuntimeProfileWorkspaceMode = Union([
-	Literal("none"),
-	Literal("shared_mount"),
-	Literal("dedicated_worktree")
-]);
-/**
-* Tool-policy enforcement mode for the profile's runtime `tool_call` gate:
-* `off` (inert), `watch` (audit only), `enforce` (block disallowed tools,
-* fail-closed). Read by the daemon via `GET /runtime-profiles/:id/allowed-tools`.
-*/
-var RuntimeProfileToolEnforcement = ToolEnforcementSchema;
-var RuntimeProfileAllowedWorkspaceModes = _Array_(RuntimeProfileWorkspaceMode, {
-	minItems: 1,
-	maxItems: 3,
-	uniqueItems: true
-});
-var RuntimeProfileThinkingLevelOptions = [
-	Literal("off"),
-	Literal("minimal"),
-	Literal("low"),
-	Literal("medium"),
-	Literal("high"),
-	Literal("xhigh")
-];
-Union([...RuntimeProfileThinkingLevelOptions]);
-var RuntimeProfileNullableThinkingLevel = Union([...RuntimeProfileThinkingLevelOptions, Null()]);
-var RuntimeProfileNullableTemperature = Union([Null(), Number$1({
-	minimum: 0,
-	maximum: 2
-})]);
-var RuntimeProfileNullableTopP = Union([Null(), Number$1({
-	minimum: 0,
-	maximum: 1
-})]);
-var RuntimeProfileNullableTopK = Union([Integer({
-	minimum: 1,
-	maximum: 1e4
-}), Null()]);
-var RuntimeProfileNullableMaxOutputTokens = Union([Integer({
-	minimum: 1,
-	maximum: 1e6
-}), Null()]);
-var RuntimeProfileAllowedHost = String$1({
-	minLength: 1,
-	maxLength: 255,
-	pattern: "^(?:\\*\\.)?(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$"
-});
-var RuntimeProfileSandbox = _Object_({
-	network: Optional(_Object_({
-		allowedHosts: Optional(_Array_(RuntimeProfileAllowedHost, { maxItems: 50 })),
-		allowedInternalHosts: Optional(_Array_(RuntimeProfileAllowedHost, { maxItems: 50 }))
-	}, { additionalProperties: false })),
-	vfs: Optional(_Object_({
-		shadow: Optional(_Array_(String$1({
-			minLength: 1,
-			maxLength: 255
-		}), { maxItems: 100 })),
-		shadowMode: Optional(Union([Literal("deny"), Literal("tmpfs")]))
-	}, { additionalProperties: false })),
-	env: Optional(Record(RuntimeProfileEnvName, String$1({ maxLength: 4096 }))),
-	hostExec: Optional(_Object_({ autoApprove: Optional(Literal(false)) }, { additionalProperties: false })),
-	resources: Optional(_Object_({
-		memory: Optional(String$1({
-			minLength: 2,
-			maxLength: 16,
-			pattern: "^[0-9]+[KMG]?$"
-		})),
-		cpus: Optional(Integer({
-			minimum: 1,
-			maximum: 32
-		}))
-	}, { additionalProperties: false }))
-}, {
-	$id: "RuntimeProfileSandbox",
-	additionalProperties: false
-});
-var RuntimeProfileContext = _Object_({
-	slug: String$1({
-		minLength: 1,
-		maxLength: 64,
-		pattern: "^[a-zA-Z0-9_-]+$"
-	}),
-	binding: Union([
-		Literal("skill"),
-		Literal("context_inline"),
-		Literal("prompt_prefix"),
-		Literal("user_inline")
-	]),
-	content: String$1({
-		minLength: 1,
-		maxLength: 65536
-	})
-}, {
-	$id: "RuntimeProfileContext",
-	additionalProperties: false
-});
-var RuntimeProfileRef = _Object_({ profileId: String$1({ format: "uuid" }) }, {
-	$id: "RuntimeProfileRef",
-	additionalProperties: false
-});
-var RuntimeProfileMaxTurns = Integer({
-	minimum: 0,
-	maximum: 1e4
-});
-var RuntimeProfileMaxBashTimeouts = Integer({
-	minimum: 0,
-	maximum: 1e3
-});
-_Object_({
-	id: String$1({ format: "uuid" }),
-	teamId: String$1({ format: "uuid" }),
-	name: RuntimeProfileName,
-	description: Union([String$1({ maxLength: 4096 }), Null()]),
-	provider: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	model: String$1({
-		minLength: 1,
-		maxLength: 200
-	}),
-	thinkingLevel: RuntimeProfileNullableThinkingLevel,
-	temperature: RuntimeProfileNullableTemperature,
-	topP: RuntimeProfileNullableTopP,
-	topK: RuntimeProfileNullableTopK,
-	maxOutputTokens: RuntimeProfileNullableMaxOutputTokens,
-	runtimeKind: RuntimeProfileRuntimeKind,
-	sandbox: RuntimeProfileSandbox,
-	defaultWorkspaceMode: Union([RuntimeProfileWorkspaceMode, Null()]),
-	allowedWorkspaceModes: RuntimeProfileAllowedWorkspaceModes,
-	maxTurns: RuntimeProfileMaxTurns,
-	maxBashTimeouts: RuntimeProfileMaxBashTimeouts,
-	toolEnforcement: RuntimeProfileToolEnforcement,
-	requiredEnv: _Array_(RuntimeProfileEnvName, { maxItems: 100 }),
-	requiredTools: _Array_(RuntimeProfileToolName, { maxItems: 100 }),
-	requiredExecutables: _Array_(RuntimeProfileToolName, { maxItems: 100 }),
-	context: _Array_(RuntimeProfileContext, { maxItems: 5 }),
-	revision: Integer({ minimum: 1 }),
-	definitionCid: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	createdByAgentId: Union([String$1({ format: "uuid" }), Null()]),
-	createdByHumanId: Union([String$1({ format: "uuid" }), Null()]),
-	createdAt: String$1({ format: "date-time" }),
-	updatedAt: String$1({ format: "date-time" })
-}, {
-	$id: "RuntimeProfile",
-	additionalProperties: false
-});
-//#endregion
-//#region ../../libs/runtime-profiles/src/runtime-sessions.ts
-var RuntimeSessionKind = Union([
-	Literal("root"),
-	Literal("extend"),
-	Literal("fork")
-]);
-var RuntimeSessionCheckpointKind = Union([Literal("attempt_final")]);
-_Object_({
-	id: String$1({ format: "uuid" }),
-	teamId: String$1({ format: "uuid" }),
-	taskId: String$1({ format: "uuid" }),
-	attemptN: Integer({ minimum: 1 }),
-	sourceSlotId: Union([String$1({ format: "uuid" }), Null()]),
-	sourceRuntimeProfileId: Union([String$1({ format: "uuid" }), Null()]),
-	sessionKind: RuntimeSessionKind,
-	parentSessionId: Union([String$1({ format: "uuid" }), Null()]),
-	contentType: String$1({
-		minLength: 1,
-		maxLength: 200
-	}),
-	contentEncoding: Union([String$1({
-		minLength: 1,
-		maxLength: 100
-	}), Null()]),
-	sizeBytes: Integer({ minimum: 0 }),
-	sha256: String$1({
-		minLength: 64,
-		maxLength: 64
-	}),
-	storageClass: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	checkpointKind: RuntimeSessionCheckpointKind,
-	uploadedAt: String$1({ format: "date-time" })
-}, { $id: "RuntimeSession" });
-_Object_({
-	sourceSlotId: Optional(String$1({ format: "uuid" })),
-	sourceRuntimeProfileId: Optional(String$1({ format: "uuid" })),
-	sessionKind: RuntimeSessionKind,
-	parentSessionId: Optional(String$1({ format: "uuid" }))
-}, {
-	$id: "UploadRuntimeSessionQuery",
-	additionalProperties: false
-});
-String$1({
-	$id: "RuntimeSessionContent",
-	description: "Runtime session content stream.",
-	format: "binary"
-});
-_Object_({
-	taskId: String$1({ format: "uuid" }),
-	attemptN: Integer({ minimum: 1 })
-}, {
-	$id: "RuntimeSessionAttemptParams",
-	additionalProperties: false
-});
-//#endregion
-//#region ../../libs/runtime-profiles/src/runtime-slots.ts
-var RuntimeWorkspaceKind = Union([
-	Literal("origin"),
-	Literal("fork"),
-	Literal("scratch")
-]);
-var RuntimeSlotState = Union([Literal("active"), Literal("idle")]);
-var RuntimeWorkspace = _Object_({
-	id: String$1({ format: "uuid" }),
-	teamId: String$1({ format: "uuid" }),
-	workspaceId: String$1({ minLength: 1 }),
-	worktreePath: String$1({ minLength: 1 }),
-	worktreeBranch: Union([String$1({ minLength: 1 }), Null()]),
-	kind: RuntimeWorkspaceKind,
-	createdAtMs: Integer({ minimum: 0 }),
-	lastUsedAtMs: Integer({ minimum: 0 })
-}, { $id: "RuntimeWorkspace" });
-_Object_({ items: _Array_(_Object_({
-	slot: _Object_({
-		id: String$1({ format: "uuid" }),
-		teamId: String$1({ format: "uuid" }),
-		agentName: String$1({
-			minLength: 1,
-			maxLength: 100
-		}),
-		runtimeProfileId: Union([String$1({ format: "uuid" }), Null()]),
-		provider: String$1({
-			minLength: 1,
-			maxLength: 100
-		}),
-		model: String$1({
-			minLength: 1,
-			maxLength: 200
-		}),
-		slotKey: String$1({ minLength: 1 }),
-		taskType: String$1({
-			minLength: 1,
-			maxLength: 100
-		}),
-		state: RuntimeSlotState,
-		lastTaskId: String$1({ format: "uuid" }),
-		lastAttemptN: Integer({ minimum: 1 }),
-		sessionDir: Union([String$1({ minLength: 1 }), Null()]),
-		sessionPath: Union([String$1({ minLength: 1 }), Null()]),
-		workspaceRowId: Union([String$1({ format: "uuid" }), Null()]),
-		createdAtMs: Integer({ minimum: 0 }),
-		lastUsedAtMs: Integer({ minimum: 0 }),
-		expiresAtMs: Integer({ minimum: 0 })
-	}, { $id: "RuntimeSlot" }),
-	workspace: Union([RuntimeWorkspace, Null()])
-}, { $id: "ResolvedRuntimeSlot" })) }, { $id: "RuntimeSlotListResponse" });
-var MAX_RUNTIME_WARM_RETENTION_SEC = 86400;
-_Object_({
-	agentName: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	runtimeProfileId: String$1({ format: "uuid" }),
-	provider: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	model: String$1({
-		minLength: 1,
-		maxLength: 200
-	}),
-	slotKey: String$1({ minLength: 1 }),
-	taskType: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	sessionDir: Optional(String$1({ minLength: 1 })),
-	sessionPath: Optional(String$1({ minLength: 1 })),
-	workspaceId: Optional(String$1({ minLength: 1 })),
-	worktreePath: Optional(String$1({ minLength: 1 })),
-	worktreeBranch: Optional(String$1({ minLength: 1 })),
-	workspaceKind: Optional(RuntimeWorkspaceKind),
-	lastTaskId: String$1({ format: "uuid" }),
-	lastAttemptN: Integer({ minimum: 1 }),
-	warmRetentionSec: Integer({
-		minimum: 0,
-		maximum: MAX_RUNTIME_WARM_RETENTION_SEC
-	})
-}, {
-	$id: "BeginRuntimeSlotBody",
-	additionalProperties: false
-});
-_Object_({
-	agentName: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	runtimeProfileId: String$1({ format: "uuid" }),
-	provider: String$1({
-		minLength: 1,
-		maxLength: 100
-	}),
-	model: String$1({
-		minLength: 1,
-		maxLength: 200
-	}),
-	slotKey: String$1({ minLength: 1 }),
-	taskId: String$1({ format: "uuid" }),
-	attemptN: Integer({ minimum: 1 }),
-	sessionPath: Optional(String$1({ minLength: 1 })),
-	warmRetentionSec: Integer({
-		minimum: 0,
-		maximum: MAX_RUNTIME_WARM_RETENTION_SEC
-	})
-}, {
-	$id: "FinishRuntimeSlotBody",
-	additionalProperties: false
-});
-_Object_({
-	taskId: String$1({ format: "uuid" }),
-	attemptN: Integer({ minimum: 1 })
-}, {
-	$id: "FindLatestRuntimeSlotForAttemptQuery",
-	additionalProperties: false
-});
-_Object_({
-	agentName: Optional(String$1({
-		minLength: 1,
-		maxLength: 100
-	})),
-	runtimeProfileId: Optional(String$1({ format: "uuid" })),
-	state: Optional(RuntimeSlotState),
-	limit: Optional(Integer({
-		minimum: 1,
-		maximum: 200
-	}))
-}, {
-	$id: "ListRuntimeSlotsQuery",
-	additionalProperties: false
-});
 //#endregion
 //#region ../../libs/tasks/src/rubric.ts
 /**
@@ -35349,6 +35758,92 @@ async function validateAssessBriefInputAsync(input, ctx) {
 	return errors;
 }
 //#endregion
+//#region ../../libs/tasks/src/task-types/classify.ts
+var CLASSIFY_TYPE = "classify";
+var text = String$1({ minLength: 1 });
+var probability = Number$1({
+	minimum: 0,
+	maximum: 1
+});
+var strict = { additionalProperties: false };
+var ClassificationQuestion = Union([
+	_Object_({
+		type: Literal("choice"),
+		instructions: text,
+		criteria: Record(text, text, { minProperties: 2 })
+	}, strict),
+	_Object_({
+		type: Literal("score"),
+		instructions: text,
+		criteria: _Array_(text, { minItems: 2 })
+	}, strict),
+	_Object_({
+		type: Literal("bool"),
+		instructions: text,
+		criteria: _Object_({
+			true: text,
+			false: text
+		}, strict)
+	}, strict)
+]);
+var ClassifyInput = _Object_({
+	version: Literal(1),
+	state: Record(String$1(), Unknown()),
+	questions: Record(text, ClassificationQuestion, { minProperties: 1 })
+}, {
+	$id: "ClassifyInput",
+	...strict
+});
+var ClassificationAnswer = Union([
+	_Object_({
+		type: Literal("choice"),
+		choice: text,
+		probabilities: Record(text, probability),
+		confidence: probability
+	}, strict),
+	_Object_({
+		type: Literal("score"),
+		score: Number$1({ minimum: 0 }),
+		confidence: probability
+	}, strict),
+	_Object_({
+		type: Literal("bool"),
+		probability
+	}, strict)
+]);
+var ClassifyOutput = _Object_({
+	version: Literal(1),
+	provider: text,
+	model: text,
+	answers: Record(text, ClassificationAnswer),
+	usage: Optional(_Object_({
+		inputTokens: Integer({ minimum: 0 }),
+		outputTokens: Integer({ minimum: 0 })
+	}, strict))
+}, {
+	$id: "ClassifyOutput",
+	...strict
+});
+/** Runs after structural validation, on both executor and server. */
+function validateClassifyOutput(output, input) {
+	if (!input) return "Classification requires its question contract";
+	const { questions } = input;
+	const { answers } = output;
+	if (Object.keys(questions).length !== Object.keys(answers).length) return "Classification must answer exactly the requested questions";
+	for (const [key, question] of Object.entries(questions)) {
+		const answer = answers[key];
+		if (!answer || answer.type !== question.type) return `Invalid answer type for ${key}`;
+		if (question.type === "choice" && answer.type === "choice") {
+			const choices = Object.keys(question.criteria);
+			if (!choices.includes(answer.choice) || choices.length !== Object.keys(answer.probabilities).length || choices.some((choice) => !Object.hasOwn(answer.probabilities, choice))) return `Invalid choices for ${key}`;
+			const sum = Object.values(answer.probabilities).reduce((a, b) => a + b, 0);
+			if (Math.abs(sum - 1) > .001) return `Probabilities must sum to one for ${key}`;
+		}
+		if (question.type === "score" && answer.type === "score" && answer.score > question.criteria.length - 1) return `Score out of range for ${key}`;
+	}
+	return null;
+}
+//#endregion
 //#region ../../libs/tasks/src/task-types/curate-pack.ts
 /**
 * `curate_pack` — select and rank diary entries into a context pack.
@@ -36136,6 +36631,15 @@ function requireVerificationWhenCriteriaPresent(output, input) {
 * / claiming a task.
 */
 var BUILT_IN_TASK_TYPES = {
+	[CLASSIFY_TYPE]: {
+		name: CLASSIFY_TYPE,
+		inputSchema: ClassifyInput,
+		outputSchema: ClassifyOutput,
+		outputKind: "artifact",
+		sessionScope: "none",
+		requiresReferences: false,
+		validateOutput: validateClassifyOutput
+	},
 	[FREEFORM_TYPE]: {
 		name: FREEFORM_TYPE,
 		inputSchema: FreeformInput,
