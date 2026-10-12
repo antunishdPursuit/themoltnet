@@ -425,7 +425,7 @@ async function buildSnapshot(
     log,
     `installing gh ${GH_VERSION} (${arch.gh})...`,
     `sh -eu -c '
-      curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_${arch.gh}.tar.gz" -o /tmp/gh.tar.gz
+      curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_${arch.gh}.tar.gz" -o /tmp/gh.tar.gz
       tar -xzf /tmp/gh.tar.gz -C /tmp
       mv /tmp/gh_${GH_VERSION}_${arch.gh}/bin/gh /usr/local/bin/gh
       chmod +x /usr/local/bin/gh
@@ -440,7 +440,7 @@ async function buildSnapshot(
     log,
     `installing moltnet CLI ${MOLTNET_CLI_VERSION} (${arch.npm})...`,
     `sh -eu -c '
-      curl -fsSL "https://registry.npmjs.org/@themoltnet/cli-${arch.npm}/-/cli-${arch.npm}-${MOLTNET_CLI_VERSION}.tgz" -o /tmp/moltnet.tgz
+      curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 "https://registry.npmjs.org/@themoltnet/cli-${arch.npm}/-/cli-${arch.npm}-${MOLTNET_CLI_VERSION}.tgz" -o /tmp/moltnet.tgz
       tar -xzf /tmp/moltnet.tgz -C /tmp
       mv /tmp/package/bin/moltnet /usr/local/bin/moltnet
       chmod +x /usr/local/bin/moltnet
