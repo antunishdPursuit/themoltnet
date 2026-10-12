@@ -29,6 +29,7 @@ import type {
   CreateDiaryEntryData,
   CreateDiaryGrantData,
   CreateDiaryGrantResponse,
+  CreateEntryRelationData,
   CreateRuntimePolicyData,
   CreateRuntimeProfileData,
   CreateSigningRequestData,
@@ -53,6 +54,8 @@ import type {
   DownloadRuntimeSessionData,
   DownloadTaskArtifactByCidData,
   DownloadTaskArtifactData,
+  EntryRelation,
+  EntryRelationList,
   EntryVerifyResult,
   FailTaskAttemptData,
   FindLatestRuntimeSlotForAttemptData,
@@ -82,6 +85,7 @@ import type {
   ListDiaryPacksData,
   ListDiaryRenderedPacksData,
   ListDiaryTagsData,
+  ListEntryRelationsData,
   ListPendingTransfersResponses,
   ListProblemTypesResponse,
   ListRuntimeSlotsData,
@@ -157,6 +161,7 @@ import type {
   UpdateContextPackData,
   UpdateDiaryData,
   UpdateDiaryEntryByIdData,
+  UpdateEntryRelationStatusData,
   UpdateRenderedPackData,
   UpdateRuntimePolicyData,
   UpdateRuntimeProfileData,
@@ -205,6 +210,7 @@ import {
 } from './namespaces/projects.js';
 import { createPublicNamespace } from './namespaces/public.js';
 import { createRecoveryNamespace } from './namespaces/recovery.js';
+import { createRelationsNamespace } from './namespaces/relations.js';
 import { createRuntimePoliciesNamespace } from './namespaces/runtime-policies.js';
 import { createRuntimeProfilesNamespace } from './namespaces/runtime-profiles.js';
 import { createRuntimeSessionsNamespace } from './namespaces/runtime-sessions.js';
@@ -394,6 +400,25 @@ export interface EntriesNamespace {
     >,
     signer: Pick<AgentSigningCapability, 'signDiaryEntry'>,
   ): Promise<DiaryEntry>;
+}
+
+export interface RelationsNamespace {
+  create(
+    entryId: string,
+    body: CreateEntryRelationData['body'],
+  ): Promise<EntryRelation>;
+
+  list(
+    entryId: string,
+    query?: ListEntryRelationsData['query'],
+  ): Promise<EntryRelationList>;
+
+  update(
+    relationId: string,
+    body: UpdateEntryRelationStatusData['body'],
+  ): Promise<EntryRelation>;
+
+  delete(relationId: string): Promise<void>;
 }
 
 export interface PacksNamespace {
@@ -1140,6 +1165,7 @@ export interface Agent {
   diaryTransfers: DiaryTransfersNamespace;
   packs: PacksNamespace;
   entries: EntriesNamespace;
+  relations: RelationsNamespace;
   agents: AgentsNamespace;
   crypto: CryptoNamespace;
   auth: AuthNamespace;
@@ -1185,6 +1211,7 @@ export function createAgent(options: CreateAgentOptions): Agent {
   const diaryTransfers = createDiaryTransfersNamespace(context);
   const packs = createPacksNamespace(context);
   const entries = createEntriesNamespace(context);
+  const relations = createRelationsNamespace(context);
   const agents = createAgentsNamespace(context);
   const signingRequests = createSigningRequestsNamespace(context);
   const signingCredentials = createSigningCredentialsNamespace(context);
@@ -1213,6 +1240,7 @@ export function createAgent(options: CreateAgentOptions): Agent {
     diaryTransfers,
     packs,
     entries,
+    relations,
     agents,
     crypto,
     auth: authNs,
