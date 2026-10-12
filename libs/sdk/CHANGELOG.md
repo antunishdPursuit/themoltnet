@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.150.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.149.1...sdk-v0.150.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable session storage and classification contracts ([9a06a8d](https://github.com/getlarge/themoltnet/commit/9a06a8dc80ac6232cd3be727ab4c478c27e5d2d7))
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **pi-runtime:** add Durable storage and execution [3/8] ([1c66b3b](https://github.com/getlarge/themoltnet/commit/1c66b3bfd5bed20b0999f191d3c8b9e94cf68a52))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* close unconsumed Durable read pages ([788ff77](https://github.com/getlarge/themoltnet/commit/788ff774283b451c429e46aa5f60c2fcab0f64ac))
+* **conversations:** bound replay reuse and reader lifetimes ([75badb1](https://github.com/getlarge/themoltnet/commit/75badb135ef037387e3872f70c8628b07f324892))
+* **pi-runtime:** bound Durable retries by writer lifetime ([9209ec1](https://github.com/getlarge/themoltnet/commit/9209ec185a7777b333d537abc3d47035244b45f0))
+* **runtime-sessions:** stream verified Durable commits ([5ed63f3](https://github.com/getlarge/themoltnet/commit/5ed63f33b76e3342ddbacadc2367b0577c64370a))
+
 ## [0.149.1](https://github.com/getlarge/themoltnet/compare/sdk-v0.149.0...sdk-v0.149.1) (2026-10-02)
 
 

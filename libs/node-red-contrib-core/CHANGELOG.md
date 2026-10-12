@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.18.0](https://github.com/getlarge/themoltnet/compare/node-red-contrib-core-v0.17.3...node-red-contrib-core-v0.18.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.150.0
+
 ## [0.17.3](https://github.com/getlarge/themoltnet/compare/node-red-contrib-core-v0.17.2...node-red-contrib-core-v0.17.3) (2026-10-02)
 
 

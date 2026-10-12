@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.66.0](https://github.com/getlarge/themoltnet/compare/rest-api-v0.65.2...rest-api-v0.66.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable session storage and classification contracts ([9a06a8d](https://github.com/getlarge/themoltnet/commit/9a06a8dc80ac6232cd3be727ab4c478c27e5d2d7))
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+* **tasks:** expose persisted Durable conversations ([05af598](https://github.com/getlarge/themoltnet/commit/05af5985f3981fc668b1c34158704288b1ee9fd8))
+* **tasks:** read and follow Durable conversations [6/8] ([8f2d932](https://github.com/getlarge/themoltnet/commit/8f2d9323f824436e1a29474c53833fbd6880c8c9))
+
+
+### Bug Fixes
+
+* address CI failures in review round 1 ([0574f08](https://github.com/getlarge/themoltnet/commit/0574f081f6004324b9b108e8a17ba2ad33248af3))
+* **api:** cancel conversation reads before shutdown ([7336180](https://github.com/getlarge/themoltnet/commit/7336180d4bd13c09e9e785de3d8c862be863b16a))
+* **conversations:** bound replay reuse and reader lifetimes ([75badb1](https://github.com/getlarge/themoltnet/commit/75badb135ef037387e3872f70c8628b07f324892))
+* **runtime-sessions:** stream verified Durable commits ([5ed63f3](https://github.com/getlarge/themoltnet/commit/5ed63f33b76e3342ddbacadc2367b0577c64370a))
+* **runtime-store:** authorize contributors and cancel reads ([1a57e43](https://github.com/getlarge/themoltnet/commit/1a57e432d3e441781ff5d6710bad82a355e4225f))
+* **tasks:** enforce legacy expiry and running deadlines ([5e93dd4](https://github.com/getlarge/themoltnet/commit/5e93dd48e683bc529f93bd73d8501a36b51978b9))
+* **tasks:** enforce legacy expiry and running deadlines ([e365621](https://github.com/getlarge/themoltnet/commit/e365621e82816ef975ef37125ac0c50b615b4de6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @moltnet/database bumped to 0.17.0
+    * @themoltnet/design-system bumped to 1.5.0
+
 ## [0.65.2](https://github.com/getlarge/themoltnet/compare/rest-api-v0.65.1...rest-api-v0.65.2) (2026-10-02)
 
 

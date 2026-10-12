@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.22.0](https://github.com/getlarge/themoltnet/compare/console-v0.21.7...console-v0.22.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **console:** show Durable conversations in the task live view [7/8] ([58b1365](https://github.com/getlarge/themoltnet/commit/58b13651d792f02a74f292df5bb1fc7d8a7fc20c))
+* **console:** stream Durable conversations into task views ([efc85db](https://github.com/getlarge/themoltnet/commit/efc85db2005c0a6282af938ae961f3b2d9bd5588))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+
+
+### Bug Fixes
+
+* **console:** bound conversation readers and retain paginated history ([d1699ed](https://github.com/getlarge/themoltnet/commit/d1699ede8591b30861fcb51d306b6e28b3ce26d5))
+* **console:** close terminal conversation streams and back off reads ([32c8aa7](https://github.com/getlarge/themoltnet/commit/32c8aa7cf113ba86691335cd56215ab1fa446948))
+* **console:** preserve reconnect history and discovery errors ([bbc8d1c](https://github.com/getlarge/themoltnet/commit/bbc8d1c16c6e83baa6475d5a4ada8d115b57ee0a))
+* **task-ui:** preserve conversation reading position and expose failures ([dae661f](https://github.com/getlarge/themoltnet/commit/dae661fcfc8390e76aaf826156ede61675625191))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/design-system bumped to 1.5.0
+  * devDependencies
+    * @moltnet/database bumped to 0.17.0
+    * @themoltnet/sdk bumped to 0.150.0
+
 ## [0.21.7](https://github.com/getlarge/themoltnet/compare/console-v0.21.6...console-v0.21.7) (2026-10-02)
 
 

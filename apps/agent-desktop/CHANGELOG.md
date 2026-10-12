@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.12.0](https://github.com/getlarge/themoltnet/compare/agent-desktop-v0.11.2...agent-desktop-v0.12.0) (2026-10-12)
+
+
+### Features
+
+* **api:** add Durable storage and classification contracts [1/8] ([3ad3881](https://github.com/getlarge/themoltnet/commit/3ad3881d70de0a5491e3898f8bcf1cae0d95a260))
+* **runtime-profiles:** model generation and classification as peers ([923f06b](https://github.com/getlarge/themoltnet/commit/923f06b07f552897ce75312c3e6d81891539b609))
+
+
+### Bug Fixes
+
+* **providers:** configure Pi instruction role explicitly ([9f2105c](https://github.com/getlarge/themoltnet/commit/9f2105c07c28a45bf0ffabbc7cfe71abc86afd2e))
+* **providers:** configure Pi instruction role explicitly ([5da0c52](https://github.com/getlarge/themoltnet/commit/5da0c52f3e35adb1772ee778af4214ceaeb79ae0))
+* **providers:** retain system role for legacy Ollama presets ([502014f](https://github.com/getlarge/themoltnet/commit/502014fd96c642408015359c059821a7891aaa6c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/design-system bumped to 1.5.0
+
 ## [0.11.2](https://github.com/getlarge/themoltnet/compare/agent-desktop-v0.11.1...agent-desktop-v0.11.2) (2026-10-06)
 
 

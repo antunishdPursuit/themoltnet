@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.41.0](https://github.com/getlarge/themoltnet/compare/pi-extension-v0.40.26...pi-extension-v0.41.0) (2026-10-12)
+
+
+### Features
+
+* **pi-runtime:** upgrade Pi and share runtime capabilities ([9e8c68b](https://github.com/getlarge/themoltnet/commit/9e8c68b05bfc54dd2b35f7ad95646dc8f56be444))
+* **runtime:** upgrade Pi and share classifier capabilities [2/8] ([25c39b9](https://github.com/getlarge/themoltnet/commit/25c39b9b60f454d3b7807ca2e785dd736cd67a67))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/pi-runtime bumped to 0.23.0
+    * @themoltnet/sdk bumped to 0.150.0
+
 ## [0.40.26](https://github.com/getlarge/themoltnet/compare/pi-extension-v0.40.25...pi-extension-v0.40.26) (2026-10-06)
 
 
