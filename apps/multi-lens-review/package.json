@@ -59,6 +59,13 @@
     "vitest": "catalog:"
   },
   "nx": {
+    "namedInputs": {
+      "default": [
+        "{projectRoot}/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/.github/workflows/multi-lens-review.yml"
+      ]
+    },
     "projectType": "application",
     "tags": [
       "type:app",

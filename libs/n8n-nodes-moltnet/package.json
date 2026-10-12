@@ -65,6 +65,13 @@
     "node": ">=22.22"
   },
   "nx": {
+    "namedInputs": {
+      "default": [
+        "{projectRoot}/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/.github/workflows/release.yml"
+      ]
+    },
     "tags": [
       "type:client",
       "scope:n8n",

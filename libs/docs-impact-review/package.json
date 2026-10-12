@@ -68,6 +68,13 @@
     "yaml": "catalog:"
   },
   "nx": {
+    "namedInputs": {
+      "default": [
+        "{projectRoot}/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/.github/workflows/docs-impact-review-reusable.yml"
+      ]
+    },
     "projectType": "library",
     "tags": [
       "type:feature",

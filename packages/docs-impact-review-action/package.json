@@ -26,6 +26,17 @@
     "node": ">=22"
   },
   "nx": {
+    "namedInputs": {
+      "default": [
+        "{projectRoot}/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/.github/workflows/docs-impact-review-reusable.yml",
+        "{workspaceRoot}/.github/workflows/docs-impact-review.yml",
+        "{workspaceRoot}/.github/workflows/complexity-review-reusable.yml",
+        "{workspaceRoot}/.github/runtime-profiles/**/*",
+        "{workspaceRoot}/.github/runtime-policies/legreffier-review-readonly-v1.json"
+      ]
+    },
     "targets": {
       "publish-action": {
         "executor": "nx:run-commands",
