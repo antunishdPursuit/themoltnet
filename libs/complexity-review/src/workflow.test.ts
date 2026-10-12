@@ -110,11 +110,9 @@ describe('staged complexity review', () => {
     ).toBe(large.files[0].patch);
   });
 
-  it('reviews omitted changed paths while rejecting duplicate indexes', () => {
+  it('assigns each changed path once despite duplicate, invalid, or omitted indexes', () => {
     const map = {
-      groups: [
-        { id: 'app', nature: 'application behavior', fileIndexes: [0, 1] },
-      ],
+      groups: [{ nature: 'application behavior', fileIndexes: [0, 1] }],
     };
     const groups = parseChangeMap(stageOutput(map), evidence);
     expect(groups[0].paths).toEqual(['apps/a.ts', 'apps/a.test.ts']);
@@ -129,27 +127,26 @@ describe('staged complexity review', () => {
     expect(
       buildDomainWork(incomplete, evidence).map((item) => item.files[0].path),
     ).toEqual(['apps/a.ts', 'apps/a.test.ts']);
+    expect(incomplete.map((group) => group.id)).toEqual([
+      'domain-1',
+      'remaining-changes',
+    ]);
     expect(
       parseChangeMap(
         stageOutput({
           groups: [
-            { id: 'remaining-changes', nature: 'app', fileIndexes: [0] },
+            { nature: 'app', fileIndexes: [0, 0, 37] },
+            { nature: 'tests', fileIndexes: [0, 1] },
           ],
         }),
         evidence,
-      )[1].id,
-    ).toBe('remaining-changes-2');
-    expect(() =>
-      parseChangeMap(
-        stageOutput({
-          groups: [
-            { ...map.groups[0], fileIndexes: [0] },
-            { id: 'tests', nature: 'tests', fileIndexes: [0, 1] },
-          ],
-        }),
-        evidence,
+      ).map((group) => group.paths),
+    ).toEqual([['apps/a.ts'], ['apps/a.test.ts']]);
+    expect(
+      parseChangeMap(stageOutput({ groups: [] }), evidence).map(
+        (group) => group.paths,
       ),
-    ).toThrow('duplicate changed file index');
+    ).toEqual([['apps/a.ts', 'apps/a.test.ts']]);
     const work = buildDomainWork(groups, evidence);
     expect(work).toHaveLength(2);
     expect(work.map((item) => item.files.map((file) => file.path))).toEqual([
@@ -172,7 +169,6 @@ describe('staged complexity review', () => {
     const groups = parseChangeMap(
       stageOutput({
         groups: Array.from({ length: 8 }, (_, index) => ({
-          id: `group-${index}`,
           nature: 'source',
           fileIndexes: [index],
         })),
@@ -183,7 +179,7 @@ describe('staged complexity review', () => {
     expect(groups[8].paths).toEqual(['src/file-8.ts']);
   });
 
-  it('uses separate map, domain and synthesis briefs with strict domain coverage', () => {
+  it('uses separate map, domain and synthesis briefs with trusted file coverage', () => {
     const map = buildChangeMapTask(input, evidence);
     expect(map.input.brief).toContain('do not score the rubric yet');
     expect(map.input).not.toHaveProperty('successCriteria');
@@ -208,41 +204,20 @@ describe('staged complexity review', () => {
     );
     expect(domain.input.outputContract?.schema).toMatchObject({
       type: 'object',
-      required: ['paths', 'summary', 'signals'],
-      properties: {
-        paths: {
-          type: 'array',
-          items: { type: 'string', enum: ['apps/a.ts'] },
-          minItems: 1,
-          maxItems: 1,
-        },
-      },
+      required: ['summary', 'signals'],
     });
+    expect(domain.input.outputContract?.schema).not.toHaveProperty(
+      'properties.paths',
+    );
     expect(domain.input.brief).toContain('<untrusted-assigned-paths');
     expect(domain.input.brief).not.toContain('<untrusted-manifest');
-    const multiPathDomain = buildDomainTask(input, evidence, {
-      id: 'both',
-      groupId: 'both',
-      nature: 'application behavior',
-      files: evidence.files,
-    });
-    expect(multiPathDomain.input.outputContract?.schema).toMatchObject({
-      properties: {
-        paths: {
-          items: { type: 'string', enum: ['apps/a.ts', 'apps/a.test.ts'] },
-          minItems: 2,
-          maxItems: 2,
-        },
-      },
-    });
     const result = {
-      paths: ['apps/a.ts'],
       summary: 'Small app behavior update',
       signals: [
         {
           criterionId: 'cognitive_load',
           evidence: 'One export changed',
-          impact: 'reduces',
+          impact: 'reduces' as const,
         },
       ],
     };
@@ -250,13 +225,14 @@ describe('staged complexity review', () => {
       parseDomainResult(
         {
           summary: 'Review completed',
-          result: { ...result, workId: 'task-uuid' },
+          result: { ...result, paths: ['unassigned.ts'], workId: 'task-uuid' },
         },
         work,
         rubric,
       ),
     ).toEqual({
       ...result,
+      paths: ['apps/a.ts'],
       workId: work.id,
     });
     expect(
@@ -265,7 +241,7 @@ describe('staged complexity review', () => {
         work,
         rubric,
       ),
-    ).toEqual({ ...result, workId: work.id });
+    ).toEqual({ ...result, paths: ['apps/a.ts'], workId: work.id });
     expect(() =>
       parseDomainResult(
         {
@@ -276,40 +252,34 @@ describe('staged complexity review', () => {
         rubric,
       ),
     ).toThrow('invalid domain result');
-    expect(() =>
-      parseDomainResult(
-        { summary: 'Review completed', result: { ...result, paths: [] } },
-        work,
-        rubric,
-      ),
-    ).toThrow('omitted or added paths');
     const synthesis = buildSynthesisTask(input, evidence, [
-      result as ReturnType<typeof parseDomainResult>,
+      { ...result, paths: ['apps/a.ts'], workId: work.id },
     ]);
     expect(synthesis.input.brief).toContain('<untrusted-domain-observations');
-    expect(synthesis.input.brief).toContain('exclude unclear weight');
+    expect(synthesis.input.brief).toContain('Trusted code calculates');
     expect(synthesis.input.outputContract?.schema).toMatchObject({
       type: 'object',
       required: ['scores', 'verdict'],
     });
+    expect(synthesis.input.outputContract?.schema).not.toHaveProperty(
+      'properties.composite',
+    );
   });
 
-  it('rejects incomplete or arithmetically inconsistent final judgments', () => {
+  it('computes the composite while rejecting incomplete final judgments', () => {
     const scores = rubric.criteria.map((criterion) => ({
       criterionId: criterion.id,
       status: 'pass' as const,
       rationale: 'reviewable',
     }));
     expect(
-      parseReviewOutput({ scores, composite: 1, verdict: 'Low burden' }, rubric)
-        .composite,
+      parseReviewOutput({ scores, verdict: 'Low burden' }, rubric).composite,
     ).toBe(1);
     expect(
       parseFreeformReviewOutput(
         {
           result: {
             scores,
-            composite: 1,
             verdict: 'Low burden',
           },
           summary: 'Review completed',
@@ -319,7 +289,7 @@ describe('staged complexity review', () => {
     ).toBe(1);
     expect(() =>
       parseReviewOutput(
-        { scores: scores.slice(1), composite: 1, verdict: 'Low burden' },
+        { scores: scores.slice(1), verdict: 'Low burden' },
         rubric,
       ),
     ).toThrow('scores length');
@@ -328,10 +298,10 @@ describe('staged complexity review', () => {
         { scores, composite: 0, verdict: 'Low burden' },
         rubric,
       ),
-    ).toThrow();
+    ).toThrow('ComplexityReviewDecision');
   });
 
-  it('excludes unclear criteria from the composite and rejects uncertainty scored as failure', () => {
+  it('excludes unclear criteria from the trusted composite', () => {
     const scores = rubric.criteria.map((criterion, index) => ({
       criterionId: criterion.id,
       status: index === 0 ? ('unclear' as const) : ('pass' as const),
@@ -341,17 +311,9 @@ describe('staged complexity review', () => {
           : 'Observed in diff.',
     }));
     expect(
-      parseReviewOutput(
-        { scores, composite: 1, verdict: 'Assessed criteria pass.' },
-        rubric,
-      ).composite,
+      parseReviewOutput({ scores, verdict: 'Assessed criteria pass.' }, rubric)
+        .composite,
     ).toBe(1);
-    expect(() =>
-      parseReviewOutput(
-        { scores, composite: 0.75, verdict: 'Incorrectly penalized.' },
-        rubric,
-      ),
-    ).toThrow('assessed-weight score');
     const allUnclear = scores.map((score) => ({
       ...score,
       status: 'unclear' as const,
@@ -367,11 +329,9 @@ describe('staged complexity review', () => {
       status: index === 1 ? ('fail' as const) : score.status,
     }));
     expect(
-      parseReviewOutput(
-        { scores: mixed, composite: 0.666667, verdict: 'Mixed burden.' },
-        rubric,
-      ).composite,
-    ).toBe(0.666667);
+      parseReviewOutput({ scores: mixed, verdict: 'Mixed burden.' }, rubric)
+        .composite,
+    ).toBeCloseTo(2 / 3);
   });
 
   it.each([
@@ -407,7 +367,7 @@ describe('staged complexity review', () => {
       const work = buildDomainWork(
         [
           {
-            id: 'app',
+            id: 'domain-1',
             nature: 'app change',
             paths: evidence.files.map((file) => file.path),
           },
@@ -433,7 +393,6 @@ describe('staged complexity review', () => {
               stageOutput({
                 groups: [
                   {
-                    id: 'app',
                     nature: 'app change',
                     fileIndexes: evidence.files.map((_, index) => index),
                   },
@@ -441,14 +400,9 @@ describe('staged complexity review', () => {
               }),
             );
           } else if (stage.startsWith('domain:')) {
-            const assigned = work.find(
-              (item) => 'domain:' + item.id === stage,
-            )!;
             outputs.set(
               id,
               stageOutput({
-                workId: stage.slice(7),
-                paths: assigned.files.map((file) => file.path),
                 summary: 'Reviewed the full patch',
                 signals: [
                   {
@@ -460,10 +414,7 @@ describe('staged complexity review', () => {
               }),
             );
           } else {
-            outputs.set(
-              id,
-              stageOutput({ scores, composite: 1, verdict: 'Low burden' }),
-            );
+            outputs.set(id, stageOutput({ scores, verdict: 'Low burden' }));
           }
           return Promise.resolve({ id } as Awaited<
             ReturnType<TaskClient['createTask']>

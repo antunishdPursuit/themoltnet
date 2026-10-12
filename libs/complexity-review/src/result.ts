@@ -2,7 +2,7 @@ import type { Rubric } from '@moltnet/tasks';
 import { type Static, Type } from 'typebox';
 import { Value } from 'typebox/value';
 
-export const ComplexityReviewOutput = Type.Object(
+export const ComplexityReviewDecision = Type.Object(
   {
     scores: Type.Array(
       Type.Object(
@@ -19,20 +19,26 @@ export const ComplexityReviewOutput = Type.Object(
       ),
       { minItems: 1 },
     ),
-    composite: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
     verdict: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false },
+);
+export const ComplexityReviewOutput = Type.Object(
+  {
+    ...ComplexityReviewDecision.properties,
+    composite: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
   },
   { additionalProperties: false },
 );
 export type ComplexityReviewOutput = Static<typeof ComplexityReviewOutput>;
 
-export function validateComplexityReviewOutput(
+export function finalizeComplexityReviewDecision(
   output: unknown,
   rubric: Rubric,
 ): ComplexityReviewOutput {
-  if (!Value.Check(ComplexityReviewOutput, output)) {
+  if (!Value.Check(ComplexityReviewDecision, output)) {
     throw new Error(
-      'accepted task output is not a valid ComplexityReviewOutput',
+      'accepted task output is not a valid ComplexityReviewDecision',
     );
   }
   if (output.scores.length !== rubric.criteria.length) {
@@ -50,15 +56,10 @@ export function validateComplexityReviewOutput(
       if (score.status === 'pass') passedWeight += criterion.weight;
     }
   }
-  const expected =
-    assessedWeight === 0 ? undefined : passedWeight / assessedWeight;
-  if (
-    (expected === undefined && output.composite !== undefined) ||
-    (expected !== undefined &&
-      (output.composite === undefined ||
-        Math.abs(output.composite - expected) > 1e-6))
-  ) {
-    throw new Error('composite does not match assessed-weight score');
-  }
-  return output;
+  return {
+    ...output,
+    ...(assessedWeight === 0
+      ? {}
+      : { composite: passedWeight / assessedWeight }),
+  };
 }
