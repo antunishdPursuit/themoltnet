@@ -17,6 +17,10 @@ import {
 } from '@moltnet/database';
 
 import {
+  containsArtifactSecret,
+  InvalidArtifactEncodingError,
+} from './artifact-secret-scan.js';
+import {
   MissingTaskArtifactObjectError,
   type TaskArtifactObject,
   type TaskArtifactStorage,
@@ -115,28 +119,33 @@ const ATTEMPT_TERMINAL_STATUSES = new Set([
   'timed_out',
 ]);
 
-const CREDENTIAL_PATTERNS = [
-  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
-  /\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20}/,
-  /\bsk-[A-Za-z0-9_-]{16}/,
-  /\bxox[baprs]-[A-Za-z0-9-]{16}/,
-  /-----BEGIN (?:ENCRYPTED )?(?:EC |RSA |OPENSSH )?PRIVATE KEY-----/i,
-] as const;
-
 /** Scan the staged bytes before either artifact endpoint can persist them. */
-async function assertNoCredentialMaterial(filePath: string): Promise<void> {
-  // Every pattern has a short prefix. Retaining 128 bytes catches a match
-  // spanning adjacent stream chunks without buffering the whole artifact.
-  let tail = '';
-  for await (const chunk of createReadStream(filePath)) {
-    const window = tail + Buffer.from(chunk).toString('latin1');
-    if (CREDENTIAL_PATTERNS.some((pattern) => pattern.test(window))) {
-      throw new TaskArtifactServiceError(
-        400,
-        'Task artifact contains credential-like material; redact it and retry',
-      );
+async function assertNoCredentialMaterial(
+  filePath: string,
+  contentEncoding: string | null | undefined,
+  maxBytes: number,
+): Promise<void> {
+  let containsSecret: boolean;
+  try {
+    containsSecret = await containsArtifactSecret(
+      filePath,
+      contentEncoding,
+      maxBytes,
+    );
+  } catch (err) {
+    if (err instanceof InvalidArtifactEncodingError) {
+      throw new TaskArtifactServiceError(400, 'Invalid task artifact encoding');
     }
-    tail = window.slice(-128);
+    throw new TaskArtifactServiceError(
+      503,
+      'Task artifact validation is unavailable; retry later',
+    );
+  }
+  if (containsSecret) {
+    throw new TaskArtifactServiceError(
+      400,
+      'Task artifact contains credential-like material; redact it and retry',
+    );
   }
 }
 
@@ -199,7 +208,11 @@ export function createTaskArtifactService(deps: TaskArtifactServiceDeps) {
       });
       const objectKey = buildArtifactObjectKey(input.teamId, staged.cid);
       try {
-        await assertNoCredentialMaterial(staged.path);
+        await assertNoCredentialMaterial(
+          staged.path,
+          input.contentEncoding,
+          deps.taskArtifactMaxBytes,
+        );
         // Recheck after staging bytes so a status change during upload cannot
         // create artifact metadata for a no-longer-eligible attempt.
         const latestAttempt = await assertTaskAttemptUploadEligible(
@@ -311,7 +324,11 @@ export function createTaskArtifactService(deps: TaskArtifactServiceDeps) {
       });
       const objectKey = buildArtifactObjectKey(input.teamId, staged.cid);
       try {
-        await assertNoCredentialMaterial(staged.path);
+        await assertNoCredentialMaterial(
+          staged.path,
+          input.contentEncoding,
+          deps.taskArtifactMaxBytes,
+        );
         const existingObject = await deps.objectStorage.headObject(objectKey);
         if (!existingObject) {
           await deps.objectStorage.putObject({

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Readable } from 'node:stream';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 
 import { KetoNamespace } from '@moltnet/auth';
 import { computeBytesCid } from '@moltnet/crypto-service';
@@ -190,6 +191,130 @@ describe('createTaskArtifactService', () => {
       }),
     ).rejects.toMatchObject({ statusCode: 400 });
     expect(storage.headObject).not.toHaveBeenCalled();
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'AWS secret assignment',
+      'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
+    ],
+    [
+      'suppression comment and Slack token',
+      'secretlint-disable\nxoxb-123456789012-123456789012-abcdefabcdefabcdefabcdef',
+    ],
+  ])('rejects %s before staging an artifact', async (_case, content) => {
+    await expect(
+      subject.stageUpload({
+        body: Readable.from([content]),
+        contentType: 'text/plain',
+        subjectId: AGENT_ID,
+        subjectNs: KetoNamespace.Agent,
+        teamId: TEAM_ID,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it('scans gzip content without encoding metadata', async () => {
+    await expect(
+      subject.stageUpload({
+        body: Readable.from([
+          gzipSync(
+            Buffer.from(
+              'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
+            ),
+          ),
+        ]),
+        contentType: 'application/gzip',
+        subjectId: AGENT_ID,
+        subjectNs: KetoNamespace.Agent,
+        teamId: TEAM_ID,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it('stages an ordinary deployment report with an AWS account number', async () => {
+    await subject.stageUpload({
+      body: Readable.from([
+        'molt-api deployed in eu-west-1; account 123456789012; cloud credentials configured',
+      ]),
+      contentType: 'text/plain',
+      subjectId: AGENT_ID,
+      subjectNs: KetoNamespace.Agent,
+      teamId: TEAM_ID,
+    });
+
+    expect(storage.putObject).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['gzip', gzipSync],
+    ['br', brotliCompressSync],
+  ])(
+    'rejects credential material inside %s content',
+    async (encoding, compress) => {
+      await expect(
+        subject.stageUpload({
+          body: Readable.from([
+            compress(
+              Buffer.from(
+                'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
+              ),
+            ),
+          ]),
+          contentEncoding: encoding,
+          contentType: 'text/plain',
+          subjectId: AGENT_ID,
+          subjectNs: KetoNamespace.Agent,
+          teamId: TEAM_ID,
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(storage.putObject).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects an unsupported artifact encoding before storage', async () => {
+    await expect(
+      subject.stageUpload({
+        body: Readable.from(['plain report']),
+        contentEncoding: 'unknown',
+        contentType: 'text/plain',
+        subjectId: AGENT_ID,
+        subjectNs: KetoNamespace.Agent,
+        teamId: TEAM_ID,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it('stages benign gzip content', async () => {
+    await subject.stageUpload({
+      body: Readable.from([
+        gzipSync(Buffer.from('ordinary deployment report')),
+      ]),
+      contentEncoding: 'gzip',
+      contentType: 'text/plain',
+      subjectId: AGENT_ID,
+      subjectNs: KetoNamespace.Agent,
+      teamId: TEAM_ID,
+    });
+
+    expect(storage.putObject).toHaveBeenCalledOnce();
+  });
+
+  it('rejects decoded content beyond the artifact size limit', async () => {
+    await expect(
+      subject.stageUpload({
+        body: Readable.from([gzipSync(Buffer.alloc(1024 * 1024 + 1, 'a'))]),
+        contentEncoding: 'gzip',
+        contentType: 'text/plain',
+        subjectId: AGENT_ID,
+        subjectNs: KetoNamespace.Agent,
+        teamId: TEAM_ID,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
     expect(storage.putObject).not.toHaveBeenCalled();
   });
 
