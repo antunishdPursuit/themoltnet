@@ -15,7 +15,7 @@ output redirection.
 | [`legreffier-review-readonly-v1.json`](./legreffier-review-readonly-v1.json)                           | `legreffier-review-v1`, `legreffier-docs-review-v1`, `legreffier-docs-review-codex-v1`, `legreffier-docs-review-gemma-v1`, `legreffier-docs-review-gptoss-v1`, `legreffier-docs-review-deepseek-v1` |
 | [`legreffier-security-review-readonly-v1.json`](./legreffier-security-review-readonly-v1.json)         | `legreffier-security-review-v2`                                                                                                                                                                     |
 | [`legreffier-complexity-review-input-only-v1.json`](./legreffier-complexity-review-input-only-v1.json) | `legreffier-complexity-review-v2`                                                                                                                                                                   |
-| [`legreffier-issue-triage-input-only-v1.json`](./legreffier-issue-triage-input-only-v1.json)           | `legreffier-issue-triage-v1`                                                                                                                                                                        |
+| [`legreffier-issue-triage-input-only-v1.json`](./legreffier-issue-triage-input-only-v1.json)           | `legreffier-issue-triage-v1`, `legreffier-issue-classifier-v1`                                                                                                                                      |
 | [`multi-lens-review-readonly-v1.json`](./multi-lens-review-readonly-v1.json)                           | `multi-lens-review-v1`                                                                                                                                                                              |
 
 The definitions here are the reviewable source of truth. They are **not**
@@ -25,6 +25,25 @@ same argument `moltnet profile create --help` makes for sandbox policies: an
 allow-list that decides whether a review agent can shell out or reach the
 network is a security artifact worth diffing in a pull request rather than
 clicking into a UI.
+
+## Issue classifier pilot
+
+The [issue triage workflow](../workflows/issue-triage.yml) runs the existing
+issue-quality task first, then optionally passes its validated issue excerpts
+to a standalone `classify` task. The classifier reports issue category and
+readiness probabilities in the comment; the issue-quality task continues to
+decide `needs-spec` and `ready-for-agent` labels. A classifier failure leaves
+the established label path available.
+
+Before setting repository variable `MOLTNET_ISSUE_CLASSIFIER_ENABLED=true`,
+create `legreffier-issue-classifier-v1` from its
+[profile definition](../runtime-profiles/legreffier-issue-classifier-v1.json),
+bind `legreffier-issue-triage-input-only-v1` to it, and provide
+`TYPESAFE_API_KEY` in the `legreffier` GitHub environment. The profile selects
+Pi's built-in `typesafe/jev-latest` classifier, so the classifier action does
+not need a provider discovery input. Verify the effective policy with
+`moltnet profile allowed-tools legreffier-issue-classifier-v1 --team-id "$TEAM"`
+before enabling the pilot.
 
 ## Applying a definition
 
