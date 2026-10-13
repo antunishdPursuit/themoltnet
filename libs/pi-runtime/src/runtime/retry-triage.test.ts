@@ -19,8 +19,8 @@ const BASE_INPUT = {
 };
 
 describe('pi retry triage prompt', () => {
-  it('redacts secret-looking fields from the triage prompt', () => {
-    const prompt = buildPiRetryTriagePromptForTest({
+  it('redacts secret-looking fields from the triage prompt', async () => {
+    const prompt = await buildPiRetryTriagePromptForTest({
       ...BASE_INPUT,
       task: {
         ...BASE_INPUT.task,
@@ -34,7 +34,8 @@ describe('pi retry triage prompt', () => {
       },
       error: {
         code: 'executor_unexpected_error',
-        message: 'failed with token ghp_abcdefghijklmnopqrstuvwxyz',
+        message:
+          'failed with token ghp_abcdefghijklmnopqrstuvwxyz0123456789 and AWS key AKIAABCDEFGHIJKL1234',
       },
       recentMessages: [
         {
@@ -50,11 +51,12 @@ describe('pi retry triage prompt', () => {
     expect(prompt).toContain('"password": "[redacted]"');
     expect(prompt).not.toContain('sk-secret-value');
     expect(prompt).not.toContain('super-secret');
-    expect(prompt).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz');
+    expect(prompt).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789');
+    expect(prompt).not.toContain('AKIAABCDEFGHIJKL1234');
   });
 
-  it('bounds large triage prompt payloads', () => {
-    const prompt = buildPiRetryTriagePromptForTest({
+  it('bounds large triage prompt payloads', async () => {
+    const prompt = await buildPiRetryTriagePromptForTest({
       ...BASE_INPUT,
       task: {
         ...BASE_INPUT.task,
@@ -70,8 +72,8 @@ describe('pi retry triage prompt', () => {
     expect(prompt).toContain('[truncated');
   });
 
-  it('keeps output validation in-session instead of creating a task attempt retry', () => {
-    const prompt = buildPiRetryTriagePromptForTest({
+  it('keeps output validation in-session instead of creating a task attempt retry', async () => {
+    const prompt = await buildPiRetryTriagePromptForTest({
       ...BASE_INPUT,
       error: {
         code: 'output_validation_failed',

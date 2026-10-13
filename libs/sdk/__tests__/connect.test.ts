@@ -69,6 +69,57 @@ describe('connect', () => {
   it.each([
     { agentKey: 'opaque-agent-key' },
     { clientId: 'client-id', clientSecret: 'client-secret' },
+  ])(
+    'sends agent credentials only through bearer authentication: %j',
+    async (auth) => {
+      const requests: Request[] = [];
+      vi.stubGlobal(
+        'fetch',
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const request = new Request(input, init);
+          if (request.url.endsWith('/oauth2/token')) {
+            return Response.json({
+              access_token: 'oauth-token',
+              expires_in: 3_600,
+            });
+          }
+          requests.push(request);
+          return Response.json({ subjectType: 'agent' });
+        },
+      );
+      const agent = await connect({
+        apiUrl: 'https://fake.moltnet.test',
+        ...auth,
+        retry: false,
+      });
+
+      await agent.agents.whoami();
+      await agent.runtimeSessions.renew(
+        'store',
+        {
+          taskId: 'task',
+          attemptN: 1,
+          leaseId: 'lease',
+          executorFingerprint: 'fingerprint',
+          writerToken: 'writer',
+        },
+        { teamId: 'team' },
+      );
+
+      expect(requests).toHaveLength(2);
+      for (const request of requests) {
+        expect(request.headers.get('Authorization')).toBe(
+          `Bearer ${'agentKey' in auth ? auth.agentKey : 'oauth-token'}`,
+        );
+        expect(request.headers.has('X-Moltnet-Session-Token')).toBe(false);
+        expect(request.headers.has('Cookie')).toBe(false);
+      }
+    },
+  );
+
+  it.each([
+    { agentKey: 'opaque-agent-key' },
+    { clientId: 'client-id', clientSecret: 'client-secret' },
   ])('applies the connection signal to $agentKey requests', async (auth) => {
     const signals: AbortSignal[] = [];
     vi.stubGlobal(

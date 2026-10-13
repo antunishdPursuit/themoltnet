@@ -17660,19 +17660,36 @@ func (s *CreateRuntimeModelBody) UnmarshalJSON(data []byte) error {
 }
 
 // Encode implements json.Marshaler.
-func (s CreateRuntimeModelBodyCapabilities) Encode(e *jx.Encoder) {
+func (s *CreateRuntimeModelBodyCapabilities) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)
 	e.ObjEnd()
 }
 
-// encodeFields implements json.Marshaler.
-func (s CreateRuntimeModelBodyCapabilities) encodeFields(e *jx.Encoder) {
-	for k, elem := range s {
+// encodeFields encodes fields.
+func (s *CreateRuntimeModelBodyCapabilities) encodeFields(e *jx.Encoder) {
+	{
+		if s.Classification.Set {
+			e.FieldStart("classification")
+			s.Classification.Encode(e)
+		}
+	}
+	{
+		if s.Generation.Set {
+			e.FieldStart("generation")
+			s.Generation.Encode(e)
+		}
+	}
+	for k, elem := range s.AdditionalProps {
 		e.FieldStart(k)
 
 		elem.Encode(e)
 	}
+}
+
+var jsonFieldsNameOfCreateRuntimeModelBodyCapabilities = [2]string{
+	0: "classification",
+	1: "generation",
 }
 
 // Decode decodes CreateRuntimeModelBodyCapabilities from json.
@@ -17680,18 +17697,42 @@ func (s *CreateRuntimeModelBodyCapabilities) Decode(d *jx.Decoder) error {
 	if s == nil {
 		return errors.New("invalid: unable to decode CreateRuntimeModelBodyCapabilities to nil")
 	}
-	m := s.init()
+	s.AdditionalProps = map[string]CreateRuntimeModelBodyCapabilitiesAdditionalItem{}
+
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
-		var elem CreateRuntimeModelBodyCapabilitiesItem
-		if err := func() error {
-			if err := elem.Decode(d); err != nil {
-				return err
+		switch string(k) {
+		case "classification":
+			if err := func() error {
+				s.Classification.Reset()
+				if err := s.Classification.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"classification\"")
 			}
-			return nil
-		}(); err != nil {
-			return errors.Wrapf(err, "decode field %q", k)
+		case "generation":
+			if err := func() error {
+				s.Generation.Reset()
+				if err := s.Generation.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"generation\"")
+			}
+		default:
+			var elem CreateRuntimeModelBodyCapabilitiesAdditionalItem
+			if err := func() error {
+				if err := elem.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrapf(err, "decode field %q", k)
+			}
+			s.AdditionalProps[string(k)] = elem
 		}
-		m[string(k)] = elem
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "decode CreateRuntimeModelBodyCapabilities")
@@ -17701,7 +17742,7 @@ func (s *CreateRuntimeModelBodyCapabilities) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s CreateRuntimeModelBodyCapabilities) MarshalJSON() ([]byte, error) {
+func (s *CreateRuntimeModelBodyCapabilities) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
@@ -17713,22 +17754,76 @@ func (s *CreateRuntimeModelBodyCapabilities) UnmarshalJSON(data []byte) error {
 	return s.Decode(d)
 }
 
-// Encode encodes CreateRuntimeModelBodyCapabilitiesItem as json.
-func (s CreateRuntimeModelBodyCapabilitiesItem) Encode(e *jx.Encoder) {
+// Encode implements json.Marshaler.
+func (s CreateRuntimeModelBodyCapabilitiesAdditional) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields implements json.Marshaler.
+func (s CreateRuntimeModelBodyCapabilitiesAdditional) encodeFields(e *jx.Encoder) {
+	for k, elem := range s {
+		e.FieldStart(k)
+
+		elem.Encode(e)
+	}
+}
+
+// Decode decodes CreateRuntimeModelBodyCapabilitiesAdditional from json.
+func (s *CreateRuntimeModelBodyCapabilitiesAdditional) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode CreateRuntimeModelBodyCapabilitiesAdditional to nil")
+	}
+	m := s.init()
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		var elem CreateRuntimeModelBodyCapabilitiesAdditionalItem
+		if err := func() error {
+			if err := elem.Decode(d); err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			return errors.Wrapf(err, "decode field %q", k)
+		}
+		m[string(k)] = elem
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode CreateRuntimeModelBodyCapabilitiesAdditional")
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s CreateRuntimeModelBodyCapabilitiesAdditional) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *CreateRuntimeModelBodyCapabilitiesAdditional) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes CreateRuntimeModelBodyCapabilitiesAdditionalItem as json.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) Encode(e *jx.Encoder) {
 	switch s.Type {
-	case BoolCreateRuntimeModelBodyCapabilitiesItem:
+	case BoolCreateRuntimeModelBodyCapabilitiesAdditionalItem:
 		e.Bool(s.Bool)
-	case Float64CreateRuntimeModelBodyCapabilitiesItem:
+	case Float64CreateRuntimeModelBodyCapabilitiesAdditionalItem:
 		e.Float64(s.Float64)
-	case StringCreateRuntimeModelBodyCapabilitiesItem:
+	case StringCreateRuntimeModelBodyCapabilitiesAdditionalItem:
 		e.Str(s.String)
 	}
 }
 
-// Decode decodes CreateRuntimeModelBodyCapabilitiesItem from json.
-func (s *CreateRuntimeModelBodyCapabilitiesItem) Decode(d *jx.Decoder) error {
+// Decode decodes CreateRuntimeModelBodyCapabilitiesAdditionalItem from json.
+func (s *CreateRuntimeModelBodyCapabilitiesAdditionalItem) Decode(d *jx.Decoder) error {
 	if s == nil {
-		return errors.New("invalid: unable to decode CreateRuntimeModelBodyCapabilitiesItem to nil")
+		return errors.New("invalid: unable to decode CreateRuntimeModelBodyCapabilitiesAdditionalItem to nil")
 	}
 	// Sum type type_discriminator.
 	switch t := d.Next(); t {
@@ -17738,21 +17833,21 @@ func (s *CreateRuntimeModelBodyCapabilitiesItem) Decode(d *jx.Decoder) error {
 		if err != nil {
 			return err
 		}
-		s.Type = BoolCreateRuntimeModelBodyCapabilitiesItem
+		s.Type = BoolCreateRuntimeModelBodyCapabilitiesAdditionalItem
 	case jx.Number:
 		v, err := d.Float64()
 		s.Float64 = float64(v)
 		if err != nil {
 			return err
 		}
-		s.Type = Float64CreateRuntimeModelBodyCapabilitiesItem
+		s.Type = Float64CreateRuntimeModelBodyCapabilitiesAdditionalItem
 	case jx.String:
 		v, err := d.Str()
 		s.String = string(v)
 		if err != nil {
 			return err
 		}
-		s.Type = StringCreateRuntimeModelBodyCapabilitiesItem
+		s.Type = StringCreateRuntimeModelBodyCapabilitiesAdditionalItem
 	default:
 		return errors.Errorf("unexpected json type %q", t)
 	}
@@ -17760,14 +17855,14 @@ func (s *CreateRuntimeModelBodyCapabilitiesItem) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s CreateRuntimeModelBodyCapabilitiesItem) MarshalJSON() ([]byte, error) {
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
 }
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
-func (s *CreateRuntimeModelBodyCapabilitiesItem) UnmarshalJSON(data []byte) error {
+func (s *CreateRuntimeModelBodyCapabilitiesAdditionalItem) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }
@@ -81793,7 +81888,6 @@ func (o *OptCreateRuntimeModelBodyCapabilities) Decode(d *jx.Decoder) error {
 		return errors.New("invalid: unable to decode OptCreateRuntimeModelBodyCapabilities to nil")
 	}
 	o.Set = true
-	o.Value = make(CreateRuntimeModelBodyCapabilities)
 	if err := o.Value.Decode(d); err != nil {
 		return err
 	}
@@ -85245,7 +85339,6 @@ func (o *OptUpdateRuntimeModelBodyCapabilities) Decode(d *jx.Decoder) error {
 		return errors.New("invalid: unable to decode OptUpdateRuntimeModelBodyCapabilities to nil")
 	}
 	o.Set = true
-	o.Value = make(UpdateRuntimeModelBodyCapabilities)
 	if err := o.Value.Decode(d); err != nil {
 		return err
 	}
@@ -105231,19 +105324,36 @@ func (s *RuntimeModel) UnmarshalJSON(data []byte) error {
 }
 
 // Encode implements json.Marshaler.
-func (s RuntimeModelCapabilities) Encode(e *jx.Encoder) {
+func (s *RuntimeModelCapabilities) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)
 	e.ObjEnd()
 }
 
-// encodeFields implements json.Marshaler.
-func (s RuntimeModelCapabilities) encodeFields(e *jx.Encoder) {
-	for k, elem := range s {
+// encodeFields encodes fields.
+func (s *RuntimeModelCapabilities) encodeFields(e *jx.Encoder) {
+	{
+		if s.Classification.Set {
+			e.FieldStart("classification")
+			s.Classification.Encode(e)
+		}
+	}
+	{
+		if s.Generation.Set {
+			e.FieldStart("generation")
+			s.Generation.Encode(e)
+		}
+	}
+	for k, elem := range s.AdditionalProps {
 		e.FieldStart(k)
 
 		elem.Encode(e)
 	}
+}
+
+var jsonFieldsNameOfRuntimeModelCapabilities = [2]string{
+	0: "classification",
+	1: "generation",
 }
 
 // Decode decodes RuntimeModelCapabilities from json.
@@ -105251,18 +105361,42 @@ func (s *RuntimeModelCapabilities) Decode(d *jx.Decoder) error {
 	if s == nil {
 		return errors.New("invalid: unable to decode RuntimeModelCapabilities to nil")
 	}
-	m := s.init()
+	s.AdditionalProps = map[string]RuntimeModelCapabilitiesAdditionalItem{}
+
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
-		var elem RuntimeModelCapabilitiesItem
-		if err := func() error {
-			if err := elem.Decode(d); err != nil {
-				return err
+		switch string(k) {
+		case "classification":
+			if err := func() error {
+				s.Classification.Reset()
+				if err := s.Classification.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"classification\"")
 			}
-			return nil
-		}(); err != nil {
-			return errors.Wrapf(err, "decode field %q", k)
+		case "generation":
+			if err := func() error {
+				s.Generation.Reset()
+				if err := s.Generation.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"generation\"")
+			}
+		default:
+			var elem RuntimeModelCapabilitiesAdditionalItem
+			if err := func() error {
+				if err := elem.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrapf(err, "decode field %q", k)
+			}
+			s.AdditionalProps[string(k)] = elem
 		}
-		m[string(k)] = elem
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "decode RuntimeModelCapabilities")
@@ -105272,7 +105406,7 @@ func (s *RuntimeModelCapabilities) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s RuntimeModelCapabilities) MarshalJSON() ([]byte, error) {
+func (s *RuntimeModelCapabilities) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
@@ -105284,22 +105418,76 @@ func (s *RuntimeModelCapabilities) UnmarshalJSON(data []byte) error {
 	return s.Decode(d)
 }
 
-// Encode encodes RuntimeModelCapabilitiesItem as json.
-func (s RuntimeModelCapabilitiesItem) Encode(e *jx.Encoder) {
+// Encode implements json.Marshaler.
+func (s RuntimeModelCapabilitiesAdditional) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields implements json.Marshaler.
+func (s RuntimeModelCapabilitiesAdditional) encodeFields(e *jx.Encoder) {
+	for k, elem := range s {
+		e.FieldStart(k)
+
+		elem.Encode(e)
+	}
+}
+
+// Decode decodes RuntimeModelCapabilitiesAdditional from json.
+func (s *RuntimeModelCapabilitiesAdditional) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode RuntimeModelCapabilitiesAdditional to nil")
+	}
+	m := s.init()
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		var elem RuntimeModelCapabilitiesAdditionalItem
+		if err := func() error {
+			if err := elem.Decode(d); err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			return errors.Wrapf(err, "decode field %q", k)
+		}
+		m[string(k)] = elem
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode RuntimeModelCapabilitiesAdditional")
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s RuntimeModelCapabilitiesAdditional) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *RuntimeModelCapabilitiesAdditional) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes RuntimeModelCapabilitiesAdditionalItem as json.
+func (s RuntimeModelCapabilitiesAdditionalItem) Encode(e *jx.Encoder) {
 	switch s.Type {
-	case BoolRuntimeModelCapabilitiesItem:
+	case BoolRuntimeModelCapabilitiesAdditionalItem:
 		e.Bool(s.Bool)
-	case Float64RuntimeModelCapabilitiesItem:
+	case Float64RuntimeModelCapabilitiesAdditionalItem:
 		e.Float64(s.Float64)
-	case StringRuntimeModelCapabilitiesItem:
+	case StringRuntimeModelCapabilitiesAdditionalItem:
 		e.Str(s.String)
 	}
 }
 
-// Decode decodes RuntimeModelCapabilitiesItem from json.
-func (s *RuntimeModelCapabilitiesItem) Decode(d *jx.Decoder) error {
+// Decode decodes RuntimeModelCapabilitiesAdditionalItem from json.
+func (s *RuntimeModelCapabilitiesAdditionalItem) Decode(d *jx.Decoder) error {
 	if s == nil {
-		return errors.New("invalid: unable to decode RuntimeModelCapabilitiesItem to nil")
+		return errors.New("invalid: unable to decode RuntimeModelCapabilitiesAdditionalItem to nil")
 	}
 	// Sum type type_discriminator.
 	switch t := d.Next(); t {
@@ -105309,21 +105497,21 @@ func (s *RuntimeModelCapabilitiesItem) Decode(d *jx.Decoder) error {
 		if err != nil {
 			return err
 		}
-		s.Type = BoolRuntimeModelCapabilitiesItem
+		s.Type = BoolRuntimeModelCapabilitiesAdditionalItem
 	case jx.Number:
 		v, err := d.Float64()
 		s.Float64 = float64(v)
 		if err != nil {
 			return err
 		}
-		s.Type = Float64RuntimeModelCapabilitiesItem
+		s.Type = Float64RuntimeModelCapabilitiesAdditionalItem
 	case jx.String:
 		v, err := d.Str()
 		s.String = string(v)
 		if err != nil {
 			return err
 		}
-		s.Type = StringRuntimeModelCapabilitiesItem
+		s.Type = StringRuntimeModelCapabilitiesAdditionalItem
 	default:
 		return errors.Errorf("unexpected json type %q", t)
 	}
@@ -105331,14 +105519,14 @@ func (s *RuntimeModelCapabilitiesItem) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s RuntimeModelCapabilitiesItem) MarshalJSON() ([]byte, error) {
+func (s RuntimeModelCapabilitiesAdditionalItem) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
 }
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
-func (s *RuntimeModelCapabilitiesItem) UnmarshalJSON(data []byte) error {
+func (s *RuntimeModelCapabilitiesAdditionalItem) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }
@@ -105722,19 +105910,36 @@ func (s *RuntimeModelListResponseItemsItem) UnmarshalJSON(data []byte) error {
 }
 
 // Encode implements json.Marshaler.
-func (s RuntimeModelListResponseItemsItemCapabilities) Encode(e *jx.Encoder) {
+func (s *RuntimeModelListResponseItemsItemCapabilities) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)
 	e.ObjEnd()
 }
 
-// encodeFields implements json.Marshaler.
-func (s RuntimeModelListResponseItemsItemCapabilities) encodeFields(e *jx.Encoder) {
-	for k, elem := range s {
+// encodeFields encodes fields.
+func (s *RuntimeModelListResponseItemsItemCapabilities) encodeFields(e *jx.Encoder) {
+	{
+		if s.Classification.Set {
+			e.FieldStart("classification")
+			s.Classification.Encode(e)
+		}
+	}
+	{
+		if s.Generation.Set {
+			e.FieldStart("generation")
+			s.Generation.Encode(e)
+		}
+	}
+	for k, elem := range s.AdditionalProps {
 		e.FieldStart(k)
 
 		elem.Encode(e)
 	}
+}
+
+var jsonFieldsNameOfRuntimeModelListResponseItemsItemCapabilities = [2]string{
+	0: "classification",
+	1: "generation",
 }
 
 // Decode decodes RuntimeModelListResponseItemsItemCapabilities from json.
@@ -105742,18 +105947,42 @@ func (s *RuntimeModelListResponseItemsItemCapabilities) Decode(d *jx.Decoder) er
 	if s == nil {
 		return errors.New("invalid: unable to decode RuntimeModelListResponseItemsItemCapabilities to nil")
 	}
-	m := s.init()
+	s.AdditionalProps = map[string]RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem{}
+
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
-		var elem RuntimeModelListResponseItemsItemCapabilitiesItem
-		if err := func() error {
-			if err := elem.Decode(d); err != nil {
-				return err
+		switch string(k) {
+		case "classification":
+			if err := func() error {
+				s.Classification.Reset()
+				if err := s.Classification.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"classification\"")
 			}
-			return nil
-		}(); err != nil {
-			return errors.Wrapf(err, "decode field %q", k)
+		case "generation":
+			if err := func() error {
+				s.Generation.Reset()
+				if err := s.Generation.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"generation\"")
+			}
+		default:
+			var elem RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
+			if err := func() error {
+				if err := elem.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrapf(err, "decode field %q", k)
+			}
+			s.AdditionalProps[string(k)] = elem
 		}
-		m[string(k)] = elem
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "decode RuntimeModelListResponseItemsItemCapabilities")
@@ -105763,7 +105992,7 @@ func (s *RuntimeModelListResponseItemsItemCapabilities) Decode(d *jx.Decoder) er
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s RuntimeModelListResponseItemsItemCapabilities) MarshalJSON() ([]byte, error) {
+func (s *RuntimeModelListResponseItemsItemCapabilities) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
@@ -105775,22 +106004,76 @@ func (s *RuntimeModelListResponseItemsItemCapabilities) UnmarshalJSON(data []byt
 	return s.Decode(d)
 }
 
-// Encode encodes RuntimeModelListResponseItemsItemCapabilitiesItem as json.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) Encode(e *jx.Encoder) {
+// Encode implements json.Marshaler.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditional) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields implements json.Marshaler.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditional) encodeFields(e *jx.Encoder) {
+	for k, elem := range s {
+		e.FieldStart(k)
+
+		elem.Encode(e)
+	}
+}
+
+// Decode decodes RuntimeModelListResponseItemsItemCapabilitiesAdditional from json.
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditional) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode RuntimeModelListResponseItemsItemCapabilitiesAdditional to nil")
+	}
+	m := s.init()
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		var elem RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
+		if err := func() error {
+			if err := elem.Decode(d); err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			return errors.Wrapf(err, "decode field %q", k)
+		}
+		m[string(k)] = elem
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode RuntimeModelListResponseItemsItemCapabilitiesAdditional")
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditional) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditional) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem as json.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) Encode(e *jx.Encoder) {
 	switch s.Type {
-	case BoolRuntimeModelListResponseItemsItemCapabilitiesItem:
+	case BoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem:
 		e.Bool(s.Bool)
-	case Float64RuntimeModelListResponseItemsItemCapabilitiesItem:
+	case Float64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem:
 		e.Float64(s.Float64)
-	case StringRuntimeModelListResponseItemsItemCapabilitiesItem:
+	case StringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem:
 		e.Str(s.String)
 	}
 }
 
-// Decode decodes RuntimeModelListResponseItemsItemCapabilitiesItem from json.
-func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) Decode(d *jx.Decoder) error {
+// Decode decodes RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem from json.
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) Decode(d *jx.Decoder) error {
 	if s == nil {
-		return errors.New("invalid: unable to decode RuntimeModelListResponseItemsItemCapabilitiesItem to nil")
+		return errors.New("invalid: unable to decode RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem to nil")
 	}
 	// Sum type type_discriminator.
 	switch t := d.Next(); t {
@@ -105800,21 +106083,21 @@ func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) Decode(d *jx.Decoder
 		if err != nil {
 			return err
 		}
-		s.Type = BoolRuntimeModelListResponseItemsItemCapabilitiesItem
+		s.Type = BoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	case jx.Number:
 		v, err := d.Float64()
 		s.Float64 = float64(v)
 		if err != nil {
 			return err
 		}
-		s.Type = Float64RuntimeModelListResponseItemsItemCapabilitiesItem
+		s.Type = Float64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	case jx.String:
 		v, err := d.Str()
 		s.String = string(v)
 		if err != nil {
 			return err
 		}
-		s.Type = StringRuntimeModelListResponseItemsItemCapabilitiesItem
+		s.Type = StringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	default:
 		return errors.Errorf("unexpected json type %q", t)
 	}
@@ -105822,14 +106105,14 @@ func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) Decode(d *jx.Decoder
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) MarshalJSON() ([]byte, error) {
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
 }
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
-func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) UnmarshalJSON(data []byte) error {
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }
@@ -126257,19 +126540,36 @@ func (s *UpdateRuntimeModelBody) UnmarshalJSON(data []byte) error {
 }
 
 // Encode implements json.Marshaler.
-func (s UpdateRuntimeModelBodyCapabilities) Encode(e *jx.Encoder) {
+func (s *UpdateRuntimeModelBodyCapabilities) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)
 	e.ObjEnd()
 }
 
-// encodeFields implements json.Marshaler.
-func (s UpdateRuntimeModelBodyCapabilities) encodeFields(e *jx.Encoder) {
-	for k, elem := range s {
+// encodeFields encodes fields.
+func (s *UpdateRuntimeModelBodyCapabilities) encodeFields(e *jx.Encoder) {
+	{
+		if s.Classification.Set {
+			e.FieldStart("classification")
+			s.Classification.Encode(e)
+		}
+	}
+	{
+		if s.Generation.Set {
+			e.FieldStart("generation")
+			s.Generation.Encode(e)
+		}
+	}
+	for k, elem := range s.AdditionalProps {
 		e.FieldStart(k)
 
 		elem.Encode(e)
 	}
+}
+
+var jsonFieldsNameOfUpdateRuntimeModelBodyCapabilities = [2]string{
+	0: "classification",
+	1: "generation",
 }
 
 // Decode decodes UpdateRuntimeModelBodyCapabilities from json.
@@ -126277,18 +126577,42 @@ func (s *UpdateRuntimeModelBodyCapabilities) Decode(d *jx.Decoder) error {
 	if s == nil {
 		return errors.New("invalid: unable to decode UpdateRuntimeModelBodyCapabilities to nil")
 	}
-	m := s.init()
+	s.AdditionalProps = map[string]UpdateRuntimeModelBodyCapabilitiesAdditionalItem{}
+
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
-		var elem UpdateRuntimeModelBodyCapabilitiesItem
-		if err := func() error {
-			if err := elem.Decode(d); err != nil {
-				return err
+		switch string(k) {
+		case "classification":
+			if err := func() error {
+				s.Classification.Reset()
+				if err := s.Classification.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"classification\"")
 			}
-			return nil
-		}(); err != nil {
-			return errors.Wrapf(err, "decode field %q", k)
+		case "generation":
+			if err := func() error {
+				s.Generation.Reset()
+				if err := s.Generation.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"generation\"")
+			}
+		default:
+			var elem UpdateRuntimeModelBodyCapabilitiesAdditionalItem
+			if err := func() error {
+				if err := elem.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrapf(err, "decode field %q", k)
+			}
+			s.AdditionalProps[string(k)] = elem
 		}
-		m[string(k)] = elem
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "decode UpdateRuntimeModelBodyCapabilities")
@@ -126298,7 +126622,7 @@ func (s *UpdateRuntimeModelBodyCapabilities) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s UpdateRuntimeModelBodyCapabilities) MarshalJSON() ([]byte, error) {
+func (s *UpdateRuntimeModelBodyCapabilities) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
@@ -126310,22 +126634,76 @@ func (s *UpdateRuntimeModelBodyCapabilities) UnmarshalJSON(data []byte) error {
 	return s.Decode(d)
 }
 
-// Encode encodes UpdateRuntimeModelBodyCapabilitiesItem as json.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) Encode(e *jx.Encoder) {
+// Encode implements json.Marshaler.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditional) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields implements json.Marshaler.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditional) encodeFields(e *jx.Encoder) {
+	for k, elem := range s {
+		e.FieldStart(k)
+
+		elem.Encode(e)
+	}
+}
+
+// Decode decodes UpdateRuntimeModelBodyCapabilitiesAdditional from json.
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditional) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode UpdateRuntimeModelBodyCapabilitiesAdditional to nil")
+	}
+	m := s.init()
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		var elem UpdateRuntimeModelBodyCapabilitiesAdditionalItem
+		if err := func() error {
+			if err := elem.Decode(d); err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			return errors.Wrapf(err, "decode field %q", k)
+		}
+		m[string(k)] = elem
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode UpdateRuntimeModelBodyCapabilitiesAdditional")
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditional) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditional) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode encodes UpdateRuntimeModelBodyCapabilitiesAdditionalItem as json.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) Encode(e *jx.Encoder) {
 	switch s.Type {
-	case BoolUpdateRuntimeModelBodyCapabilitiesItem:
+	case BoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem:
 		e.Bool(s.Bool)
-	case Float64UpdateRuntimeModelBodyCapabilitiesItem:
+	case Float64UpdateRuntimeModelBodyCapabilitiesAdditionalItem:
 		e.Float64(s.Float64)
-	case StringUpdateRuntimeModelBodyCapabilitiesItem:
+	case StringUpdateRuntimeModelBodyCapabilitiesAdditionalItem:
 		e.Str(s.String)
 	}
 }
 
-// Decode decodes UpdateRuntimeModelBodyCapabilitiesItem from json.
-func (s *UpdateRuntimeModelBodyCapabilitiesItem) Decode(d *jx.Decoder) error {
+// Decode decodes UpdateRuntimeModelBodyCapabilitiesAdditionalItem from json.
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditionalItem) Decode(d *jx.Decoder) error {
 	if s == nil {
-		return errors.New("invalid: unable to decode UpdateRuntimeModelBodyCapabilitiesItem to nil")
+		return errors.New("invalid: unable to decode UpdateRuntimeModelBodyCapabilitiesAdditionalItem to nil")
 	}
 	// Sum type type_discriminator.
 	switch t := d.Next(); t {
@@ -126335,21 +126713,21 @@ func (s *UpdateRuntimeModelBodyCapabilitiesItem) Decode(d *jx.Decoder) error {
 		if err != nil {
 			return err
 		}
-		s.Type = BoolUpdateRuntimeModelBodyCapabilitiesItem
+		s.Type = BoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	case jx.Number:
 		v, err := d.Float64()
 		s.Float64 = float64(v)
 		if err != nil {
 			return err
 		}
-		s.Type = Float64UpdateRuntimeModelBodyCapabilitiesItem
+		s.Type = Float64UpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	case jx.String:
 		v, err := d.Str()
 		s.String = string(v)
 		if err != nil {
 			return err
 		}
-		s.Type = StringUpdateRuntimeModelBodyCapabilitiesItem
+		s.Type = StringUpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	default:
 		return errors.Errorf("unexpected json type %q", t)
 	}
@@ -126357,14 +126735,14 @@ func (s *UpdateRuntimeModelBodyCapabilitiesItem) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) MarshalJSON() ([]byte, error) {
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
 }
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
-func (s *UpdateRuntimeModelBodyCapabilitiesItem) UnmarshalJSON(data []byte) error {
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditionalItem) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }

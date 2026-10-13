@@ -57,7 +57,7 @@ export async function acquireDurableTransport(input: {
   const fail = (error: unknown) => {
     lost.abort(
       new TaskExecutionInterrupted(
-        'Durable writer lost; resume this attempt after its writer lease expires',
+        'Durable writer lost; reconcile the attempt before resuming',
         { cause: error },
       ),
     );

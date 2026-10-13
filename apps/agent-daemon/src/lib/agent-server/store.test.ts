@@ -371,7 +371,11 @@ describe('AgentServerStore', () => {
     );
   });
 
-  it('round-trips classifier metadata alongside chat models', () => {
+  it.each([
+    'typesafe-system-one',
+    'cloudflare-workers-ai-system-one',
+    'llama-cpp-classify',
+  ])('round-trips %s classifier metadata alongside chat models', (api) => {
     const store = freshStore();
     const providers = {
       team: {
@@ -383,7 +387,7 @@ describe('AgentServerStore', () => {
           {
             id: 'decisions',
             type: 'classifier' as const,
-            api: 'typesafe-system-one',
+            api,
             contextWindow: 4096,
           },
         ],
@@ -391,6 +395,32 @@ describe('AgentServerStore', () => {
     };
     store.writeProviders(providers);
     expect(store.readProviders()).toEqual(providers);
+  });
+
+  it('rejects unsupported classifier APIs when writing and reading the store', () => {
+    const store = freshStore();
+    const providers = {
+      team: {
+        api: 'openai-completions',
+        baseUrl: 'https://example.test',
+        envName: 'MOLTNET_PROVIDER_TEAM_API_KEY',
+        models: [
+          {
+            id: 'decisions',
+            type: 'classifier' as const,
+            api: 'openai-completions',
+          },
+        ],
+      },
+    };
+    expect(() => store.writeProviders(providers)).toThrow(
+      /Invalid provider model/u,
+    );
+    writeFileSync(
+      join(store.root, 'providers.json'),
+      JSON.stringify(providers),
+    );
+    expect(() => store.readProviders()).toThrow(/Invalid provider model/u);
   });
 
   it('revalidates provider env names loaded from disk', () => {

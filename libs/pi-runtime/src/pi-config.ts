@@ -8,7 +8,17 @@ import { join } from 'node:path';
  * this list so they cannot drift from what Pi actually accepts.
  */
 export const PI_MODEL_MODALITIES = ['text', 'image'] as const;
-export const PI_CLASSIFIER_API = 'typesafe-system-one' as const;
+export const PI_CLASSIFIER_APIS = [
+  'typesafe-system-one',
+  'cloudflare-workers-ai-system-one',
+  'llama-cpp-classify',
+] as const;
+export type PiClassifierApi = (typeof PI_CLASSIFIER_APIS)[number];
+/** Default for existing declarations without a per-model API. */
+export const PI_CLASSIFIER_API = PI_CLASSIFIER_APIS[0];
+export function isPiClassifierApi(api: string): api is PiClassifierApi {
+  return PI_CLASSIFIER_APIS.some((supported) => supported === api);
+}
 
 /** Input modalities Pi understands for a model entry. */
 export type PiModelModality = (typeof PI_MODEL_MODALITIES)[number];

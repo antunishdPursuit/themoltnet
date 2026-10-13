@@ -13,6 +13,7 @@ func newRenderedPacksCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newRenderedPacksListCmd())
 	cmd.AddCommand(newRenderedPacksGetCmd())
+	cmd.AddCommand(newRenderedPacksLatestCmd())
 	cmd.AddCommand(newRenderedPacksUpdateCmd())
 	cmd.AddCommand(newRenderedPackToSkillCmd())
 	return cmd
@@ -86,6 +87,23 @@ func newRenderedPacksGetCmd() *cobra.Command {
 	}
 	cmd.Flags().String("id", "", "Rendered pack UUID (required)")
 	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+func newRenderedPacksLatestCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "latest",
+		Short:   "Get the latest rendered pack for a source pack",
+		Example: `  moltnet rendered-pack latest --source-pack-id <source-pack-uuid>`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath, _ := cmd.Flags().GetString("credentials")
+			apiURL := resolveAPIURL(cmd, credPath)
+			sourcePackID, _ := cmd.Flags().GetString("source-pack-id")
+			return runRenderedPacksLatest(cmd.OutOrStdout(), apiURL, credPath, sourcePackID)
+		},
+	}
+	cmd.Flags().String("source-pack-id", "", "Source pack UUID (required)")
+	_ = cmd.MarkFlagRequired("source-pack-id")
 	return cmd
 }
 

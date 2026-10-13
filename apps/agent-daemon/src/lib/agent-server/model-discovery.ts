@@ -1,5 +1,7 @@
 import { isIP } from 'node:net';
 
+import { PI_CLASSIFIER_API } from '@themoltnet/pi-runtime/pi-config';
+
 import type { ProviderModelEntry, ProviderModelModality } from './store.js';
 
 export const MAX_DISCOVERED_MODELS = 500;
@@ -86,6 +88,27 @@ export function readOllamaCapabilities(
   const capabilities = Array.isArray(value['capabilities'])
     ? value['capabilities']
     : undefined;
+  if (capabilities?.includes('decision')) {
+    const info = isRecord(value['model_info'])
+      ? value['model_info']
+      : undefined;
+    const architecture = info?.['general.architecture'];
+    const context =
+      typeof architecture === 'string'
+        ? info?.[`${architecture}.context_length`]
+        : Object.entries(info ?? {}).find(([key]) =>
+            key.endsWith('.context_length'),
+          )?.[1];
+    return {
+      type: 'classifier',
+      api: PI_CLASSIFIER_API,
+      ...(typeof context === 'number' &&
+      Number.isSafeInteger(context) &&
+      context > 0
+        ? { contextWindow: context }
+        : {}),
+    };
+  }
   const declaredThinking =
     isRecord(value['thinking']) && Array.isArray(value['thinking']['values']);
   const map = thinkingMap(value['thinking']);
@@ -149,7 +172,12 @@ export class ModelDiscoveryCollector {
 
   setCapabilities(id: string, metadata: Omit<ProviderModelEntry, 'id'>): void {
     if (this.models.has(id))
-      this.models.set(id, { ...this.models.get(id), ...metadata });
+      this.models.set(
+        id,
+        metadata.type === 'classifier'
+          ? metadata
+          : { ...this.models.get(id), ...metadata },
+      );
   }
 
   get size(): number {
@@ -170,6 +198,7 @@ export class ModelDiscoveryCollector {
     return {
       models: ids.map((id) => {
         const metadata = this.models.get(id);
+        if (metadata?.type === 'classifier') return { id, ...metadata };
         return {
           id,
           ...(metadata?.input?.length ? { input: [...metadata.input] } : {}),

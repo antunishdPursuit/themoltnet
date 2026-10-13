@@ -107,6 +107,61 @@ describe('runtime model catalog routes', () => {
   });
 
   describe('POST /runtime-models', () => {
+    it.each([
+      'typesafe/jev',
+      '~typesafe/jev-latest',
+      '@cf/typesafe/jev-latest',
+    ])(
+      'creates classifier catalog entry %s and preserves capability metadata',
+      async (model) => {
+        mocks.permissionChecker.canAccessTeam.mockResolvedValue(true);
+        mocks.permissionChecker.canManageTeamRuntime.mockResolvedValue(true);
+        mocks.teamRepository.findById.mockResolvedValue({ id: TEAM_ID });
+        const capabilities = {
+          generation: false,
+          classification: true,
+          contextWindow: 8192,
+        };
+        mocks.runtimeModelRepository.create.mockResolvedValue(
+          mockModel({ provider: 'team', model, capabilities }),
+        );
+        const response = await app.inject({
+          method: 'POST',
+          url: '/runtime-models',
+          headers: {
+            authorization: 'Bearer test-token',
+            'x-moltnet-team-id': TEAM_ID,
+          },
+          payload: { provider: 'team', model, capabilities },
+        });
+        expect(response.statusCode).toBe(201);
+        expect(response.json()).toMatchObject({ model, capabilities });
+        expect(mocks.runtimeModelRepository.create).toHaveBeenCalledWith(
+          expect.objectContaining({ model, capabilities }),
+        );
+      },
+    );
+
+    it('rejects invalid classifier capability metadata', async () => {
+      mocks.permissionChecker.canAccessTeam.mockResolvedValue(true);
+      mocks.permissionChecker.canManageTeamRuntime.mockResolvedValue(true);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/runtime-models',
+        headers: {
+          authorization: 'Bearer test-token',
+          'x-moltnet-team-id': TEAM_ID,
+        },
+        payload: {
+          provider: 'team',
+          model: 'typesafe/jev',
+          capabilities: { classification: 'invalid' },
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(mocks.runtimeModelRepository.create).not.toHaveBeenCalled();
+    });
+
     it('creates a team-scoped entry when the caller can manage the team', async () => {
       mocks.permissionChecker.canAccessTeam.mockResolvedValue(true);
       mocks.permissionChecker.canManageTeamRuntime.mockResolvedValue(true);

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +14,7 @@ const packageRoot = dirname(
 );
 
 type PiModel = {
+  type?: 'chat' | 'classifier';
   id: string;
   name: string;
   api: string;
@@ -22,6 +23,48 @@ type PiModel = {
   contextWindow: number;
   maxTokens: number;
 };
+
+const providerNames: Record<string, string> = {
+  'cloudflare-workers-ai': 'Cloudflare Workers AI',
+  opencode: 'OpenCode',
+  openrouter: 'OpenRouter',
+  typesafe: 'Typesafe',
+  'vercel-ai-gateway': 'Vercel AI Gateway',
+};
+
+async function readClassifiers() {
+  const dataRoot = join(packageRoot, 'providers', 'data');
+  const entries = [];
+  for (const filename of (await readdir(dataRoot)).sort()) {
+    if (!filename.endsWith('.json')) continue;
+    const provider = filename.slice(0, -'.json'.length);
+    const catalog = JSON.parse(
+      await readFile(join(dataRoot, filename), 'utf8'),
+    ) as Record<string, Record<string, PiModel>>;
+    for (const model of Object.values(catalog)
+      .flatMap((models) => Object.values(models))
+      .filter((model) => model.type === 'classifier')
+      .sort((left, right) => left.id.localeCompare(right.id))) {
+      entries.push({
+        provider,
+        model: model.id,
+        displayName: `${providerNames[provider] ?? provider} · ${model.name}`,
+        description: 'Generated from Pi static classifier catalog.',
+        capabilities: {
+          generation: false,
+          classification: true,
+          api: model.api,
+          contextWindow: model.contextWindow,
+          supportsTemperature: false,
+          supportsTopP: false,
+          supportsTopK: false,
+          supportsMaxOutputTokens: false,
+        },
+      });
+    }
+  }
+  return entries;
+}
 
 // Request fields supported by the Pi transport used for each static provider.
 // Keep this explicit when adding a provider: model metadata alone does not
@@ -79,6 +122,7 @@ async function readProvider(provider: 'anthropic' | 'openai-codex') {
 const entries = [
   ...(await readProvider('anthropic')),
   ...(await readProvider('openai-codex')),
+  ...(await readClassifiers()),
 ];
 const generated = await format(
   `// Generated from Pi by the provider-catalog generator.\n// Do not edit manually.\nimport type { RuntimeModelCatalogEntry } from './types.js';\n\nexport const piRuntimeModels: readonly RuntimeModelCatalogEntry[] = ${JSON.stringify(entries, null, 2)};\n`,
@@ -93,7 +137,7 @@ const previous = await readFile(output, 'utf8');
 if (check) {
   if (previous !== generated) {
     throw new Error(
-      'Pi runtime catalog is stale. Run pnpm --filter @moltnet/provider-catalog generate:pi.',
+      'Pi runtime catalog is stale. Run pnpm exec nx run @moltnet/provider-catalog:generate:pi.',
     );
   }
 } else {
