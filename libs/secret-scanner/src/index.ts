@@ -1,1 +1,5 @@
-export { containsSecretInText } from './lib/secret-scanner.js';
+export {
+  containsSecretInStream,
+  containsSecretInText,
+  SecretScanInputTooLargeError,
+} from './lib/secret-scanner.js';

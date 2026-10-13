@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { generateKeyPairSync } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { brotliCompressSync, gzipSync } from 'node:zlib';
+import { brotliCompressSync, deflateSync, gzipSync } from 'node:zlib';
 
 import { KetoNamespace } from '@moltnet/auth';
 import { computeBytesCid } from '@moltnet/crypto-service';
@@ -256,6 +256,7 @@ describe('createTaskArtifactService', () => {
   it.each([
     ['gzip', gzipSync],
     ['br', brotliCompressSync],
+    ['deflate', deflateSync],
   ])(
     'rejects credential material inside %s content',
     async (encoding, compress) => {
@@ -292,6 +293,23 @@ describe('createTaskArtifactService', () => {
     ).rejects.toMatchObject({ statusCode: 400 });
     expect(storage.putObject).not.toHaveBeenCalled();
   });
+
+  it.each(['gzip', 'br', 'deflate'])(
+    'rejects malformed %s content before storage',
+    async (contentEncoding) => {
+      await expect(
+        subject.stageUpload({
+          body: Readable.from(['not a gzip stream']),
+          contentEncoding,
+          contentType: 'text/plain',
+          subjectId: AGENT_ID,
+          subjectNs: KetoNamespace.Agent,
+          teamId: TEAM_ID,
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(storage.putObject).not.toHaveBeenCalled();
+    },
+  );
 
   it('stages benign gzip content', async () => {
     await subject.stageUpload({
