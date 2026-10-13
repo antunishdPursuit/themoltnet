@@ -345,7 +345,7 @@ export class ProviderLoginService {
         if (this.options.oauthProviders) {
           return this.options.oauthProviders.login(
             id,
-            toAuthInteraction(loginCallbacks),
+            toAuthInteraction(loginCallbacks, id),
             {
               signal: login.abort.signal,
               onSettledUnderLock: () => {
@@ -357,7 +357,7 @@ export class ProviderLoginService {
           );
         }
         return this.runtime()
-          .login(id, 'oauth', toAuthInteraction(loginCallbacks))
+          .login(id, 'oauth', toAuthInteraction(loginCallbacks, id))
           .then(() => undefined);
       });
 
@@ -478,6 +478,7 @@ export class ProviderLoginService {
 
 function toAuthInteraction(
   callbacks: LoginCallbacksLike,
+  providerId: string,
 ): Parameters<ModelRuntime['login']>[2] {
   return {
     ...(callbacks.signal ? { signal: callbacks.signal } : {}),
@@ -502,6 +503,27 @@ function toAuthInteraction(
       }
     },
     prompt: async (prompt) => {
+      // OpenAI races this optional fallback against its loopback callback.
+      // Rejecting it immediately also rejects a healthy browser sign-in.
+      if (
+        providerId === 'openai' &&
+        prompt.type === 'manual_code' &&
+        prompt.signal
+      ) {
+        const signal = callbacks.signal
+          ? AbortSignal.any([prompt.signal, callbacks.signal])
+          : prompt.signal;
+        return new Promise<string>((_resolve, reject) => {
+          const abort = () =>
+            reject(
+              new Error('Browser sign-in prompt cancelled', {
+                cause: signal.reason,
+              }),
+            );
+          if (signal.aborted) abort();
+          else signal.addEventListener('abort', abort, { once: true });
+        });
+      }
       if (prompt.type !== 'select') {
         return callbacks.onPrompt({ message: prompt.message });
       }
