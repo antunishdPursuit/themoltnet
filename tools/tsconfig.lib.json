@@ -17,10 +17,11 @@
     "src/**/*.test.js",
     "src/**/*.spec.js",
     "__tests__",
-    "e2e"
+    "e2e",
+    "nx-plugins/**/*.test.ts"
   ],
   "extends": "./tsconfig.json",
-  "include": ["src", "generators/**/*.ts"],
+  "include": ["src", "generators/**/*.ts", "nx-plugins/**/*.ts"],
   "references": [
     {
       "path": "../libs/blob-storage/tsconfig.lib.json"

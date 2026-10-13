@@ -36,6 +36,7 @@ import {
   createWriteStream,
   existsSync,
   mkdtempSync,
+  lstatSync,
   openSync,
   readSync,
   mkdirSync,
@@ -45,6 +46,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -431,6 +433,17 @@ function listNativeFiles(root, platform) {
   return hits.sort();
 }
 
+/** Relocate pnpm's root package self-link into the deployed payload. */
+export function relocateDaemonSelfLink(daemonDir) {
+  const link = join(
+    daemonDir,
+    'node_modules/.pnpm/node_modules/@themoltnet/agent-daemon',
+  );
+  if (!lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink()) return;
+  rmSync(link);
+  symlinkSync(relative(dirname(link), daemonDir), link, 'dir');
+}
+
 /**
  * `pnpm deploy` copies workspace packages verbatim, so our published libs
  * still carry the development `exports` (`./src/index.ts`, source-direct
@@ -707,6 +720,8 @@ async function main() {
     ],
     { env: { MOLTNET_SKIP_NX_SYNC: '1', HUSKY: '0' } },
   );
+
+  relocateDaemonSelfLink(join(payloadDir, 'daemon'));
 
   const published = applyPublishConfig(join(payloadDir, 'daemon/node_modules'));
   console.log(`applied publishConfig: ${published.join(', ')}`);

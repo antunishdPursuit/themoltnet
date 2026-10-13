@@ -551,27 +551,4 @@ describe('structured task submission through Pi (e2e)', () => {
     expect(attempt?.output).toBeNull();
     expect(attempt?.error?.code).toBe('output_validation_failed');
   }, 600_000);
-
-  it('rejects an unsupported contract before calling the provider', async () => {
-    const { task, taskRequests } = await runFixtureTask(
-      [],
-      'freeform',
-      {
-        outputContract: {
-          version: 1,
-          schema: { ...PAGE_SCHEMA, $ref: '#/missing' },
-        },
-      },
-      1,
-    );
-
-    expect(taskRequests).toHaveLength(0);
-    const final = await agent.tasks.get(task.id);
-    expect(final.status).not.toBe('completed');
-    expect(final.acceptedAttemptN).toBeNull();
-    const attempt = (await agent.tasks.listAttempts(task.id))[0];
-    expect(attempt?.error?.code).toBe('invalid_output_contract');
-    expect(attempt?.error?.message).toContain('$ref');
-    expect(attempt?.output).toBeNull();
-  }, 600_000);
 });

@@ -14,7 +14,8 @@
     "@moltnet/auth": "workspace:*",
     "@moltnet/blob-storage": "workspace:*",
     "@moltnet/crypto-service": "workspace:*",
-    "@moltnet/database": "workspace:*"
+    "@moltnet/database": "workspace:*",
+    "@moltnet/secret-scanner": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

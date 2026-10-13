@@ -355,7 +355,35 @@ jobs:
       - name: Action runtime locks are current
         if: github.event_name == 'pull_request'
         run: node tools/src/release/action-runtime-lock.ts --check
+      # Secretlint and Nx both skip paths matching .gitignore, so a tracked
+      # file under an ignore rule would never be scanned for secrets.
+      - name: No tracked file matches .gitignore
+        run: |
+          ignored="$(git ls-files --cached --ignored --exclude-standard)"
+          if [ -n "$ignored" ]; then
+            echo "::error::Tracked files match .gitignore. Untrack them, or un-ignore them so secretlint scans them."
+            printf '%s\n' "$ignored"
+            exit 1
+          fi
+      # The Secretlint CLI honours .secretlintignore in any directory, so a
+      # committed one could hide files from every scan.
+      - name: No committed .secretlintignore
+        run: |
+          found="$(git ls-files -- '*.secretlintignore*')"
+          if [ -n "$found" ]; then
+            echo "::error::Remove .secretlintignore files; suppress findings inline instead."
+            printf '%s\n' "$found"
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
+      # Nx does not see .nxignore'd files, so no affected secretlint target
+      # covers them. Scan every tracked one on each run.
+      - name: Scan tracked files hidden from Nx
+        run: |
+          mapfile -t hidden < <(git ls-files --cached --ignored --exclude-from=.nxignore)
+          if [ "${#hidden[@]}" -gt 0 ]; then
+            pnpm exec secretlint --no-glob --secretlintrc .secretlintrc.json "${hidden[@]}"
+          fi
       - id: shas
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
         with:
@@ -802,7 +830,7 @@ jobs:
       # without a config) declare test-ci as a noop depending on test, so a
       # single -t test-ci covers them. test-desktop-native keeps the Tauri
       # suite in the same affected graph without disabling atomization.
-      - name: Run affected lint, typecheck, test-ci, test-desktop-native, build, check:pack, docker:build
+      - name: Run affected lint, secretlint, typecheck, test-ci, test-desktop-native, build, check:pack, docker:build
         if: needs.affected.outputs.has-agents == 'true'
         env:
           # start-nx-agents ran in `affected`, so this runner has no local DTE
@@ -813,7 +841,7 @@ jobs:
           # to have published first. Release jobs run those smokes in order;
           # pre-merge CI still runs every package's tarball checks.
           MOLTNET_SKIP_REGISTRY_SMOKE: '1'
-        run: pnpm exec nx affected -t lint typecheck test-ci test-desktop-native test-release-scripts verify-release build check:pack docker:build --configuration=ci
+        run: pnpm exec nx affected -t lint secretlint typecheck test-ci test-desktop-native test-release-scripts verify-release build check:pack docker:build --configuration=ci
 
       - name: Complete Nx Cloud CI run
         if: always() && needs.affected.outputs.has-agents == 'true'

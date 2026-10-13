@@ -46,8 +46,9 @@ export function createRuntimeSessionsNamespace(
   });
 
   // These operations are safe to replay: append uses a stable commit ID and
-  // renewal retains the same writer token. The caller's signal bounds the whole
-  // operation, including the SDK's existing 429/auth retries underneath this.
+  // renewal retains the same writer token. ID allocation may leave an unused
+  // candidate after a lost response; Pi requires uniqueness, not contiguous IDs.
+  // The caller's signal bounds the operation, including 429/auth retries.
   const retryRequest = (options: RuntimeSessionRequestOptions) => ({
     ...request(options),
     fetch: createRetryFetch({
@@ -113,7 +114,7 @@ export function createRuntimeSessionsNamespace(
     ) {
       return unwrapResult(
         await mintRuntimeStoreId({
-          ...request(options),
+          ...retryRequest(options),
           path: { storeId },
           body,
         }),

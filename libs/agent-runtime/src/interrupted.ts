@@ -1,4 +1,4 @@
-/** Stop this worker without finalizing an attempt whose durable state can resume. */
+/** Stop this worker without finalizing; reconcile server state before resuming. */
 export class TaskExecutionInterrupted extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);

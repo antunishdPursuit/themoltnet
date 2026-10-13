@@ -133,7 +133,7 @@ export async function classifyAttemptFailure(
           ? ' The failure type is retryable, but no attempts remain.'
           : ' The failure type is non-retryable.';
     return {
-      error: withRetryInfo(input.error, {
+      error: await withRetryInfo(input.error, {
         retryable: false,
         source: 'attempts_exhausted',
         reason: `Attempt budget exhausted at attempt ${input.attemptN}${
@@ -148,7 +148,7 @@ export async function classifyAttemptFailure(
     const source =
       input.error.retryable === retryable ? 'explicit' : 'deterministic';
     return {
-      error: withRetryInfo(input.error, {
+      error: await withRetryInfo(input.error, {
         retryable,
         source,
         decision: retryable ? 'retry' : 'do_not_retry',
@@ -163,7 +163,7 @@ export async function classifyAttemptFailure(
 
   if (!input.triage) {
     return {
-      error: withRetryInfo(input.error, {
+      error: await withRetryInfo(input.error, {
         retryable: false,
         source: 'triage_failed',
         reason:
@@ -179,10 +179,10 @@ export async function classifyAttemptFailure(
       triage.decision === 'retry' &&
       (triage.confidence === 'medium' || triage.confidence === 'high');
     return {
-      error: withRetryInfo(
+      error: await withRetryInfo(
         {
           ...input.error,
-          message: appendTriageReason(input.error.message, triage),
+          message: await appendTriageReason(input.error.message, triage),
         },
         {
           retryable,
@@ -197,15 +197,15 @@ export async function classifyAttemptFailure(
     };
   } catch (err) {
     return {
-      error: withRetryInfo(
+      error: await withRetryInfo(
         {
           ...input.error,
-          message: appendTriageFailure(input.error.message, err),
+          message: await appendTriageFailure(input.error.message, err),
         },
         {
           retryable: false,
           source: 'triage_failed',
-          reason: `Retry triage failed: ${sanitizeReason(err)}`,
+          reason: `Retry triage failed: ${await sanitizeReason(err)}`,
         },
       ),
       source: 'triage_failed',
@@ -239,30 +239,34 @@ export function classifyDeterministically(
   return 'ambiguous';
 }
 
-function appendTriageReason(
+async function appendTriageReason(
   message: string,
   triage: RetryTriageResult,
-): string {
-  const suffix = ` Retry triage: ${triage.decision}/${triage.confidence}: ${triage.reason}`;
+): Promise<string> {
+  const reason = await sanitizeProviderDiagnostic(triage.reason);
+  const suffix = ` Retry triage: ${triage.decision}/${triage.confidence}: ${reason}`;
   if (message.includes('Retry triage:')) return message;
   return `${message}${suffix}`.slice(0, MAX_TASK_ERROR_MESSAGE_LENGTH);
 }
 
-function appendTriageFailure(message: string, err: unknown): string {
+async function appendTriageFailure(
+  message: string,
+  err: unknown,
+): Promise<string> {
   if (message.includes('Retry triage failed:')) return message;
-  const sanitized = sanitizeReason(err);
+  const sanitized = await sanitizeReason(err);
   return `${message} Retry triage failed: ${sanitized}`.slice(
     0,
     MAX_TASK_ERROR_MESSAGE_LENGTH,
   );
 }
 
-function sanitizeReason(value: unknown): string {
+function sanitizeReason(value: unknown): Promise<string> {
   const raw = value instanceof Error ? value.message : String(value);
   return sanitizeProviderDiagnostic(raw);
 }
 
-function withRetryInfo(
+async function withRetryInfo(
   error: TaskError,
   info: {
     retryable: boolean;
@@ -271,7 +275,7 @@ function withRetryInfo(
     confidence?: RetryTriageConfidence;
     reason?: string;
   },
-): TaskError {
+): Promise<TaskError> {
   return {
     ...error,
     retryable: info.retryable,
@@ -280,7 +284,7 @@ function withRetryInfo(
       ...(info.decision ? { decision: info.decision } : {}),
       ...(info.confidence ? { confidence: info.confidence } : {}),
       ...(info.reason
-        ? { reason: sanitizeProviderDiagnostic(info.reason) }
+        ? { reason: await sanitizeProviderDiagnostic(info.reason) }
         : {}),
     },
   };

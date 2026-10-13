@@ -7,8 +7,9 @@ import {
   SessionManager,
   SettingsManager,
 } from '@earendil-works/pi-coding-agent';
+import { redactSecretsInText } from '@moltnet/secret-scanner';
 
-import { REDACTED, redactKnownSecretShapes } from '../redact.js';
+const REDACTED = '[redacted]';
 
 export type PiRetryTriageThinkingLevel =
   | 'off'
@@ -99,7 +100,7 @@ export function createPiRetryTriage(options: {
     });
 
     await withTimeout(
-      created.session.prompt(buildTriagePrompt(input)),
+      created.session.prompt(await buildTriagePrompt(input)),
       options.timeoutMs ?? 30_000,
       () => created.session.abort(),
     );
@@ -163,25 +164,25 @@ export function normalizeRetryTriageResult(
 
 export function buildPiRetryTriagePromptForTest(
   input: PiRetryTriageInput,
-): string {
+): Promise<string> {
   return buildTriagePrompt(input);
 }
 
-function buildTriagePrompt(input: PiRetryTriageInput): string {
+async function buildTriagePrompt(input: PiRetryTriageInput): Promise<string> {
   const payload = {
     task: {
       id: input.task.id,
       type: input.task.taskType,
       teamId: input.task.teamId,
-      input: prepareTriagePayload(input.task.input),
+      input: await prepareTriagePayload(input.task.input),
     },
     attempt: {
       attemptN: input.attemptN,
       maxAttempts: input.maxAttempts ?? null,
       remainingAttempts: input.remainingAttempts ?? null,
     },
-    error: prepareTriagePayload(input.error),
-    recentMessages: prepareTriagePayload(
+    error: await prepareTriagePayload(input.error),
+    recentMessages: await prepareTriagePayload(
       (input.recentMessages ?? []).slice(-12),
     ),
   };
@@ -198,35 +199,43 @@ function buildTriagePrompt(input: PiRetryTriageInput): string {
   ].join('\n');
 }
 
-function prepareTriagePayload(value: unknown): unknown {
+function prepareTriagePayload(value: unknown): Promise<unknown> {
   return redactAndTruncate(value, []);
 }
 
-function redactAndTruncate(value: unknown, path: string[]): unknown {
+async function redactAndTruncate(
+  value: unknown,
+  path: string[],
+): Promise<unknown> {
   const currentKey = path[path.length - 1] ?? '';
   if (SECRET_KEY_PATTERN.test(currentKey)) return REDACTED;
   if (typeof value === 'string') {
     return truncateString(
-      redactRetryTriageSecrets(value),
+      await redactRetryTriageSecrets(value),
       MAX_TRIAGE_FIELD_CHARS,
     );
   }
   if (Array.isArray(value)) {
-    return value.map((item, index) =>
-      redactAndTruncate(item, [...path, String(index)]),
+    return Promise.all(
+      value.map((item, index) =>
+        redactAndTruncate(item, [...path, String(index)]),
+      ),
     );
   }
   if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>).map(
-      ([key, child]) => [key, redactAndTruncate(child, [...path, key])],
+    const entries = await Promise.all(
+      Object.entries(value as Record<string, unknown>).map(
+        async ([key, child]) =>
+          [key, await redactAndTruncate(child, [...path, key])] as const,
+      ),
     );
     return Object.fromEntries(entries);
   }
   return value;
 }
 
-export function redactRetryTriageSecrets(value: string): string {
-  return redactKnownSecretShapes(value);
+export function redactRetryTriageSecrets(value: string): Promise<string> {
+  return redactSecretsInText(value);
 }
 
 function truncateString(value: string, maxChars: number): string {

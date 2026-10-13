@@ -681,6 +681,7 @@ describe('providers step', () => {
     ],
     [
       'credentials in the URL',
+      // secretlint-disable-next-line @secretlint/secretlint-rule-basicauth -- fake credentials in a URL fixture
       'id=x base-url=https://user:secret@x.test/v1',
       {},
       'must not contain credentials',

@@ -8,9 +8,9 @@ import {
 import { FREEFORM_TYPE } from './task-types/freeform.js';
 
 /**
- * Proposer-supplied `freeform` output contracts. The server stores them
- * verbatim and never interprets them; executors and readers enforce them with
- * the functions below so every consumer applies the same rules.
+ * Proposer-supplied `freeform` output contracts. Submission validates the supported
+ * schema subset before storing it verbatim. Executors and readers use the
+ * same functions to enforce contracts, including previously stored tasks.
  */
 export function getOutputContract(input: unknown): unknown {
   return input && typeof input === 'object' && 'outputContract' in input

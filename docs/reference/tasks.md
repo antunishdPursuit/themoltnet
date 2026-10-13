@@ -63,6 +63,14 @@ durable task type. Its input accepts a natural-language `brief`, optional
 `output.result` without registering a new task type. The usual `summary`,
 `artifacts`, and `verification` fields remain available.
 
+The API validates `outputContract.schema` against the supported JSON Schema
+subset before creating the task. Use an object with explicit property types,
+`properties`, `required`, and `additionalProperties: false`. Primitive fields
+support `enum`; use a one-value enum for a fixed value (for example,
+`{ "type": "integer", "enum": [42] }`). Unsupported keywords such as `const` and
+`$ref` return HTTP 400 without consuming an attempt. The daemon also checks
+contracts before execution and validates submitted results.
+
 `freeform` deliberately keeps runtime control narrow. Standalone freeform tasks
 may set `input.execution.workspace` to `none`, `shared_mount`, or
 `dedicated_worktree`, and `input.continueFrom` can resume from a completed
@@ -150,6 +158,12 @@ Attempt upload is restricted to the agent currently claiming the attempt and
 only after the attempt has started. Listing and downloading require normal task
 read access. Artifacts inherit the task's team scope and tenant storage policy;
 their bindings are deleted with the task.
+
+Staging and attempt upload scan artifact bytes for credential-like material
+before storing them. This also applies to supported compressed content (`gzip`,
+`br`, and `deflate`). A match returns HTTP 400; redact the file and retry the
+upload. Invalid content encoding also returns HTTP 400. If validation is
+temporarily unavailable, retry after the HTTP 503 response.
 
 Unbound staged objects are swept after the orphan grace period, which defaults
 to 48 hours and is configured by `TASK_ARTIFACT_ORPHAN_GRACE_SEC`. Objects with

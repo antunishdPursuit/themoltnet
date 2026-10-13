@@ -13,6 +13,8 @@ import {
   readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
+  realpathSync,
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:http';
@@ -24,6 +26,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 import {
   download,
+  relocateDaemonSelfLink,
   isNativeForHost,
   sha256File,
   validateQemuRuntimeProvenance,
@@ -1255,4 +1258,20 @@ describe('notarization verification', () => {
     assert.equal(result.status, 1);
     assert.match(result.stderr, /notarization requirement failed/);
   });
+});
+
+it('relocates the deployed daemon self-link inside the portable payload', () => {
+  const root = tempDir('daemon-self-link-');
+  const daemon = join(root, 'daemon');
+  const link = join(
+    daemon,
+    'node_modules/.pnpm/node_modules/@themoltnet/agent-daemon',
+  );
+  mkdirSync(dirname(link), { recursive: true });
+  symlinkSync('../../../../../../../../apps/agent-daemon', link);
+  relocateDaemonSelfLink(daemon);
+  assert.equal(realpathSync(link), realpathSync(daemon));
+  assert.equal(readlinkSync(link), '../../../..');
+  relocateDaemonSelfLink(daemon);
+  assert.equal(realpathSync(link), realpathSync(daemon));
 });

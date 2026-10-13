@@ -1226,7 +1226,8 @@ export function createMoltNetTools(
       'to the active taskId/attemptN and returns metadata including cid, ' +
       'sizeBytes, kind, and title. Use this for large logs, reports, build outputs, ' +
       'screenshots, generated files, or other bytes that should be referenced by CID ' +
-      'instead of pasted into structured task output.',
+      'instead of pasted into structured task output. Review the file before upload; ' +
+      'artifacts containing recognizable credentials are rejected. Redact and retry.',
     parameters: Type.Object({
       filePath: Type.String({
         description:

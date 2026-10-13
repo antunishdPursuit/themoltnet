@@ -61,7 +61,7 @@ export interface AllowedToolsClient {
   runtimeProfiles: {
     allowedTools: (
       profileId: string,
-      options: { teamId: string },
+      options: { teamId: string; signal?: AbortSignal },
     ) => Promise<{
       enforcement: ToolEnforcement;
       allowedTools: string[];
@@ -87,12 +87,14 @@ export interface ResolveSessionToolPolicyInput {
   enforcement: ToolEnforcement;
   logger: ToolPolicyLogger;
   /**
-   * Deadline for the allowed-tools fetch. A hung API call must not stall session
-   * start-up indefinitely, so on timeout we abort and fall back to the
-   * mode-appropriate degraded policy. Defaults to
+   * Deadline per allowed-tools fetch. Retry one timed-out GET, cancelling each
+   * request at its deadline. After both fail, return the mode-appropriate
+   * degraded policy. Defaults to
    * {@link DEFAULT_RESOLVE_TIMEOUT_MS}; `0`/negative disables the deadline.
    */
   timeoutMs?: number;
+  /** Cancels policy resolution when the task or writer stops. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -115,12 +117,31 @@ export async function resolveSessionToolPolicy(
 ): Promise<SessionToolPolicy> {
   const timeoutMs = input.timeoutMs ?? DEFAULT_RESOLVE_TIMEOUT_MS;
   try {
-    const resolved = await withTimeout(
-      input.agent.runtimeProfiles.allowedTools(input.profileId, {
-        teamId: input.teamId,
-      }),
-      timeoutMs,
-    );
+    const fetchPolicy = () =>
+      withTimeout(
+        (signal) =>
+          input.agent.runtimeProfiles.allowedTools(input.profileId, {
+            teamId: input.teamId,
+            signal,
+          }),
+        timeoutMs,
+        input.signal,
+      );
+    // A transient upstream stall must not permanently fail a claimed task.
+    // Retry only a local deadline once, after cancelling that request. Auth,
+    // policy errors and caller cancellation remain fail-closed immediately.
+    const resolved = await fetchPolicy().catch((error: unknown) => {
+      if (
+        !(error instanceof ToolPolicyResolveTimeoutError) ||
+        input.signal?.aborted
+      )
+        throw error;
+      input.logger.warn(
+        { profileId: input.profileId, timeoutMs },
+        'tool_policy.resolve_retry',
+      );
+      return fetchPolicy();
+    });
     const shellCommands = resolved.allowedShellCommands ?? [];
     if (resolved.runtimeKind !== input.runtimeKind) {
       throw new RuntimeKindMismatchError({
@@ -193,29 +214,38 @@ export class RuntimeKindMismatchError extends Error {
   }
 }
 
-/**
- * Reject with {@link ToolPolicyResolveTimeoutError} if `promise` does not settle
- * within `timeoutMs`. A non-positive `timeoutMs` disables the deadline. The
- * underlying request is not cancelled — it is an idempotent GET whose result is
- * simply abandoned — but the timer is always cleared so it never keeps the
- * process alive.
- */
+/** Bound and cancel each GET, even when a client fails to honor abort. */
 async function withTimeout<T>(
-  promise: Promise<T>,
+  request: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
+  parent?: AbortSignal,
 ): Promise<T> {
-  if (!(timeoutMs > 0)) return promise;
+  parent?.throwIfAborted();
+  const controller = new AbortController();
+  const signal = parent
+    ? AbortSignal.any([parent, controller.signal])
+    : controller.signal;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new ToolPolicyResolveTimeoutError(timeoutMs)),
-      timeoutMs,
-    );
+  let onAbort: () => void = () => {};
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () =>
+      reject(
+        signal.reason instanceof Error
+          ? signal.reason
+          : new Error('Policy resolution cancelled'),
+      );
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (timeoutMs > 0)
+      timer = setTimeout(
+        () => controller.abort(new ToolPolicyResolveTimeoutError(timeoutMs)),
+        timeoutMs,
+      );
   });
   try {
-    return await Promise.race([promise, deadline]);
+    return await Promise.race([request(signal), aborted]);
   } finally {
     if (timer) clearTimeout(timer);
+    signal.removeEventListener('abort', onAbort);
   }
 }
 
