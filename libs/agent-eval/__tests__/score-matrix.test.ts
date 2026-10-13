@@ -14,6 +14,7 @@ function scenario(slug: string): Scenario {
     slug,
     taskType: 'run_eval',
     scoring: 'judge',
+    blocking: true,
     prompt: 'do the thing',
     execution: { mode: 'vitro', workspace: 'none' },
     rubric: {
