@@ -57,11 +57,14 @@
   "devDependencies": {
     "@earendil-works/chord": "catalog:",
     "@nx/devkit": "catalog:",
+    "@secretlint/node": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "ignore": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   },
   "nx": {
     "namedInputs": {
