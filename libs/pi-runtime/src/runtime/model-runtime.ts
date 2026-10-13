@@ -9,6 +9,7 @@ import type {
 } from '@earendil-works/pi-ai';
 import { classify as classifyCloudflare } from '@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one';
 import { classify as classifyLlamaCpp } from '@earendil-works/pi-ai/api/llama-cpp-classify';
+import { classify as classifyOpenAI } from '@earendil-works/pi-ai/api/openai-decisions';
 import {
   ModelRuntime,
   type ToolDefinition,
@@ -133,6 +134,7 @@ export async function createRuntimeModels(
         'typesafe-system-one': { classify },
         'cloudflare-workers-ai-system-one': { classify: classifyCloudflare },
         'llama-cpp-classify': { classify: classifyLlamaCpp },
+        'openai-decisions': { classify: classifyOpenAI },
       },
       models: [
         // Pi 1.0's JSON loader constructs chat models even for classifier entries.

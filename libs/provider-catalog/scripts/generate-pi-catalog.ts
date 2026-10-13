@@ -26,6 +26,7 @@ type PiModel = {
 
 const providerNames: Record<string, string> = {
   'cloudflare-workers-ai': 'Cloudflare Workers AI',
+  openai: 'OpenAI',
   opencode: 'OpenCode',
   openrouter: 'OpenRouter',
   typesafe: 'Typesafe',

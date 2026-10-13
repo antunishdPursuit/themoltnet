@@ -72,11 +72,12 @@
     "typebox": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
     "@earendil-works/chord": "catalog:",
-    "strip-json-comments": "catalog:"
+    "strip-json-comments": "catalog:",
+    "@earendil-works/pi-codemode": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "1.0.0",
-    "@earendil-works/pi-coding-agent": "1.0.0"
+    "@earendil-works/pi-ai": "1.2.0",
+    "@earendil-works/pi-coding-agent": "1.2.0"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",

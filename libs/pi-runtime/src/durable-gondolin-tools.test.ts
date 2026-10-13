@@ -90,18 +90,17 @@ describe('Durable Gondolin coding tools', () => {
   it('routes reads and searches to the guest and preserves native pagination', async () => {
     const { invoke, readFile, listDir } = setup();
     expect(
-      (await invoke('read', { path: 'README.md', offset: 2, limit: 1 }))
-        .content,
+      (await invoke('read', { path: 'README.md', offset: 2, limit: 1 })).output,
     ).toEqual([{ type: 'text', text: expect.stringContaining('two') }]);
     expect(readFile).toHaveBeenCalledWith('/workspace/README.md');
-    expect((await invoke('ls', { path: '.' })).content).toEqual([
+    expect((await invoke('ls', { path: '.' })).output).toEqual([
       { type: 'text', text: 'README.md' },
     ]);
-    expect((await invoke('find', { pattern: '*.md' })).content).toEqual([
+    expect((await invoke('find', { pattern: '*.md' })).output).toEqual([
       { type: 'text', text: 'README.md' },
     ]);
     expect(
-      (await invoke('grep', { pattern: 'two', path: '.' })).content,
+      (await invoke('grep', { pattern: 'two', path: '.' })).output,
     ).toEqual([
       { type: 'text', text: expect.stringContaining('README.md:2: two') },
     ]);
@@ -111,7 +110,7 @@ describe('Durable Gondolin coding tools', () => {
   it('reads the guest file a truncated bash command spilled to', async () => {
     const { invoke, readFile } = setup();
     const result = await invoke('read', { path: '/tmp/pi-output-.Ab12Cd' });
-    expect(result.content).toEqual([
+    expect(result.output).toEqual([
       { type: 'text', text: expect.stringContaining('one') },
     ]);
     expect(readFile).toHaveBeenCalledWith('/tmp/pi-output-.Ab12Cd');
@@ -128,7 +127,7 @@ describe('Durable Gondolin coding tools', () => {
   it('returns image content through the native image-aware read tool', async () => {
     const { invoke } = setup(true);
     const result = await invoke('read', { path: 'pixel.png' });
-    expect(result.content).toEqual(
+    expect(result.output).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: 'image',
@@ -229,7 +228,7 @@ it('does not automatically replay host effects and refuses interactive approval 
       { callId: 'call' } as ToolExecutionApi,
       BACKGROUND_CONTEXT,
     ),
-  ).toEqual({ content: [{ type: 'text', text: 'false' }], details: {} });
+  ).toEqual({ output: [{ type: 'text', text: 'false' }], details: {} });
   execute.mockClear();
   await expect(
     tool.execute(

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { classify as classifyCloudflare } from '@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one';
 import { classify as classifyLlamaCpp } from '@earendil-works/pi-ai/api/llama-cpp-classify';
+import { classify as classifyOpenAI } from '@earendil-works/pi-ai/api/openai-decisions';
 import { classify } from '@earendil-works/pi-ai/api/typesafe-system-one';
 import type { ClaimedTask } from '@themoltnet/agent-runtime';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -19,6 +20,9 @@ vi.mock('@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one', () => ({
   classify: vi.fn(),
 }));
 vi.mock('@earendil-works/pi-ai/api/llama-cpp-classify', () => ({
+  classify: vi.fn(),
+}));
+vi.mock('@earendil-works/pi-ai/api/openai-decisions', () => ({
   classify: vi.fn(),
 }));
 const dirs: string[] = [];
@@ -111,7 +115,12 @@ it('routes each classifier protocol with shared credentials while preserving gen
       },
     },
   });
-  const adapters = [classify, classifyCloudflare, classifyLlamaCpp];
+  const adapters = [
+    classify,
+    classifyCloudflare,
+    classifyLlamaCpp,
+    classifyOpenAI,
+  ];
   const models = await createRuntimeModels(piDir);
   await models.refresh({ allowNetwork: false });
   expect(models.getModel('team', 'chat')).toMatchObject({

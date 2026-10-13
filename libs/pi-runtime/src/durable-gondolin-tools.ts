@@ -68,7 +68,7 @@ export function adaptDurableTools(
         context,
       );
       return {
-        content: result.content,
+        output: result.content,
         ...(result.details === undefined
           ? {}
           : {

@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -137,17 +138,24 @@ try {
     );
   }
 
-  const probePath = join(installDir, 'probe.mjs');
+  // Resolve ESM-only Pi dependencies from the installed runtime's own tree.
+  const probePath = join(
+    realpathSync(join(installDir, 'node_modules/@themoltnet/pi-runtime')),
+    'probe.mjs',
+  );
   writeFileSync(
     probePath,
     [
       "const runtime = await import('@themoltnet/pi-runtime');",
       "if ('writePiConfig' in runtime || 'writeAgentCredentials' in runtime) throw new Error('root runtime leaked config writers');",
-      'let codemode;',
-      'const factory = await runtime.piCodemode().create({});',
-      'factory({ registerTool(tool) { codemode = tool; } });',
-      "const script = await codemode.execute('pack-smoke', { code: 'text(6 * 7)' });",
-      "if (!script.content.some(item => item.type === 'text' && item.text.includes('42'))) throw new Error('native codemode WASM failed: ' + JSON.stringify(script));",
+      "const { BACKGROUND_CONTEXT: context } = await import('@earendil-works/chord/context');",
+      "const { createModels, fauxProvider, fauxAssistantMessage, fauxToolCall } = await import('@earendil-works/pi-ai');",
+      "const { Harness, MemoryStorage, createRegistry } = await import('@earendil-works/pi-durable');",
+      'const models = createModels(); const faux = fauxProvider({ tokensPerSecond: 0 }); models.setProvider(faux.provider);',
+      'const registry = createRegistry(); registry.install(runtime.piCodemode().extension);',
+      "let ran = false; faux.setResponses([fauxAssistantMessage(fauxToolCall('codemode', { code: 'console.log(6 * 7)' }), { stopReason: 'toolUse' }), (ctx) => { if (!JSON.stringify(ctx).includes('42')) throw new Error('native codemode WASM failed'); ran = true; return fauxAssistantMessage('done'); }]);",
+      'const harness = await Harness.open(new MemoryStorage(), { models, registry }, context);',
+      "try { const root = await harness.root(context, { agent: { model: { provider: faux.provider.id, modelId: faux.models[0].id } } }); await (await root.submit({ type: 'input', content: 'Run code' }, context)).wait(context); if (!ran) throw new Error('native codemode did not complete'); } finally { await harness.close(context); }",
       "if (typeof runtime.createDurableTaskExecutor !== 'function') throw new Error('Durable executor missing');",
       "if (typeof runtime.createClassificationTaskExecutor !== 'function') throw new Error('Classification task executor missing');",
       "const piConfig = await import('@themoltnet/pi-runtime/pi-config');",

@@ -1,11 +1,12 @@
 import type { VM } from '@earendil-works/gondolin';
 import { VmCheckpoint } from '@earendil-works/gondolin';
+import { CodemodeSandbox } from '@earendil-works/pi-codemode';
 import {
-  createCodemodeExtension,
   type ExtensionAPI,
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import type { Extension as DurableExtension } from '@earendil-works/pi-durable';
+import { createCodemodeExtension } from '@earendil-works/pi-durable/codemode';
 import { computeJsonCid } from '@moltnet/crypto-service/json-cid';
 import { RUNTIME_PROFILE_RUNTIME_KIND_REGEXP } from '@moltnet/runtime-profiles';
 import type {
@@ -950,14 +951,6 @@ function assertRuntimeKind(value: string): void {
 /** Explicit capability contribution: native codemode remains subject to tool policy. */
 export function piCodemode() {
   return definePiExtension({
-    id: 'moltnet-codemode-v1',
-    declaredTools: ['codemode'],
-    factory: (pi) =>
-      createCodemodeExtension()({
-        ...pi,
-        // Installing this contribution is the operator's explicit activation.
-        registerTool: (tool) =>
-          pi.registerTool({ ...tool, defaultActive: true }),
-      }),
+    extension: createCodemodeExtension({ sandbox: new CodemodeSandbox() }),
   });
 }

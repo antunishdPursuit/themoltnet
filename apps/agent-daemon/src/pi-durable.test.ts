@@ -50,6 +50,7 @@ it('attests the same capability declarations it passes to the Durable executor',
       ],
       extensions: [
         pi.definePiExtension({ extension: { name: 'team-native', tools: [] } }),
+        pi.piCodemode(),
       ],
       hostCapabilities: [pi.agentSigningCapability],
       brokeredHttpSecrets: [secret],
@@ -70,6 +71,7 @@ it('attests the same capability declarations it passes to the Durable executor',
     'subagent',
     ...pi.MOLTNET_TOOL_NAMES,
     'project_lookup',
+    ...pi.piCodemode().declaredTools,
   ]);
   expect(prepared.manifest.hostCapabilities).toEqual([
     expect.objectContaining({ name: 'agent-signing' }),
@@ -104,7 +106,12 @@ it('rejects unsupported Durable extensions before resolving a VM instead of drop
         resumeCommands: [],
         resolve,
       },
-      extensions: [pi.piCodemode()],
+      extensions: [
+        pi.definePiExtension({
+          id: 'legacy-session-extension',
+          factory: () => {},
+        }),
+      ],
     }),
   );
   await expect(

@@ -278,7 +278,7 @@ export function createDurableTaskExecutor(options: {
           if (errors.length)
             return {
               isError: true,
-              content: [
+              output: [
                 { type: 'text', text: JSON.stringify(errors.slice(0, 3)) },
               ],
             };
@@ -290,7 +290,7 @@ export function createDurableTaskExecutor(options: {
             }
           }, ctx);
           return {
-            content: [{ type: 'text', text: 'Output accepted.' }],
+            output: [{ type: 'text', text: 'Output accepted.' }],
             control: { terminate: true },
           };
         },
@@ -546,7 +546,7 @@ export function createDurableTaskExecutor(options: {
               if (block)
                 return {
                   isError: true,
-                  content: [{ type: 'text' as const, text: block }],
+                  output: [{ type: 'text' as const, text: block }],
                 };
               return tool.execute(
                 args,
@@ -590,7 +590,7 @@ export function createDurableTaskExecutor(options: {
                 state.output ??= args as JsonObject;
               }, ctx);
               return {
-                content: [{ type: 'text', text: 'Output accepted.' }],
+                output: [{ type: 'text', text: 'Output accepted.' }],
                 control: { terminate: true },
               };
             },
@@ -694,7 +694,7 @@ export function createDurableTaskExecutor(options: {
               if (!output || !Value.Check(contract.parametersSchema, output))
                 throw new Error('Subagent did not submit valid output');
               return {
-                content: [{ type: 'text', text: JSON.stringify(output) }],
+                output: [{ type: 'text', text: JSON.stringify(output) }],
                 details: {
                   captured: true,
                   contract: contract.name,

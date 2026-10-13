@@ -4,11 +4,14 @@ import { StringDecoder } from 'node:string_decoder';
 import type { Context } from '@earendil-works/chord';
 import type { VM } from '@earendil-works/gondolin';
 import {
+  type BinaryReader,
+  type DirReader,
   err,
   type ExecutionEnv,
   ExecutionError,
   FileError,
   type FileInfo,
+  type FileWatcher,
   ok,
   type Result,
   type ShellExecOptions,
@@ -57,6 +60,34 @@ export class GondolinDurableEnv implements ExecutionEnv {
     this.lifetime = options.lifetime;
     this.lifecycle = options.lifecycle ?? createGondolinToolLifecycle();
     this.roots = (options.roots ?? [cwd]).map((root) => posix.resolve(root));
+  }
+
+  // Gondolin does not expose stable file/directory handles or filesystem
+  // notifications. Keep these capabilities explicit: our guest read/search
+  // tools remain available, while extensions must handle not_supported.
+  async openBinaryReader(
+    ..._args: Parameters<ExecutionEnv['openBinaryReader']>
+  ): Promise<Result<BinaryReader, FileError>> {
+    return err(
+      new FileError('not_supported', 'Guest binary handles are unavailable'),
+    );
+  }
+  async openDirReader(
+    ..._args: Parameters<ExecutionEnv['openDirReader']>
+  ): Promise<Result<DirReader, FileError>> {
+    return err(
+      new FileError('not_supported', 'Guest directory handles are unavailable'),
+    );
+  }
+  async watch(
+    ..._args: Parameters<ExecutionEnv['watch']>
+  ): Promise<Result<FileWatcher, FileError>> {
+    return err(
+      new FileError(
+        'not_supported',
+        'Guest filesystem watching is unavailable',
+      ),
+    );
   }
 
   /**
@@ -394,8 +425,8 @@ export class GondolinDurableEnv implements ExecutionEnv {
       const appended = await this.appendFile(spillPath, text, context);
       if (!appended.ok) throw appended.error;
     };
-    const output = async (text: string) => {
-      options?.onOutput?.(text, context);
+    const output = async (text: string, stream: 'stdout' | 'stderr') => {
+      options?.onOutput?.(text, context, { stream });
       if (!options?.spill) return;
       bytes += Buffer.byteLength(text);
       lines += text.split('\n').length - 1;
@@ -444,7 +475,8 @@ export class GondolinDurableEnv implements ExecutionEnv {
         signal: this.options(context).signal,
         // Durable timeouts are in seconds; the Gondolin primitive takes ms.
         timeoutMs: options?.timeout ? options.timeout * 1000 : undefined,
-        onData: (chunk, stream) => output(decoders[stream].write(chunk)),
+        onData: (chunk, stream) =>
+          output(decoders[stream].write(chunk), stream),
       });
       if (
         result.termination.status === 'backend-retired' ||
@@ -468,9 +500,9 @@ export class GondolinDurableEnv implements ExecutionEnv {
         if (spillPath) interrupted.spillPath = spillPath;
         return err(interrupted);
       }
-      for (const decoder of Object.values(decoders)) {
-        const tail = decoder.end();
-        if (tail) await output(tail);
+      for (const stream of ['stdout', 'stderr'] as const) {
+        const tail = decoders[stream].end();
+        if (tail) await output(tail, stream);
       }
       await flush();
       return ok({

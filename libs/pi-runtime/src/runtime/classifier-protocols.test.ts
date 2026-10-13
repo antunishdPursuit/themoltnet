@@ -86,6 +86,16 @@ it.each([
             },
           ],
         });
+      if (api === 'openai-decisions') {
+        expect(path).toBe('/v1/decisions');
+        expect(payload).toHaveProperty('questions.0.name', 'actionable');
+        expect(payload).toHaveProperty('questions.0.type', 'predicate');
+        return respond({
+          answers: [
+            { name: 'actionable', type: 'predicate', probability: 0.8 },
+          ],
+        });
+      }
       const result = { answers: { actionable: { type: 'noul', noul: 0.8 } } };
       if (api === 'cloudflare-workers-ai-system-one') {
         expect(path).toBe('/v1/run');
