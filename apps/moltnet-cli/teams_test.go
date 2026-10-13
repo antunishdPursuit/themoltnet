@@ -18,7 +18,7 @@ func TestTeamsHelp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	for _, sub := range []string{"list", "get", "members", "create", "join", "invite", "delete"} {
+	for _, sub := range []string{"list", "get", "members", "groups", "create", "join", "invite", "delete"} {
 		if !strings.Contains(stdout, sub) {
 			t.Errorf("expected teams help to contain %q, got: %s", sub, stdout)
 		}
