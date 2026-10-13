@@ -22,7 +22,7 @@ describe('context pack diff SDK methods', () => {
       expect.objectContaining({
         url: '/packs/{id}/diff/{otherId}',
         path: { id: 'pack-a', otherId: 'pack-b' },
-        auth,
+        auth: expect.any(Function),
       }),
     );
   });

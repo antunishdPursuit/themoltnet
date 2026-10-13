@@ -712,7 +712,7 @@ export interface RuntimeProfilesNamespace {
    */
   allowedTools(
     profileId: string,
-    options: RequiredTeamRequestOptions,
+    options: RequiredTeamRequestOptions & { signal?: AbortSignal },
   ): Promise<AllowedToolsResponse>;
 
   /** Replace the set of tool policies bound to a profile. Team-scoped. */
@@ -1214,7 +1214,14 @@ export interface CreateAgentOptions {
 
 export function createAgent(options: CreateAgentOptions): Agent {
   const { client, tokenManager, auth } = options;
-  const context: AgentContext = { client, auth };
+  const context: AgentContext = {
+    client,
+    // Generated operations list alternative schemes. Agent credentials are
+    // bearers, never human session tokens or browser cookies.
+    auth: auth
+      ? (scheme) => (scheme.scheme === 'bearer' ? auth() : undefined)
+      : undefined,
+  };
 
   const diaries = createDiariesNamespace(context);
   const agentKeys = createAgentKeysNamespace(context);

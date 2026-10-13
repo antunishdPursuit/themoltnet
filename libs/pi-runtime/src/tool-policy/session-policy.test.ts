@@ -250,10 +250,81 @@ describe('resolveSessionToolPolicy', () => {
     });
   });
 
+  it('cancels a timed-out read before retrying and accepts the fresh policy', async () => {
+    vi.useFakeTimers();
+    try {
+      const agent = agentReturning('enforce', ['git']);
+      const fetch = vi.mocked(agent.runtimeProfiles.allowedTools);
+      fetch.mockImplementationOnce(
+        (_id, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal!.addEventListener(
+              'abort',
+              () => {
+                const reason: unknown = options.signal!.reason;
+                reject(reason instanceof Error ? reason : new Error('Aborted'));
+              },
+              { once: true },
+            );
+          }),
+      );
+      const pending = resolveSessionToolPolicy({
+        ...params,
+        agent,
+        enforcement: 'enforce',
+        timeoutMs: 5,
+      });
+      await vi.advanceTimersByTimeAsync(5);
+      expect((await pending).degraded).toBe(false);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch.mock.calls[0][1].signal!.aborted).toBe(true);
+      expect(fetch.mock.calls[1][1].signal!.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not retry a denied policy', async () => {
+    const agent = agentReturning('enforce', ['git']);
+    const fetch = vi.mocked(agent.runtimeProfiles.allowedTools);
+    fetch.mockRejectedValue(
+      Object.assign(new Error('Forbidden'), { statusCode: 403 }),
+    );
+    expect(
+      (
+        await resolveSessionToolPolicy({
+          ...params,
+          agent,
+          enforcement: 'enforce',
+        })
+      ).degraded,
+    ).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a hung policy read without retrying when the task stops', async () => {
+    const agent = agentHanging();
+    const controller = new AbortController();
+    const pending = resolveSessionToolPolicy({
+      ...params,
+      agent,
+      enforcement: 'enforce',
+      signal: controller.signal,
+    });
+    controller.abort(new Error('Writer stopped'));
+    expect((await pending).degraded).toBe(true);
+    expect(agent.runtimeProfiles.allowedTools).toHaveBeenCalledTimes(1);
+    expect(
+      vi.mocked(agent.runtimeProfiles.allowedTools).mock.calls[0][1].signal!
+        .aborted,
+    ).toBe(true);
+  });
+
   it('times out a hung fetch and falls back to the degraded enforce policy', async () => {
+    const agent = agentHanging();
     const policy = await resolveSessionToolPolicy({
       ...params,
-      agent: agentHanging(),
+      agent,
       enforcement: 'enforce',
       timeoutMs: 5,
     });
@@ -263,6 +334,12 @@ describe('resolveSessionToolPolicy', () => {
       allowedShellCommands: [],
       degraded: true,
     });
+    expect(agent.runtimeProfiles.allowedTools).toHaveBeenCalledTimes(2);
+    expect(
+      vi
+        .mocked(agent.runtimeProfiles.allowedTools)
+        .mock.calls.every(([, options]) => options.signal!.aborted),
+    ).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ timedOut: true, failClosed: true }),
       'tool_policy.resolve_failed',
