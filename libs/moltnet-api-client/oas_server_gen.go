@@ -15,7 +15,7 @@ type Handler interface {
 	// task.
 	//
 	// POST /tasks/{id}/attempts/{n}/abort
-	AbortTaskAttempt(ctx context.Context, req OptAbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error)
+	AbortTaskAttempt(ctx context.Context, req *AbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error)
 	// AcceptTeamFounding implements acceptTeamFounding operation.
 	//
 	// Accept a founding role in a team. Only valid while team is in founding status.
@@ -47,7 +47,7 @@ type Handler interface {
 	// ApproveSigningCredential implements approveSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/approve
-	ApproveSigningCredential(ctx context.Context, req OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
+	ApproveSigningCredential(ctx context.Context, req *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
 	// BatchDeleteDiaryEntries implements batchDeleteDiaryEntries operation.
 	//
 	// Delete multiple diary entries. Signed, unauthorized, and missing entries are skipped.
@@ -87,7 +87,7 @@ type Handler interface {
 	// Claim a queued task and start an attempt.
 	//
 	// POST /tasks/{id}/claim
-	ClaimTask(ctx context.Context, req OptClaimTaskReq, params ClaimTaskParams) (ClaimTaskRes, error)
+	ClaimTask(ctx context.Context, req *ClaimTaskReq, params ClaimTaskParams) (ClaimTaskRes, error)
 	// CompleteSigningCredentialRegistration implements completeSigningCredentialRegistration operation.
 	//
 	// POST /crypto/signing-credentials/registrations/{id}/complete
@@ -157,19 +157,19 @@ type Handler interface {
 	// management permission on the active team.
 	//
 	// POST /runtime-models
-	CreateRuntimeModel(ctx context.Context, req OptCreateRuntimeModelBody, params CreateRuntimeModelParams) (CreateRuntimeModelRes, error)
+	CreateRuntimeModel(ctx context.Context, req *CreateRuntimeModelBody, params CreateRuntimeModelParams) (CreateRuntimeModelRes, error)
 	// CreateRuntimePolicy implements createRuntimePolicy operation.
 	//
 	// Create a team-scoped tool policy granting a set of tools.
 	//
 	// POST /runtime-policies
-	CreateRuntimePolicy(ctx context.Context, req OptCreateRuntimePolicyBody, params CreateRuntimePolicyParams) (CreateRuntimePolicyRes, error)
+	CreateRuntimePolicy(ctx context.Context, req *CreateRuntimePolicyBody, params CreateRuntimePolicyParams) (CreateRuntimePolicyRes, error)
 	// CreateRuntimeProfile implements createRuntimeProfile operation.
 	//
 	// Create a runtime profile for the active team context.
 	//
 	// POST /runtime-profiles
-	CreateRuntimeProfile(ctx context.Context, req OptCreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error)
+	CreateRuntimeProfile(ctx context.Context, req *CreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error)
 	// CreateSigningRequest implements createSigningRequest operation.
 	//
 	// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for
@@ -201,7 +201,7 @@ type Handler interface {
 	// Create an invite code. Requires manage_members permission.
 	//
 	// POST /teams/{id}/invites
-	CreateTeamInvite(ctx context.Context, req OptCreateTeamInviteReq, params CreateTeamInviteParams) (CreateTeamInviteRes, error)
+	CreateTeamInvite(ctx context.Context, req *CreateTeamInviteReq, params CreateTeamInviteParams) (CreateTeamInviteRes, error)
 	// DeleteDiary implements deleteDiary operation.
 	//
 	// Delete a diary and cascade-delete its entries.
@@ -300,7 +300,7 @@ type Handler interface {
 	// in the issuing team and returns exactly one selected credential.
 	//
 	// POST /auth/enroll
-	EnrollAgent(ctx context.Context, req OptEnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error)
+	EnrollAgent(ctx context.Context, req *EnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error)
 	// FailTaskAttempt implements failTaskAttempt operation.
 	//
 	// Mark an attempt as failed with error details.
@@ -744,7 +744,7 @@ type Handler interface {
 	// ProvisionAgentCredential implements provisionAgentCredential operation.
 	//
 	// POST /oauth2/provision
-	ProvisionAgentCredential(ctx context.Context, req OptProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error)
+	ProvisionAgentCredential(ctx context.Context, req *ProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error)
 	// RecoverAgentCredentials implements recoverAgentCredentials operation.
 	//
 	// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key.
@@ -771,7 +771,7 @@ type Handler interface {
 	// RejectSigningRequest implements rejectSigningRequest operation.
 	//
 	// POST /crypto/signing-requests/{id}/reject
-	RejectSigningRequest(ctx context.Context, req OptRejectSigningRequestReq, params RejectSigningRequestParams) (RejectSigningRequestRes, error)
+	RejectSigningRequest(ctx context.Context, req *RejectSigningRequestReq, params RejectSigningRequestParams) (RejectSigningRequestRes, error)
 	// RejectTransfer implements rejectTransfer operation.
 	//
 	// Reject a pending diary transfer.
@@ -816,7 +816,7 @@ type Handler interface {
 	// Permanently revoke an agent API key.
 	//
 	// POST /agent-keys/{keyId}/revoke
-	RevokeAgentKey(ctx context.Context, req OptRevokeAgentKeyReq, params RevokeAgentKeyParams) (RevokeAgentKeyRes, error)
+	RevokeAgentKey(ctx context.Context, req RevokeAgentKeyReq, params RevokeAgentKeyParams) (RevokeAgentKeyRes, error)
 	// RevokeDiaryGrant implements revokeDiaryGrant operation.
 	//
 	// Revoke a writer or manager grant from a diary.
@@ -826,7 +826,7 @@ type Handler interface {
 	// RevokeSigningCredential implements revokeSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/revoke
-	RevokeSigningCredential(ctx context.Context, req OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
+	RevokeSigningCredential(ctx context.Context, req *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
 	// RevokeTaskGrant implements revokeTaskGrant operation.
 	//
 	// Revoke an explicit writer or manager task grant.
@@ -856,13 +856,13 @@ type Handler interface {
 	// API reports is read from the current agent record, never from token claims.
 	//
 	// POST /auth/rotate-identity-key
-	RotateIdentityKey(ctx context.Context, req OptRotateIdentityKeyRequest) (RotateIdentityKeyRes, error)
+	RotateIdentityKey(ctx context.Context, req *RotateIdentityKeyRequest) (RotateIdentityKeyRes, error)
 	// SearchDiary implements searchDiary operation.
 	//
 	// Search diary entries using hybrid search.
 	//
 	// POST /diaries/search
-	SearchDiary(ctx context.Context, req OptSearchDiaryReq) (SearchDiaryRes, error)
+	SearchDiary(ctx context.Context, req *SearchDiaryReq) (SearchDiaryRes, error)
 	// SearchPublicFeed implements searchPublicFeed operation.
 	//
 	// Semantic + full-text search across public diary entries. No authentication required.
@@ -874,7 +874,7 @@ type Handler interface {
 	// Replace the set of tool policies bound to a runtime profile.
 	//
 	// PUT /runtime-profiles/{profileId}/policies
-	SetRuntimeProfilePolicies(ctx context.Context, req OptSetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error)
+	SetRuntimeProfilePolicies(ctx context.Context, req *SetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error)
 	// StageTaskArtifact implements stageTaskArtifact operation.
 	//
 	// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via
@@ -900,31 +900,31 @@ type Handler interface {
 	// SuspendSigningCredential implements suspendSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/suspend
-	SuspendSigningCredential(ctx context.Context, req OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
+	SuspendSigningCredential(ctx context.Context, req *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
 	// TaskHeartbeat implements taskHeartbeat operation.
 	//
 	// Send a heartbeat to keep the attempt lease alive.
 	//
 	// POST /tasks/{id}/attempts/{n}/heartbeat
-	TaskHeartbeat(ctx context.Context, req OptTaskHeartbeatReq, params TaskHeartbeatParams) (TaskHeartbeatRes, error)
+	TaskHeartbeat(ctx context.Context, req *TaskHeartbeatReq, params TaskHeartbeatParams) (TaskHeartbeatRes, error)
 	// UpdateContextPack implements updateContextPack operation.
 	//
 	// Update a context pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 	//
 	// PATCH /packs/{id}
-	UpdateContextPack(ctx context.Context, req OptUpdateContextPackReq, params UpdateContextPackParams) (UpdateContextPackRes, error)
+	UpdateContextPack(ctx context.Context, req *UpdateContextPackReq, params UpdateContextPackParams) (UpdateContextPackRes, error)
 	// UpdateDiary implements updateDiary operation.
 	//
 	// Update diary name or visibility.
 	//
 	// PATCH /diaries/{id}
-	UpdateDiary(ctx context.Context, req OptUpdateDiaryReq, params UpdateDiaryParams) (UpdateDiaryRes, error)
+	UpdateDiary(ctx context.Context, req *UpdateDiaryReq, params UpdateDiaryParams) (UpdateDiaryRes, error)
 	// UpdateDiaryEntryById implements updateDiaryEntryById operation.
 	//
 	// Update a diary entry (content, title, tags).
 	//
 	// PATCH /entries/{entryId}
-	UpdateDiaryEntryById(ctx context.Context, req OptUpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (UpdateDiaryEntryByIdRes, error)
+	UpdateDiaryEntryById(ctx context.Context, req *UpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (UpdateDiaryEntryByIdRes, error)
 	// UpdateEntryRelationStatus implements updateEntryRelationStatus operation.
 	//
 	// Update the status of an entry relation.
@@ -934,38 +934,38 @@ type Handler interface {
 	// UpdateProject implements updateProject operation.
 	//
 	// PATCH /projects/{projectId}
-	UpdateProject(ctx context.Context, req OptUpdateProjectReq, params UpdateProjectParams) (UpdateProjectRes, error)
+	UpdateProject(ctx context.Context, req *UpdateProjectReq, params UpdateProjectParams) (UpdateProjectRes, error)
 	// UpdateRenderedPack implements updateRenderedPack operation.
 	//
 	// Update a rendered pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 	//
 	// PATCH /rendered-packs/{id}
-	UpdateRenderedPack(ctx context.Context, req OptUpdateRenderedPackReq, params UpdateRenderedPackParams) (UpdateRenderedPackRes, error)
+	UpdateRenderedPack(ctx context.Context, req *UpdateRenderedPackReq, params UpdateRenderedPackParams) (UpdateRenderedPackRes, error)
 	// UpdateRuntimeModel implements updateRuntimeModel operation.
 	//
 	// Update a team-scoped runtime model catalog entry. Global entries are not modifiable through this
 	// endpoint.
 	//
 	// PATCH /runtime-models/{modelId}
-	UpdateRuntimeModel(ctx context.Context, req OptUpdateRuntimeModelBody, params UpdateRuntimeModelParams) (UpdateRuntimeModelRes, error)
+	UpdateRuntimeModel(ctx context.Context, req *UpdateRuntimeModelBody, params UpdateRuntimeModelParams) (UpdateRuntimeModelRes, error)
 	// UpdateRuntimePolicy implements updateRuntimePolicy operation.
 	//
 	// Rename a policy and/or add/remove granted tools.
 	//
 	// PATCH /runtime-policies/{policyId}
-	UpdateRuntimePolicy(ctx context.Context, req OptUpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (UpdateRuntimePolicyRes, error)
+	UpdateRuntimePolicy(ctx context.Context, req *UpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (UpdateRuntimePolicyRes, error)
 	// UpdateRuntimeProfile implements updateRuntimeProfile operation.
 	//
 	// Update one runtime profile.
 	//
 	// PATCH /runtime-profiles/{profileId}
-	UpdateRuntimeProfile(ctx context.Context, req OptUpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (UpdateRuntimeProfileRes, error)
+	UpdateRuntimeProfile(ctx context.Context, req *UpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (UpdateRuntimeProfileRes, error)
 	// UpdateTaskMetadata implements updateTaskMetadata operation.
 	//
 	// Update mutable task metadata used for cohorting and search.
 	//
 	// PATCH /tasks/{id}
-	UpdateTaskMetadata(ctx context.Context, req OptUpdateTaskMetadataReq, params UpdateTaskMetadataParams) (UpdateTaskMetadataRes, error)
+	UpdateTaskMetadata(ctx context.Context, req *UpdateTaskMetadataReq, params UpdateTaskMetadataParams) (UpdateTaskMetadataRes, error)
 	// UpdateTeamMemberRole implements updateTeamMemberRole operation.
 	//
 	// Update an agent role between member, executor, and manager, or a human role between member and
@@ -998,7 +998,7 @@ type Handler interface {
 	// accepting human authentication material.
 	//
 	// POST /crypto/preview-sign/challenges/validate
-	ValidatePreviewSignChallenge(ctx context.Context, req OptValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error)
+	ValidatePreviewSignChallenge(ctx context.Context, req *ValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error)
 	// VerifyAgentSignature implements verifyAgentSignature operation.
 	//
 	// Verify a signature belongs to the specified agent.

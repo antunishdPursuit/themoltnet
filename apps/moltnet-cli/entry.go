@@ -257,7 +257,7 @@ func runEntryUpdateCmd(stdout io.Writer, apiURL, credPath, entryID, content, tit
 	}
 
 	res, err := client.UpdateDiaryEntryById(context.Background(),
-		moltnetapi.OptUpdateDiaryEntryByIdReq{Value: req, Set: true},
+		&req,
 		moltnetapi.UpdateDiaryEntryByIdParams{EntryId: entryUUID})
 	if err != nil {
 		return fmt.Errorf("entry update: %w", formatTransportError(err))
@@ -365,10 +365,7 @@ func runEntrySearchCmd(stdout io.Writer, apiURL, credPath string, opts entrySear
 	if err != nil {
 		return err
 	}
-	res, err := client.SearchDiary(context.Background(), moltnetapi.OptSearchDiaryReq{
-		Value: req,
-		Set:   true,
-	})
+	res, err := client.SearchDiary(context.Background(), &req)
 	if err != nil {
 		return fmt.Errorf("entry search: %w", formatTransportError(err))
 	}

@@ -854,13 +854,13 @@ export const registerAgent = <ThrowOnError extends boolean = false>(
  * Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation message `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`. The old key stays verifiable for signatures made while it was current, and its fingerprint still resolves to the agent. Access tokens authenticate the agent, not its key: JWT access tokens issued before the rotation stay valid until they expire (opaque tokens are revoked), and every key the API reports is read from the current agent record, never from token claims.
  */
 export const rotateIdentityKey = <ThrowOnError extends boolean = false>(
-  options?: Options<RotateIdentityKeyData, ThrowOnError>,
+  options: Options<RotateIdentityKeyData, ThrowOnError>,
 ): RequestResult<
   RotateIdentityKeyResponses,
   RotateIdentityKeyErrors,
   ThrowOnError
 > =>
-  (options?.client ?? client).post<
+  (options.client ?? client).post<
     RotateIdentityKeyResponses,
     RotateIdentityKeyErrors,
     ThrowOnError
@@ -887,7 +887,7 @@ export const rotateIdentityKey = <ThrowOnError extends boolean = false>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -971,13 +971,13 @@ export const getCryptoIdentity = <ThrowOnError extends boolean = false>(
 export const validatePreviewSignChallenge = <
   ThrowOnError extends boolean = false,
 >(
-  options?: Options<ValidatePreviewSignChallengeData, ThrowOnError>,
+  options: Options<ValidatePreviewSignChallengeData, ThrowOnError>,
 ): RequestResult<
   ValidatePreviewSignChallengeResponses,
   ValidatePreviewSignChallengeErrors,
   ThrowOnError
 > =>
-  (options?.client ?? client).post<
+  (options.client ?? client).post<
     ValidatePreviewSignChallengeResponses,
     ValidatePreviewSignChallengeErrors,
     ThrowOnError
@@ -986,7 +986,7 @@ export const validatePreviewSignChallenge = <
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -1569,9 +1569,9 @@ export const createDiary = <ThrowOnError extends boolean = false>(
  * Search diary entries using hybrid search.
  */
 export const searchDiary = <ThrowOnError extends boolean = false>(
-  options?: Options<SearchDiaryData, ThrowOnError>,
+  options: Options<SearchDiaryData, ThrowOnError>,
 ): RequestResult<SearchDiaryResponses, SearchDiaryErrors, ThrowOnError> =>
-  (options?.client ?? client).post<
+  (options.client ?? client).post<
     SearchDiaryResponses,
     SearchDiaryErrors,
     ThrowOnError
@@ -1598,7 +1598,7 @@ export const searchDiary = <ThrowOnError extends boolean = false>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -2646,13 +2646,13 @@ export const getLlmsTxt = <ThrowOnError extends boolean = false>(
   });
 
 export const provisionAgentCredential = <ThrowOnError extends boolean = false>(
-  options?: Options<ProvisionAgentCredentialData, ThrowOnError>,
+  options: Options<ProvisionAgentCredentialData, ThrowOnError>,
 ): RequestResult<
   ProvisionAgentCredentialResponses,
   ProvisionAgentCredentialErrors,
   ThrowOnError
 > =>
-  (options?.client ?? client).post<
+  (options.client ?? client).post<
     ProvisionAgentCredentialResponses,
     ProvisionAgentCredentialErrors,
     ThrowOnError
@@ -2668,7 +2668,7 @@ export const provisionAgentCredential = <ThrowOnError extends boolean = false>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -3569,13 +3569,13 @@ export const listRuntimeModels = <ThrowOnError extends boolean = false>(
  * Create a team-scoped runtime model catalog entry. Requires `x-moltnet-team-id` and runtime management permission on the active team.
  */
 export const createRuntimeModel = <ThrowOnError extends boolean = false>(
-  options?: Options<CreateRuntimeModelData, ThrowOnError>,
+  options: Options<CreateRuntimeModelData, ThrowOnError>,
 ): RequestResult<
   CreateRuntimeModelResponses,
   CreateRuntimeModelErrors,
   ThrowOnError
 > =>
-  (options?.client ?? client).post<
+  (options.client ?? client).post<
     CreateRuntimeModelResponses,
     CreateRuntimeModelErrors,
     ThrowOnError
@@ -3602,7 +3602,7 @@ export const createRuntimeModel = <ThrowOnError extends boolean = false>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...options.headers,
     },
   });
 
@@ -3955,13 +3955,13 @@ export const listRuntimeProfiles = <ThrowOnError extends boolean = false>(
  * Create a runtime profile for the active team context.
  */
 export const createRuntimeProfile = <ThrowOnError extends boolean = false>(
-  options?: Options<CreateRuntimeProfileData, ThrowOnError>,
+  options: Options<CreateRuntimeProfileData, ThrowOnError>,
 ): RequestResult<
   CreateRuntimeProfileResponses,
   CreateRuntimeProfileErrors,
   ThrowOnError
 > =>
-  (options?.client ?? client).post<
+  (options.client ?? client).post<
     CreateRuntimeProfileResponses,
     CreateRuntimeProfileErrors,
     ThrowOnError
@@ -3988,7 +3988,7 @@ export const createRuntimeProfile = <ThrowOnError extends boolean = false>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...options.headers,
     },
   });
 

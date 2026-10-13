@@ -397,7 +397,7 @@ export function createTasksNamespace(context: AgentContext): TasksNamespace {
           auth,
           headers: headersForTask(id, options),
           path: { id, n },
-          body,
+          body: body ?? {},
           signal: options?.signal,
         }),
       );
@@ -439,7 +439,7 @@ export function createTasksNamespace(context: AgentContext): TasksNamespace {
             auth,
             headers: headersForTask(id, options),
             path: { id, n },
-            body,
+            body: body ?? {},
           }),
         ),
       );

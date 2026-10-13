@@ -22,7 +22,7 @@ type stubDiaryHandler struct {
 	listDiaryEntriesParams  moltnetapi.ListDiaryEntriesParams
 	listDiaryTagsParams     moltnetapi.ListDiaryTagsParams
 	listSigningRequestsArgs moltnetapi.ListSigningRequestsParams
-	searchDiaryReq          moltnetapi.OptSearchDiaryReq
+	searchDiaryReq          *moltnetapi.SearchDiaryReq
 	searchPublicFeedParams  moltnetapi.SearchPublicFeedParams
 }
 
@@ -94,7 +94,7 @@ func (h *stubDiaryHandler) DeleteDiaryEntryById(_ context.Context, _ moltnetapi.
 	return &moltnetapi.Success{}, nil
 }
 
-func (h *stubDiaryHandler) SearchDiary(_ context.Context, req moltnetapi.OptSearchDiaryReq) (moltnetapi.SearchDiaryRes, error) {
+func (h *stubDiaryHandler) SearchDiary(_ context.Context, req *moltnetapi.SearchDiaryReq) (moltnetapi.SearchDiaryRes, error) {
 	h.searchDiaryReq = req
 	return &moltnetapi.DiarySearchResult{
 		Results: []moltnetapi.DiaryEntry{*newTestEntry("search result")},
@@ -139,11 +139,11 @@ func newCLICommandTestServer(t *testing.T, h moltnetapi.Handler) (*httptest.Serv
 	return apiSrv, credPath
 }
 
-func (h *stubDiaryHandler) UpdateDiaryEntryById(_ context.Context, req moltnetapi.OptUpdateDiaryEntryByIdReq, params moltnetapi.UpdateDiaryEntryByIdParams) (moltnetapi.UpdateDiaryEntryByIdRes, error) {
+func (h *stubDiaryHandler) UpdateDiaryEntryById(_ context.Context, req *moltnetapi.UpdateDiaryEntryByIdReq, params moltnetapi.UpdateDiaryEntryByIdParams) (moltnetapi.UpdateDiaryEntryByIdRes, error) {
 	e := newTestEntry("updated content")
 	e.ID = params.EntryId
-	if req.Set && req.Value.Content.Set {
-		e.Content = req.Value.Content.Value
+	if req != nil && req.Content.Set {
+		e.Content = req.Content.Value
 	}
 	return e, nil
 }
@@ -486,11 +486,8 @@ func TestEntrySearch(t *testing.T) {
 	_, _, client := newTestServer(t, &stubDiaryHandler{})
 
 	// Act
-	res, err := client.SearchDiary(context.Background(), moltnetapi.OptSearchDiaryReq{
-		Value: moltnetapi.SearchDiaryReq{
-			Query: moltnetapi.OptString{Value: "test query", Set: true},
-		},
-		Set: true,
+	res, err := client.SearchDiary(context.Background(), &moltnetapi.SearchDiaryReq{
+		Query: moltnetapi.OptString{Value: "test query", Set: true},
 	})
 
 	// Assert
@@ -539,10 +536,10 @@ func TestEntrySearchCommandPassesFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runEntrySearchCmd(io.Discard, ) error: %v", err)
 	}
-	if !handler.searchDiaryReq.Set {
+	if handler.searchDiaryReq == nil {
 		t.Fatal("expected search request to be set")
 	}
-	req := handler.searchDiaryReq.Value
+	req := handler.searchDiaryReq
 	if !req.Query.Set || req.Query.Value != "stale lockfile" {
 		t.Fatalf("query: got %#v", req.Query)
 	}
@@ -605,7 +602,7 @@ func TestEntrySearchCommandAllowsFilterOnlySearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runEntrySearchCmd(io.Discard, ) error: %v", err)
 	}
-	req := handler.searchDiaryReq.Value
+	req := handler.searchDiaryReq
 	if req.Query.Set {
 		t.Fatalf("query should be unset for filter-only search, got %#v", req.Query)
 	}
@@ -623,11 +620,8 @@ func TestEntryUpdate(t *testing.T) {
 
 	// Act
 	res, err := client.UpdateDiaryEntryById(context.Background(),
-		moltnetapi.OptUpdateDiaryEntryByIdReq{
-			Value: moltnetapi.UpdateDiaryEntryByIdReq{
-				Content: moltnetapi.OptString{Value: "new content", Set: true},
-			},
-			Set: true,
+		&moltnetapi.UpdateDiaryEntryByIdReq{
+			Content: moltnetapi.OptString{Value: "new content", Set: true},
 		},
 		moltnetapi.UpdateDiaryEntryByIdParams{EntryId: testEntryID})
 

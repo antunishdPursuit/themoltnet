@@ -20,7 +20,7 @@ var _ Handler = UnimplementedHandler{}
 // task.
 //
 // POST /tasks/{id}/attempts/{n}/abort
-func (UnimplementedHandler) AbortTaskAttempt(ctx context.Context, req OptAbortTaskAttemptReq, params AbortTaskAttemptParams) (r AbortTaskAttemptRes, _ error) {
+func (UnimplementedHandler) AbortTaskAttempt(ctx context.Context, req *AbortTaskAttemptReq, params AbortTaskAttemptParams) (r AbortTaskAttemptRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -70,7 +70,7 @@ func (UnimplementedHandler) AppendTaskMessages(ctx context.Context, req *AppendT
 // ApproveSigningCredential implements approveSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/approve
-func (UnimplementedHandler) ApproveSigningCredential(ctx context.Context, req OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (r ApproveSigningCredentialRes, _ error) {
+func (UnimplementedHandler) ApproveSigningCredential(ctx context.Context, req *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (r ApproveSigningCredentialRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -133,7 +133,7 @@ func (UnimplementedHandler) ClaimSigningRequest(ctx context.Context, req *ClaimS
 // Claim a queued task and start an attempt.
 //
 // POST /tasks/{id}/claim
-func (UnimplementedHandler) ClaimTask(ctx context.Context, req OptClaimTaskReq, params ClaimTaskParams) (r ClaimTaskRes, _ error) {
+func (UnimplementedHandler) ClaimTask(ctx context.Context, req *ClaimTaskReq, params ClaimTaskParams) (r ClaimTaskRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -239,7 +239,7 @@ func (UnimplementedHandler) CreateProject(ctx context.Context, req *CreateProjec
 // management permission on the active team.
 //
 // POST /runtime-models
-func (UnimplementedHandler) CreateRuntimeModel(ctx context.Context, req OptCreateRuntimeModelBody, params CreateRuntimeModelParams) (r CreateRuntimeModelRes, _ error) {
+func (UnimplementedHandler) CreateRuntimeModel(ctx context.Context, req *CreateRuntimeModelBody, params CreateRuntimeModelParams) (r CreateRuntimeModelRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -248,7 +248,7 @@ func (UnimplementedHandler) CreateRuntimeModel(ctx context.Context, req OptCreat
 // Create a team-scoped tool policy granting a set of tools.
 //
 // POST /runtime-policies
-func (UnimplementedHandler) CreateRuntimePolicy(ctx context.Context, req OptCreateRuntimePolicyBody, params CreateRuntimePolicyParams) (r CreateRuntimePolicyRes, _ error) {
+func (UnimplementedHandler) CreateRuntimePolicy(ctx context.Context, req *CreateRuntimePolicyBody, params CreateRuntimePolicyParams) (r CreateRuntimePolicyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -257,7 +257,7 @@ func (UnimplementedHandler) CreateRuntimePolicy(ctx context.Context, req OptCrea
 // Create a runtime profile for the active team context.
 //
 // POST /runtime-profiles
-func (UnimplementedHandler) CreateRuntimeProfile(ctx context.Context, req OptCreateRuntimeProfileBody, params CreateRuntimeProfileParams) (r CreateRuntimeProfileRes, _ error) {
+func (UnimplementedHandler) CreateRuntimeProfile(ctx context.Context, req *CreateRuntimeProfileBody, params CreateRuntimeProfileParams) (r CreateRuntimeProfileRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -304,7 +304,7 @@ func (UnimplementedHandler) CreateTeam(ctx context.Context, req *CreateTeamReq) 
 // Create an invite code. Requires manage_members permission.
 //
 // POST /teams/{id}/invites
-func (UnimplementedHandler) CreateTeamInvite(ctx context.Context, req OptCreateTeamInviteReq, params CreateTeamInviteParams) (r CreateTeamInviteRes, _ error) {
+func (UnimplementedHandler) CreateTeamInvite(ctx context.Context, req *CreateTeamInviteReq, params CreateTeamInviteParams) (r CreateTeamInviteRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -451,7 +451,7 @@ func (UnimplementedHandler) DownloadTaskArtifactByCid(ctx context.Context, param
 // in the issuing team and returns exactly one selected credential.
 //
 // POST /auth/enroll
-func (UnimplementedHandler) EnrollAgent(ctx context.Context, req OptEnrollAgentReq, params EnrollAgentParams) (r EnrollAgentRes, _ error) {
+func (UnimplementedHandler) EnrollAgent(ctx context.Context, req *EnrollAgentReq, params EnrollAgentParams) (r EnrollAgentRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1120,7 +1120,7 @@ func (UnimplementedHandler) PreviewRenderedPack(ctx context.Context, req *Previe
 // ProvisionAgentCredential implements provisionAgentCredential operation.
 //
 // POST /oauth2/provision
-func (UnimplementedHandler) ProvisionAgentCredential(ctx context.Context, req OptProvisionAgentCredentialReq) (r ProvisionAgentCredentialRes, _ error) {
+func (UnimplementedHandler) ProvisionAgentCredential(ctx context.Context, req *ProvisionAgentCredentialReq) (r ProvisionAgentCredentialRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1159,7 +1159,7 @@ func (UnimplementedHandler) RegisterExecutorManifest(ctx context.Context, req *R
 // RejectSigningRequest implements rejectSigningRequest operation.
 //
 // POST /crypto/signing-requests/{id}/reject
-func (UnimplementedHandler) RejectSigningRequest(ctx context.Context, req OptRejectSigningRequestReq, params RejectSigningRequestParams) (r RejectSigningRequestRes, _ error) {
+func (UnimplementedHandler) RejectSigningRequest(ctx context.Context, req *RejectSigningRequestReq, params RejectSigningRequestParams) (r RejectSigningRequestRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1228,7 +1228,7 @@ func (UnimplementedHandler) RequestRecoveryChallenge(ctx context.Context, req *R
 // Permanently revoke an agent API key.
 //
 // POST /agent-keys/{keyId}/revoke
-func (UnimplementedHandler) RevokeAgentKey(ctx context.Context, req OptRevokeAgentKeyReq, params RevokeAgentKeyParams) (r RevokeAgentKeyRes, _ error) {
+func (UnimplementedHandler) RevokeAgentKey(ctx context.Context, req RevokeAgentKeyReq, params RevokeAgentKeyParams) (r RevokeAgentKeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1244,7 +1244,7 @@ func (UnimplementedHandler) RevokeDiaryGrant(ctx context.Context, req *RevokeDia
 // RevokeSigningCredential implements revokeSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/revoke
-func (UnimplementedHandler) RevokeSigningCredential(ctx context.Context, req OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (r RevokeSigningCredentialRes, _ error) {
+func (UnimplementedHandler) RevokeSigningCredential(ctx context.Context, req *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (r RevokeSigningCredentialRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1286,7 +1286,7 @@ func (UnimplementedHandler) RotateClientSecret(ctx context.Context) (r RotateCli
 // API reports is read from the current agent record, never from token claims.
 //
 // POST /auth/rotate-identity-key
-func (UnimplementedHandler) RotateIdentityKey(ctx context.Context, req OptRotateIdentityKeyRequest) (r RotateIdentityKeyRes, _ error) {
+func (UnimplementedHandler) RotateIdentityKey(ctx context.Context, req *RotateIdentityKeyRequest) (r RotateIdentityKeyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1295,7 +1295,7 @@ func (UnimplementedHandler) RotateIdentityKey(ctx context.Context, req OptRotate
 // Search diary entries using hybrid search.
 //
 // POST /diaries/search
-func (UnimplementedHandler) SearchDiary(ctx context.Context, req OptSearchDiaryReq) (r SearchDiaryRes, _ error) {
+func (UnimplementedHandler) SearchDiary(ctx context.Context, req *SearchDiaryReq) (r SearchDiaryRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1313,7 +1313,7 @@ func (UnimplementedHandler) SearchPublicFeed(ctx context.Context, params SearchP
 // Replace the set of tool policies bound to a runtime profile.
 //
 // PUT /runtime-profiles/{profileId}/policies
-func (UnimplementedHandler) SetRuntimeProfilePolicies(ctx context.Context, req OptSetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (r SetRuntimeProfilePoliciesRes, _ error) {
+func (UnimplementedHandler) SetRuntimeProfilePolicies(ctx context.Context, req *SetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (r SetRuntimeProfilePoliciesRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1351,7 +1351,7 @@ func (UnimplementedHandler) SubmitSignature(ctx context.Context, req *SubmitSign
 // SuspendSigningCredential implements suspendSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/suspend
-func (UnimplementedHandler) SuspendSigningCredential(ctx context.Context, req OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (r SuspendSigningCredentialRes, _ error) {
+func (UnimplementedHandler) SuspendSigningCredential(ctx context.Context, req *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (r SuspendSigningCredentialRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1360,7 +1360,7 @@ func (UnimplementedHandler) SuspendSigningCredential(ctx context.Context, req Op
 // Send a heartbeat to keep the attempt lease alive.
 //
 // POST /tasks/{id}/attempts/{n}/heartbeat
-func (UnimplementedHandler) TaskHeartbeat(ctx context.Context, req OptTaskHeartbeatReq, params TaskHeartbeatParams) (r TaskHeartbeatRes, _ error) {
+func (UnimplementedHandler) TaskHeartbeat(ctx context.Context, req *TaskHeartbeatReq, params TaskHeartbeatParams) (r TaskHeartbeatRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1369,7 +1369,7 @@ func (UnimplementedHandler) TaskHeartbeat(ctx context.Context, req OptTaskHeartb
 // Update a context pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 //
 // PATCH /packs/{id}
-func (UnimplementedHandler) UpdateContextPack(ctx context.Context, req OptUpdateContextPackReq, params UpdateContextPackParams) (r UpdateContextPackRes, _ error) {
+func (UnimplementedHandler) UpdateContextPack(ctx context.Context, req *UpdateContextPackReq, params UpdateContextPackParams) (r UpdateContextPackRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1378,7 +1378,7 @@ func (UnimplementedHandler) UpdateContextPack(ctx context.Context, req OptUpdate
 // Update diary name or visibility.
 //
 // PATCH /diaries/{id}
-func (UnimplementedHandler) UpdateDiary(ctx context.Context, req OptUpdateDiaryReq, params UpdateDiaryParams) (r UpdateDiaryRes, _ error) {
+func (UnimplementedHandler) UpdateDiary(ctx context.Context, req *UpdateDiaryReq, params UpdateDiaryParams) (r UpdateDiaryRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1387,7 +1387,7 @@ func (UnimplementedHandler) UpdateDiary(ctx context.Context, req OptUpdateDiaryR
 // Update a diary entry (content, title, tags).
 //
 // PATCH /entries/{entryId}
-func (UnimplementedHandler) UpdateDiaryEntryById(ctx context.Context, req OptUpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (r UpdateDiaryEntryByIdRes, _ error) {
+func (UnimplementedHandler) UpdateDiaryEntryById(ctx context.Context, req *UpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (r UpdateDiaryEntryByIdRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1403,7 +1403,7 @@ func (UnimplementedHandler) UpdateEntryRelationStatus(ctx context.Context, req *
 // UpdateProject implements updateProject operation.
 //
 // PATCH /projects/{projectId}
-func (UnimplementedHandler) UpdateProject(ctx context.Context, req OptUpdateProjectReq, params UpdateProjectParams) (r UpdateProjectRes, _ error) {
+func (UnimplementedHandler) UpdateProject(ctx context.Context, req *UpdateProjectReq, params UpdateProjectParams) (r UpdateProjectRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1412,7 +1412,7 @@ func (UnimplementedHandler) UpdateProject(ctx context.Context, req OptUpdateProj
 // Update a rendered pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 //
 // PATCH /rendered-packs/{id}
-func (UnimplementedHandler) UpdateRenderedPack(ctx context.Context, req OptUpdateRenderedPackReq, params UpdateRenderedPackParams) (r UpdateRenderedPackRes, _ error) {
+func (UnimplementedHandler) UpdateRenderedPack(ctx context.Context, req *UpdateRenderedPackReq, params UpdateRenderedPackParams) (r UpdateRenderedPackRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1422,7 +1422,7 @@ func (UnimplementedHandler) UpdateRenderedPack(ctx context.Context, req OptUpdat
 // endpoint.
 //
 // PATCH /runtime-models/{modelId}
-func (UnimplementedHandler) UpdateRuntimeModel(ctx context.Context, req OptUpdateRuntimeModelBody, params UpdateRuntimeModelParams) (r UpdateRuntimeModelRes, _ error) {
+func (UnimplementedHandler) UpdateRuntimeModel(ctx context.Context, req *UpdateRuntimeModelBody, params UpdateRuntimeModelParams) (r UpdateRuntimeModelRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1431,7 +1431,7 @@ func (UnimplementedHandler) UpdateRuntimeModel(ctx context.Context, req OptUpdat
 // Rename a policy and/or add/remove granted tools.
 //
 // PATCH /runtime-policies/{policyId}
-func (UnimplementedHandler) UpdateRuntimePolicy(ctx context.Context, req OptUpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (r UpdateRuntimePolicyRes, _ error) {
+func (UnimplementedHandler) UpdateRuntimePolicy(ctx context.Context, req *UpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (r UpdateRuntimePolicyRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1440,7 +1440,7 @@ func (UnimplementedHandler) UpdateRuntimePolicy(ctx context.Context, req OptUpda
 // Update one runtime profile.
 //
 // PATCH /runtime-profiles/{profileId}
-func (UnimplementedHandler) UpdateRuntimeProfile(ctx context.Context, req OptUpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (r UpdateRuntimeProfileRes, _ error) {
+func (UnimplementedHandler) UpdateRuntimeProfile(ctx context.Context, req *UpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (r UpdateRuntimeProfileRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1449,7 +1449,7 @@ func (UnimplementedHandler) UpdateRuntimeProfile(ctx context.Context, req OptUpd
 // Update mutable task metadata used for cohorting and search.
 //
 // PATCH /tasks/{id}
-func (UnimplementedHandler) UpdateTaskMetadata(ctx context.Context, req OptUpdateTaskMetadataReq, params UpdateTaskMetadataParams) (r UpdateTaskMetadataRes, _ error) {
+func (UnimplementedHandler) UpdateTaskMetadata(ctx context.Context, req *UpdateTaskMetadataReq, params UpdateTaskMetadataParams) (r UpdateTaskMetadataRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1498,7 +1498,7 @@ func (UnimplementedHandler) UploadTaskArtifact(ctx context.Context, req UploadTa
 // accepting human authentication material.
 //
 // POST /crypto/preview-sign/challenges/validate
-func (UnimplementedHandler) ValidatePreviewSignChallenge(ctx context.Context, req OptValidatePreviewSignChallenge) (r ValidatePreviewSignChallengeRes, _ error) {
+func (UnimplementedHandler) ValidatePreviewSignChallenge(ctx context.Context, req *ValidatePreviewSignChallenge) (r ValidatePreviewSignChallengeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

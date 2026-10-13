@@ -599,17 +599,17 @@ func runAgentsKeysRevokeWithClient(ctx context.Context, client *moltnetapi.Clien
 	})
 }
 
-func buildRevokeAgentKey(opts agentsKeysRevokeOpts) (moltnetapi.OptRevokeAgentKeyReq, moltnetapi.RevokeAgentKeyParams, error) {
+func buildRevokeAgentKey(opts agentsKeysRevokeOpts) (moltnetapi.RevokeAgentKeyReq, moltnetapi.RevokeAgentKeyParams, error) {
 	binding, err := buildAgentKeyBinding(opts.teamID, opts.identityScoped)
 	if err != nil {
-		return moltnetapi.OptRevokeAgentKeyReq{}, moltnetapi.RevokeAgentKeyParams{}, err
+		return moltnetapi.RevokeAgentKeyReq{}, moltnetapi.RevokeAgentKeyParams{}, err
 	}
 	if opts.keyID == "" {
-		return moltnetapi.OptRevokeAgentKeyReq{}, moltnetapi.RevokeAgentKeyParams{}, fmt.Errorf("key ID is required")
+		return moltnetapi.RevokeAgentKeyReq{}, moltnetapi.RevokeAgentKeyParams{}, fmt.Errorf("key ID is required")
 	}
 	body, err := buildRevokeReason(opts.reason, opts.description, opts.descSet)
 	if err != nil {
-		return moltnetapi.OptRevokeAgentKeyReq{}, moltnetapi.RevokeAgentKeyParams{}, err
+		return moltnetapi.RevokeAgentKeyReq{}, moltnetapi.RevokeAgentKeyParams{}, err
 	}
 	return body, moltnetapi.RevokeAgentKeyParams{
 		BindingScope:   binding.bindingScope,
@@ -622,33 +622,33 @@ func buildRevokeAgentKey(opts agentsKeysRevokeOpts) (moltnetapi.OptRevokeAgentKe
 // revocation request. A reason is required and must be one of the four contract
 // values. A free-text --description is accepted only with privilege_withdrawn,
 // the sole variant the contract lets carry one.
-func buildRevokeReason(reason, description string, descSet bool) (moltnetapi.OptRevokeAgentKeyReq, error) {
+func buildRevokeReason(reason, description string, descSet bool) (moltnetapi.RevokeAgentKeyReq, error) {
 	if reason == "" {
-		return moltnetapi.OptRevokeAgentKeyReq{}, fmt.Errorf("--reason is required: must be one of %s", revocationReasonsText())
+		return moltnetapi.RevokeAgentKeyReq{}, fmt.Errorf("--reason is required: must be one of %s", revocationReasonsText())
 	}
 	hasDescription := descSet && description != ""
 	if hasDescription && reason != string(moltnetapi.AgentKeyRevocationReasonPrivilegeWithdrawn) {
-		return moltnetapi.OptRevokeAgentKeyReq{}, fmt.Errorf("--description is only valid with --reason privilege_withdrawn")
+		return moltnetapi.RevokeAgentKeyReq{}, fmt.Errorf("--description is only valid with --reason privilege_withdrawn")
 	}
 	switch reason {
 	case string(moltnetapi.AgentKeyRevocationReasonKeyCompromise):
-		return moltnetapi.NewOptRevokeAgentKeyReq(moltnetapi.NewProvenanceGraphKeyCompromiseNodeRevokeAgentKeyReq(
+		return moltnetapi.NewProvenanceGraphKeyCompromiseNodeRevokeAgentKeyReq(
 			moltnetapi.ProvenanceGraphKeyCompromiseNode{
 				Reason: moltnetapi.ProvenanceGraphKeyCompromiseNodeReasonKeyCompromise,
 			},
-		)), nil
+		), nil
 	case string(moltnetapi.AgentKeyRevocationReasonAffiliationChanged):
-		return moltnetapi.NewOptRevokeAgentKeyReq(moltnetapi.NewProvenanceGraphAffiliationChangedNodeRevokeAgentKeyReq(
+		return moltnetapi.NewProvenanceGraphAffiliationChangedNodeRevokeAgentKeyReq(
 			moltnetapi.ProvenanceGraphAffiliationChangedNode{
 				Reason: moltnetapi.ProvenanceGraphAffiliationChangedNodeReasonAffiliationChanged,
 			},
-		)), nil
+		), nil
 	case string(moltnetapi.AgentKeyRevocationReasonSuperseded):
-		return moltnetapi.NewOptRevokeAgentKeyReq(moltnetapi.NewProvenanceGraphSupersededNodeRevokeAgentKeyReq(
+		return moltnetapi.NewProvenanceGraphSupersededNodeRevokeAgentKeyReq(
 			moltnetapi.ProvenanceGraphSupersededNode{
 				Reason: moltnetapi.ProvenanceGraphSupersededNodeReasonSuperseded,
 			},
-		)), nil
+		), nil
 	case string(moltnetapi.AgentKeyRevocationReasonPrivilegeWithdrawn):
 		node := moltnetapi.ProvenanceGraphPrivilegeWithdrawnNode{
 			Reason: moltnetapi.ProvenanceGraphPrivilegeWithdrawnNodeReasonPrivilegeWithdrawn,
@@ -656,8 +656,8 @@ func buildRevokeReason(reason, description string, descSet bool) (moltnetapi.Opt
 		if hasDescription {
 			node.Description = moltnetapi.NewOptString(description)
 		}
-		return moltnetapi.NewOptRevokeAgentKeyReq(moltnetapi.NewProvenanceGraphPrivilegeWithdrawnNodeRevokeAgentKeyReq(node)), nil
+		return moltnetapi.NewProvenanceGraphPrivilegeWithdrawnNodeRevokeAgentKeyReq(node), nil
 	default:
-		return moltnetapi.OptRevokeAgentKeyReq{}, fmt.Errorf("invalid --reason %q: must be one of %s", reason, revocationReasonsText())
+		return moltnetapi.RevokeAgentKeyReq{}, fmt.Errorf("invalid --reason %q: must be one of %s", reason, revocationReasonsText())
 	}
 }

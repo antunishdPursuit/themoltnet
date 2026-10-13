@@ -264,7 +264,7 @@ func (s *Server) handleAbortTaskAttemptRequest(args [2]string, argsEscaped bool,
 		}
 
 		type (
-			Request  = OptAbortTaskAttemptReq
+			Request  = *AbortTaskAttemptReq
 			Params   = AbortTaskAttemptParams
 			Response = AbortTaskAttemptRes
 		)
@@ -1797,7 +1797,7 @@ func (s *Server) handleApproveSigningCredentialRequest(args [1]string, argsEscap
 		}
 
 		type (
-			Request  = OptApproveSigningCredentialReq
+			Request  = *ApproveSigningCredentialReq
 			Params   = ApproveSigningCredentialParams
 			Response = ApproveSigningCredentialRes
 		)
@@ -3514,7 +3514,7 @@ func (s *Server) handleClaimTaskRequest(args [1]string, argsEscaped bool, w http
 		}
 
 		type (
-			Request  = OptClaimTaskReq
+			Request  = *ClaimTaskReq
 			Params   = ClaimTaskParams
 			Response = ClaimTaskRes
 		)
@@ -6532,7 +6532,7 @@ func (s *Server) handleCreateRuntimeModelRequest(args [0]string, argsEscaped boo
 		}
 
 		type (
-			Request  = OptCreateRuntimeModelBody
+			Request  = *CreateRuntimeModelBody
 			Params   = CreateRuntimeModelParams
 			Response = CreateRuntimeModelRes
 		)
@@ -6788,7 +6788,7 @@ func (s *Server) handleCreateRuntimePolicyRequest(args [0]string, argsEscaped bo
 		}
 
 		type (
-			Request  = OptCreateRuntimePolicyBody
+			Request  = *CreateRuntimePolicyBody
 			Params   = CreateRuntimePolicyParams
 			Response = CreateRuntimePolicyRes
 		)
@@ -7044,7 +7044,7 @@ func (s *Server) handleCreateRuntimeProfileRequest(args [0]string, argsEscaped b
 		}
 
 		type (
-			Request  = OptCreateRuntimeProfileBody
+			Request  = *CreateRuntimeProfileBody
 			Params   = CreateRuntimeProfileParams
 			Response = CreateRuntimeProfileRes
 		)
@@ -8304,7 +8304,7 @@ func (s *Server) handleCreateTeamInviteRequest(args [1]string, argsEscaped bool,
 		}
 
 		type (
-			Request  = OptCreateTeamInviteReq
+			Request  = *CreateTeamInviteReq
 			Params   = CreateTeamInviteParams
 			Response = CreateTeamInviteRes
 		)
@@ -12059,7 +12059,7 @@ func (s *Server) handleEnrollAgentRequest(args [0]string, argsEscaped bool, w ht
 		}
 
 		type (
-			Request  = OptEnrollAgentReq
+			Request  = *EnrollAgentReq
 			Params   = EnrollAgentParams
 			Response = EnrollAgentRes
 		)
@@ -29414,7 +29414,7 @@ func (s *Server) handleProvisionAgentCredentialRequest(args [0]string, argsEscap
 		}
 
 		type (
-			Request  = OptProvisionAgentCredentialReq
+			Request  = *ProvisionAgentCredentialReq
 			Params   = struct{}
 			Response = ProvisionAgentCredentialRes
 		)
@@ -30147,7 +30147,7 @@ func (s *Server) handleRejectSigningRequestRequest(args [1]string, argsEscaped b
 		}
 
 		type (
-			Request  = OptRejectSigningRequestReq
+			Request  = *RejectSigningRequestReq
 			Params   = RejectSigningRequestParams
 			Response = RejectSigningRequestRes
 		)
@@ -32058,7 +32058,7 @@ func (s *Server) handleRevokeAgentKeyRequest(args [1]string, argsEscaped bool, w
 		}
 
 		type (
-			Request  = OptRevokeAgentKeyReq
+			Request  = RevokeAgentKeyReq
 			Params   = RevokeAgentKeyParams
 			Response = RevokeAgentKeyRes
 		)
@@ -32572,7 +32572,7 @@ func (s *Server) handleRevokeSigningCredentialRequest(args [1]string, argsEscape
 		}
 
 		type (
-			Request  = OptRevokeSigningCredentialReq
+			Request  = *RevokeSigningCredentialReq
 			Params   = RevokeSigningCredentialParams
 			Response = RevokeSigningCredentialRes
 		)
@@ -33554,7 +33554,7 @@ func (s *Server) handleRotateIdentityKeyRequest(args [0]string, argsEscaped bool
 		}
 
 		type (
-			Request  = OptRotateIdentityKeyRequest
+			Request  = *RotateIdentityKeyRequest
 			Params   = struct{}
 			Response = RotateIdentityKeyRes
 		)
@@ -33795,7 +33795,7 @@ func (s *Server) handleSearchDiaryRequest(args [0]string, argsEscaped bool, w ht
 		}
 
 		type (
-			Request  = OptSearchDiaryReq
+			Request  = *SearchDiaryReq
 			Params   = struct{}
 			Response = SearchDiaryRes
 		)
@@ -34218,7 +34218,7 @@ func (s *Server) handleSetRuntimeProfilePoliciesRequest(args [1]string, argsEsca
 		}
 
 		type (
-			Request  = OptSetProfilePoliciesBody
+			Request  = *SetProfilePoliciesBody
 			Params   = SetRuntimeProfilePoliciesParams
 			Response = SetRuntimeProfilePoliciesRes
 		)
@@ -35158,7 +35158,7 @@ func (s *Server) handleSuspendSigningCredentialRequest(args [1]string, argsEscap
 		}
 
 		type (
-			Request  = OptSuspendSigningCredentialReq
+			Request  = *SuspendSigningCredentialReq
 			Params   = SuspendSigningCredentialParams
 			Response = SuspendSigningCredentialRes
 		)
@@ -35422,7 +35422,7 @@ func (s *Server) handleTaskHeartbeatRequest(args [2]string, argsEscaped bool, w 
 		}
 
 		type (
-			Request  = OptTaskHeartbeatReq
+			Request  = *TaskHeartbeatReq
 			Params   = TaskHeartbeatParams
 			Response = TaskHeartbeatRes
 		)
@@ -35678,7 +35678,7 @@ func (s *Server) handleUpdateContextPackRequest(args [1]string, argsEscaped bool
 		}
 
 		type (
-			Request  = OptUpdateContextPackReq
+			Request  = *UpdateContextPackReq
 			Params   = UpdateContextPackParams
 			Response = UpdateContextPackRes
 		)
@@ -35938,7 +35938,7 @@ func (s *Server) handleUpdateDiaryRequest(args [1]string, argsEscaped bool, w ht
 		}
 
 		type (
-			Request  = OptUpdateDiaryReq
+			Request  = *UpdateDiaryReq
 			Params   = UpdateDiaryParams
 			Response = UpdateDiaryRes
 		)
@@ -36194,7 +36194,7 @@ func (s *Server) handleUpdateDiaryEntryByIdRequest(args [1]string, argsEscaped b
 		}
 
 		type (
-			Request  = OptUpdateDiaryEntryByIdReq
+			Request  = *UpdateDiaryEntryByIdReq
 			Params   = UpdateDiaryEntryByIdParams
 			Response = UpdateDiaryEntryByIdRes
 		)
@@ -36708,7 +36708,7 @@ func (s *Server) handleUpdateProjectRequest(args [1]string, argsEscaped bool, w 
 		}
 
 		type (
-			Request  = OptUpdateProjectReq
+			Request  = *UpdateProjectReq
 			Params   = UpdateProjectParams
 			Response = UpdateProjectRes
 		)
@@ -36964,7 +36964,7 @@ func (s *Server) handleUpdateRenderedPackRequest(args [1]string, argsEscaped boo
 		}
 
 		type (
-			Request  = OptUpdateRenderedPackReq
+			Request  = *UpdateRenderedPackReq
 			Params   = UpdateRenderedPackParams
 			Response = UpdateRenderedPackRes
 		)
@@ -37221,7 +37221,7 @@ func (s *Server) handleUpdateRuntimeModelRequest(args [1]string, argsEscaped boo
 		}
 
 		type (
-			Request  = OptUpdateRuntimeModelBody
+			Request  = *UpdateRuntimeModelBody
 			Params   = UpdateRuntimeModelParams
 			Response = UpdateRuntimeModelRes
 		)
@@ -37481,7 +37481,7 @@ func (s *Server) handleUpdateRuntimePolicyRequest(args [1]string, argsEscaped bo
 		}
 
 		type (
-			Request  = OptUpdateRuntimePolicyBody
+			Request  = *UpdateRuntimePolicyBody
 			Params   = UpdateRuntimePolicyParams
 			Response = UpdateRuntimePolicyRes
 		)
@@ -37737,7 +37737,7 @@ func (s *Server) handleUpdateRuntimeProfileRequest(args [1]string, argsEscaped b
 		}
 
 		type (
-			Request  = OptUpdateRuntimeProfileBody
+			Request  = *UpdateRuntimeProfileBody
 			Params   = UpdateRuntimeProfileParams
 			Response = UpdateRuntimeProfileRes
 		)
@@ -37997,7 +37997,7 @@ func (s *Server) handleUpdateTaskMetadataRequest(args [1]string, argsEscaped boo
 		}
 
 		type (
-			Request  = OptUpdateTaskMetadataReq
+			Request  = *UpdateTaskMetadataReq
 			Params   = UpdateTaskMetadataParams
 			Response = UpdateTaskMetadataRes
 		)
@@ -39151,7 +39151,7 @@ func (s *Server) handleValidatePreviewSignChallengeRequest(args [0]string, argsE
 		}
 
 		type (
-			Request  = OptValidatePreviewSignChallenge
+			Request  = *ValidatePreviewSignChallenge
 			Params   = struct{}
 			Response = ValidatePreviewSignChallengeRes
 		)

@@ -25,9 +25,9 @@ type stubProfileHandler struct {
 	moltnetapi.UnimplementedHandler
 	listParams   moltnetapi.ListRuntimeProfilesParams
 	getParams    moltnetapi.GetRuntimeProfileParams
-	createBody   moltnetapi.OptCreateRuntimeProfileBody
+	createBody   *moltnetapi.CreateRuntimeProfileBody
 	createParams moltnetapi.CreateRuntimeProfileParams
-	updateBody   moltnetapi.OptUpdateRuntimeProfileBody
+	updateBody   *moltnetapi.UpdateRuntimeProfileBody
 	updateParams moltnetapi.UpdateRuntimeProfileParams
 	deleteParams moltnetapi.DeleteRuntimeProfileParams
 }
@@ -89,13 +89,13 @@ func (h *stubProfileHandler) GetRuntimeProfile(_ context.Context, params moltnet
 	return p, nil
 }
 
-func (h *stubProfileHandler) CreateRuntimeProfile(_ context.Context, req moltnetapi.OptCreateRuntimeProfileBody, params moltnetapi.CreateRuntimeProfileParams) (moltnetapi.CreateRuntimeProfileRes, error) {
+func (h *stubProfileHandler) CreateRuntimeProfile(_ context.Context, req *moltnetapi.CreateRuntimeProfileBody, params moltnetapi.CreateRuntimeProfileParams) (moltnetapi.CreateRuntimeProfileRes, error) {
 	h.createBody = req
 	h.createParams = params
-	return newTestRuntimeProfile(req.Value.Name), nil
+	return newTestRuntimeProfile(req.Name), nil
 }
 
-func (h *stubProfileHandler) UpdateRuntimeProfile(_ context.Context, req moltnetapi.OptUpdateRuntimeProfileBody, params moltnetapi.UpdateRuntimeProfileParams) (moltnetapi.UpdateRuntimeProfileRes, error) {
+func (h *stubProfileHandler) UpdateRuntimeProfile(_ context.Context, req *moltnetapi.UpdateRuntimeProfileBody, params moltnetapi.UpdateRuntimeProfileParams) (moltnetapi.UpdateRuntimeProfileRes, error) {
 	h.updateBody = req
 	h.updateParams = params
 	p := newTestRuntimeProfile("patched")
@@ -240,14 +240,14 @@ func TestProfileCreateFromFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runProfileCreateCmd(io.Discard, io.Discard, ) error: %v", err)
 	}
-	if !handler.createBody.Set {
+	if handler.createBody == nil {
 		t.Fatal("expected create body to be set")
 	}
-	if handler.createBody.Value.Name != testProfileName {
-		t.Fatalf("expected name %q, got %q", testProfileName, handler.createBody.Value.Name)
+	if handler.createBody.Name != testProfileName {
+		t.Fatalf("expected name %q, got %q", testProfileName, handler.createBody.Name)
 	}
-	if handler.createBody.Value.Models.Generation.Value.Provider != "anthropic" || handler.createBody.Value.Models.Generation.Value.Model != "claude-opus" {
-		t.Fatalf("unexpected provider/model: %q/%q", handler.createBody.Value.Models.Generation.Value.Provider, handler.createBody.Value.Models.Generation.Value.Model)
+	if handler.createBody.Models.Generation.Value.Provider != "anthropic" || handler.createBody.Models.Generation.Value.Model != "claude-opus" {
+		t.Fatalf("unexpected provider/model: %q/%q", handler.createBody.Models.Generation.Value.Provider, handler.createBody.Models.Generation.Value.Model)
 	}
 	if !handler.createParams.XMoltnetTeamID.Set || handler.createParams.XMoltnetTeamID.Value != testProfileTeam {
 		t.Fatalf("expected team header %s, got %#v", testProfileTeam, handler.createParams.XMoltnetTeamID)
@@ -284,8 +284,8 @@ func TestProfileUpdateFromFile(t *testing.T) {
 	if handler.updateParams.ProfileId != testProfileID {
 		t.Fatalf("expected profile id %s, got %s", testProfileID, handler.updateParams.ProfileId)
 	}
-	if !handler.updateBody.Set || !handler.updateBody.Value.Models.Set || !handler.updateBody.Value.Models.Value.Generation.Set || handler.updateBody.Value.Models.Value.Generation.Value.Model != "claude-sonnet" {
-		t.Fatalf("expected patched model, got %#v", handler.updateBody.Value.Models)
+	if handler.updateBody == nil || !handler.updateBody.Models.Set || !handler.updateBody.Models.Value.Generation.Set || handler.updateBody.Models.Value.Generation.Value.Model != "claude-sonnet" {
+		t.Fatalf("expected patched model, got %#v", handler.updateBody.Models)
 	}
 }
 
@@ -339,7 +339,7 @@ func TestProfileCreateFromStdin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runProfileCreateCmd(io.Discard, io.Discard, ) error: %v", err)
 	}
-	if !handler.createBody.Set || handler.createBody.Value.Name != testProfileName {
+	if handler.createBody == nil || handler.createBody.Name != testProfileName {
 		t.Fatalf("expected create body name %q, got %#v", testProfileName, handler.createBody)
 	}
 }
@@ -357,8 +357,8 @@ func TestProfileUpdateFromStdin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runProfileUpdateCmd(io.Discard, ) error: %v", err)
 	}
-	if !handler.updateBody.Set || !handler.updateBody.Value.Models.Set || !handler.updateBody.Value.Models.Value.Generation.Set || handler.updateBody.Value.Models.Value.Generation.Value.Model != "claude-sonnet" {
-		t.Fatalf("expected patched model, got %#v", handler.updateBody.Value.Models)
+	if handler.updateBody == nil || !handler.updateBody.Models.Set || !handler.updateBody.Models.Value.Generation.Set || handler.updateBody.Models.Value.Generation.Value.Model != "claude-sonnet" {
+		t.Fatalf("expected patched model, got %#v", handler.updateBody.Models)
 	}
 }
 
@@ -404,7 +404,7 @@ func TestProfileRootCreateDispatches(t *testing.T) {
 	if err := runProfileRoot(t, handler, "create", "--from-file", file, "--team-id", testProfileTeam.String()); err != nil {
 		t.Fatalf("profile create via root: %v", err)
 	}
-	if !handler.createBody.Set || handler.createBody.Value.Name != testProfileName {
+	if handler.createBody == nil || handler.createBody.Name != testProfileName {
 		t.Fatalf("expected create body name %q, got %#v", testProfileName, handler.createBody)
 	}
 }

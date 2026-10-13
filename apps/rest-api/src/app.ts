@@ -26,6 +26,7 @@ import { Type } from 'typebox';
 
 import pkg from '../package.json' with { type: 'json' };
 import { loadOperatorOAuthClients, type PackGcConfig } from './config.js';
+import { transformOpenApi } from './openapi-compat.js';
 import { corsPluginFp } from './plugins/cors.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import {
@@ -269,6 +270,7 @@ export async function registerApiRoutes(
 
   // Register OpenAPI spec generation
   await app.register(swagger, {
+    transformObject: transformOpenApi,
     openapi: {
       openapi: '3.1.0',
       info: {

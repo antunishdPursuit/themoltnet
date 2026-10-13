@@ -167,16 +167,16 @@ func TestRenderedPacksLatestHelp(t *testing.T) {
 
 func (h *stubRenderedPacksHandler) UpdateRenderedPack(
 	_ context.Context,
-	req moltnetapi.OptUpdateRenderedPackReq,
+	req *moltnetapi.UpdateRenderedPackReq,
 	params moltnetapi.UpdateRenderedPackParams,
 ) (moltnetapi.UpdateRenderedPackRes, error) {
 	h.updateCalls++
 	h.updateID = params.ID
-	if req.Set {
-		h.updateDescription = req.Value.Description
-		h.updatePinned = req.Value.Pinned
+	if req != nil {
+		h.updateDescription = req.Description
+		h.updatePinned = req.Pinned
 	}
-	desc := req.Value.Description
+	desc := req.Description
 	creator := moltnetapi.RenderedPackWithContentCreator{Type: moltnetapi.AgentPrincipalRenderedPackWithContentCreator}
 	creator.SetAgentPrincipal(testAgentPrincipal())
 	return &moltnetapi.RenderedPackWithContent{
@@ -189,7 +189,7 @@ func (h *stubRenderedPacksHandler) UpdateRenderedPack(
 		RenderMethod: "agent-refined",
 		TotalTokens:  200,
 		Creator:      creator,
-		Pinned:       req.Value.Pinned.Or(false),
+		Pinned:       req.Pinned.Or(false),
 		Description: func() moltnetapi.NilString {
 			if desc.Set && !desc.Null {
 				return moltnetapi.NewNilString(desc.Value)

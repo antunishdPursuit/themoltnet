@@ -372,7 +372,7 @@ export type ListAgentServerAgentsResponse =
   ListAgentServerAgentsResponses[keyof ListAgentServerAgentsResponses];
 
 export type CreateAgentServerAgentData = {
-  body?:
+  body:
     | {
         enrollmentToken: string;
         kind: 'managed';
@@ -546,7 +546,7 @@ export type ReconcileAgentServerAgentResponse =
   ReconcileAgentServerAgentResponses[keyof ReconcileAgentServerAgentResponses];
 
 export type EnrollAgentServerTeamData = {
-  body?: {
+  body: {
     idempotencyKey: string;
     scopes?: Array<string>;
     teamId: string;

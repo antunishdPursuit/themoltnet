@@ -218,6 +218,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: signerClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: completedEnrollment.data!.id },
+      body: {},
     });
     expect(memberApproval.response?.status).toBe(403);
 
@@ -225,6 +226,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: approverClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: completedEnrollment.data!.id },
+      body: {},
     });
     expect(approved.error).toBeUndefined();
     expect(approved.data!.status).toBe('active');
@@ -522,6 +524,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: approverClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: approved.data!.id },
+      body: {},
     });
     expect(suspended.data!.status).toBe('suspended');
 
@@ -529,6 +532,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: approverClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: approved.data!.id },
+      body: {},
     });
     expect(revoked.data!.status).toBe('revoked');
     const revokedValidation = await validatePreviewSignChallenge({
@@ -554,6 +558,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: approverClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: approved.data!.id },
+      body: {},
     });
     expect(approveAfterRevoke.response?.status).toBe(409);
 
@@ -561,6 +566,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: approverClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: approved.data!.id },
+      body: {},
     });
     expect(suspendAfterRevoke.response?.status).toBe(409);
   });
@@ -594,6 +600,7 @@ describe('Signing credential and delegated request lifecycle', () => {
       client: approverClient,
       headers: { 'x-moltnet-team-id': requester.personalTeamId },
       path: { id: completed.data!.id },
+      body: {},
     });
 
     expect(approval.response?.status).toBe(409);

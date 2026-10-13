@@ -11,19 +11,13 @@ import (
 )
 
 func encodeAbortTaskAttemptRequest(
-	req OptAbortTaskAttemptReq,
+	req *AbortTaskAttemptReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -37,9 +31,7 @@ func encodeAcceptTeamFoundingRequest(
 	const contentType = "application/json"
 	e := new(jx.Encoder)
 	{
-		if req != nil {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -89,19 +81,13 @@ func encodeAppendTaskMessagesRequest(
 }
 
 func encodeApproveSigningCredentialRequest(
-	req OptApproveSigningCredentialReq,
+	req *ApproveSigningCredentialReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -193,19 +179,13 @@ func encodeClaimSigningRequestRequest(
 }
 
 func encodeClaimTaskRequest(
-	req OptClaimTaskReq,
+	req *ClaimTaskReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -367,19 +347,13 @@ func encodeCreateProjectRequest(
 }
 
 func encodeCreateRuntimeModelRequest(
-	req OptCreateRuntimeModelBody,
+	req *CreateRuntimeModelBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -387,19 +361,13 @@ func encodeCreateRuntimeModelRequest(
 }
 
 func encodeCreateRuntimePolicyRequest(
-	req OptCreateRuntimePolicyBody,
+	req *CreateRuntimePolicyBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -407,19 +375,13 @@ func encodeCreateRuntimePolicyRequest(
 }
 
 func encodeCreateRuntimeProfileRequest(
-	req OptCreateRuntimeProfileBody,
+	req *CreateRuntimeProfileBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -483,19 +445,13 @@ func encodeCreateTeamRequest(
 }
 
 func encodeCreateTeamInviteRequest(
-	req OptCreateTeamInviteReq,
+	req *CreateTeamInviteReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -503,19 +459,13 @@ func encodeCreateTeamInviteRequest(
 }
 
 func encodeEnrollAgentRequest(
-	req OptEnrollAgentReq,
+	req *EnrollAgentReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -635,19 +585,13 @@ func encodePreviewRenderedPackRequest(
 }
 
 func encodeProvisionAgentCredentialRequest(
-	req OptProvisionAgentCredentialReq,
+	req *ProvisionAgentCredentialReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -697,19 +641,13 @@ func encodeRegisterExecutorManifestRequest(
 }
 
 func encodeRejectSigningRequestRequest(
-	req OptRejectSigningRequestReq,
+	req *RejectSigningRequestReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -773,19 +711,13 @@ func encodeRequestRecoveryChallengeRequest(
 }
 
 func encodeRevokeAgentKeyRequest(
-	req OptRevokeAgentKeyReq,
+	req RevokeAgentKeyReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -807,19 +739,13 @@ func encodeRevokeDiaryGrantRequest(
 }
 
 func encodeRevokeSigningCredentialRequest(
-	req OptRevokeSigningCredentialReq,
+	req *RevokeSigningCredentialReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -841,19 +767,13 @@ func encodeRevokeTaskGrantRequest(
 }
 
 func encodeRotateIdentityKeyRequest(
-	req OptRotateIdentityKeyRequest,
+	req *RotateIdentityKeyRequest,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -861,19 +781,13 @@ func encodeRotateIdentityKeyRequest(
 }
 
 func encodeSearchDiaryRequest(
-	req OptSearchDiaryReq,
+	req *SearchDiaryReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -881,19 +795,13 @@ func encodeSearchDiaryRequest(
 }
 
 func encodeSetRuntimeProfilePoliciesRequest(
-	req OptSetProfilePoliciesBody,
+	req *SetProfilePoliciesBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -939,19 +847,13 @@ func encodeSubmitSignatureRequest(
 }
 
 func encodeSuspendSigningCredentialRequest(
-	req OptSuspendSigningCredentialReq,
+	req *SuspendSigningCredentialReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -959,19 +861,13 @@ func encodeSuspendSigningCredentialRequest(
 }
 
 func encodeTaskHeartbeatRequest(
-	req OptTaskHeartbeatReq,
+	req *TaskHeartbeatReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -979,19 +875,13 @@ func encodeTaskHeartbeatRequest(
 }
 
 func encodeUpdateContextPackRequest(
-	req OptUpdateContextPackReq,
+	req *UpdateContextPackReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -999,19 +889,13 @@ func encodeUpdateContextPackRequest(
 }
 
 func encodeUpdateDiaryRequest(
-	req OptUpdateDiaryReq,
+	req *UpdateDiaryReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1019,19 +903,13 @@ func encodeUpdateDiaryRequest(
 }
 
 func encodeUpdateDiaryEntryByIdRequest(
-	req OptUpdateDiaryEntryByIdReq,
+	req *UpdateDiaryEntryByIdReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1053,19 +931,13 @@ func encodeUpdateEntryRelationStatusRequest(
 }
 
 func encodeUpdateProjectRequest(
-	req OptUpdateProjectReq,
+	req *UpdateProjectReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1073,19 +945,13 @@ func encodeUpdateProjectRequest(
 }
 
 func encodeUpdateRenderedPackRequest(
-	req OptUpdateRenderedPackReq,
+	req *UpdateRenderedPackReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1093,19 +959,13 @@ func encodeUpdateRenderedPackRequest(
 }
 
 func encodeUpdateRuntimeModelRequest(
-	req OptUpdateRuntimeModelBody,
+	req *UpdateRuntimeModelBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1113,19 +973,13 @@ func encodeUpdateRuntimeModelRequest(
 }
 
 func encodeUpdateRuntimePolicyRequest(
-	req OptUpdateRuntimePolicyBody,
+	req *UpdateRuntimePolicyBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1133,19 +987,13 @@ func encodeUpdateRuntimePolicyRequest(
 }
 
 func encodeUpdateRuntimeProfileRequest(
-	req OptUpdateRuntimeProfileBody,
+	req *UpdateRuntimeProfileBody,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1153,19 +1001,13 @@ func encodeUpdateRuntimeProfileRequest(
 }
 
 func encodeUpdateTaskMetadataRequest(
-	req OptUpdateTaskMetadataReq,
+	req *UpdateTaskMetadataReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)
@@ -1221,19 +1063,13 @@ func encodeUploadTaskArtifactRequest(
 }
 
 func encodeValidatePreviewSignChallengeRequest(
-	req OptValidatePreviewSignChallenge,
+	req *ValidatePreviewSignChallenge,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
-	if !req.Set {
-		// Keep request with empty body if value is not set.
-		return nil
-	}
 	e := new(jx.Encoder)
 	{
-		if req.Set {
-			req.Encode(e)
-		}
+		req.Encode(e)
 	}
 	encoded := e.Bytes()
 	ht.SetBody(r, bytes.NewReader(encoded), contentType)

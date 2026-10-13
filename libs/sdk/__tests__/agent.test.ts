@@ -1198,6 +1198,7 @@ describe('Agent facade', () => {
       expect(approveSigningCredential).toHaveBeenCalledWith(
         expect.objectContaining({
           path: { id: 'credential-1' },
+          body: {},
           headers: { 'x-moltnet-team-id': 'team-1' },
         }),
       );

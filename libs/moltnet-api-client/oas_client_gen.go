@@ -36,7 +36,7 @@ type Invoker interface {
 	// task.
 	//
 	// POST /tasks/{id}/attempts/{n}/abort
-	AbortTaskAttempt(ctx context.Context, request OptAbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error)
+	AbortTaskAttempt(ctx context.Context, request *AbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error)
 	// AcceptTeamFounding invokes acceptTeamFounding operation.
 	//
 	// Accept a founding role in a team. Only valid while team is in founding status.
@@ -68,7 +68,7 @@ type Invoker interface {
 	// ApproveSigningCredential invokes approveSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/approve
-	ApproveSigningCredential(ctx context.Context, request OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
+	ApproveSigningCredential(ctx context.Context, request *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
 	// BatchDeleteDiaryEntries invokes batchDeleteDiaryEntries operation.
 	//
 	// Delete multiple diary entries. Signed, unauthorized, and missing entries are skipped.
@@ -108,7 +108,7 @@ type Invoker interface {
 	// Claim a queued task and start an attempt.
 	//
 	// POST /tasks/{id}/claim
-	ClaimTask(ctx context.Context, request OptClaimTaskReq, params ClaimTaskParams) (ClaimTaskRes, error)
+	ClaimTask(ctx context.Context, request *ClaimTaskReq, params ClaimTaskParams) (ClaimTaskRes, error)
 	// CompleteSigningCredentialRegistration invokes completeSigningCredentialRegistration operation.
 	//
 	// POST /crypto/signing-credentials/registrations/{id}/complete
@@ -178,19 +178,19 @@ type Invoker interface {
 	// management permission on the active team.
 	//
 	// POST /runtime-models
-	CreateRuntimeModel(ctx context.Context, request OptCreateRuntimeModelBody, params CreateRuntimeModelParams) (CreateRuntimeModelRes, error)
+	CreateRuntimeModel(ctx context.Context, request *CreateRuntimeModelBody, params CreateRuntimeModelParams) (CreateRuntimeModelRes, error)
 	// CreateRuntimePolicy invokes createRuntimePolicy operation.
 	//
 	// Create a team-scoped tool policy granting a set of tools.
 	//
 	// POST /runtime-policies
-	CreateRuntimePolicy(ctx context.Context, request OptCreateRuntimePolicyBody, params CreateRuntimePolicyParams) (CreateRuntimePolicyRes, error)
+	CreateRuntimePolicy(ctx context.Context, request *CreateRuntimePolicyBody, params CreateRuntimePolicyParams) (CreateRuntimePolicyRes, error)
 	// CreateRuntimeProfile invokes createRuntimeProfile operation.
 	//
 	// Create a runtime profile for the active team context.
 	//
 	// POST /runtime-profiles
-	CreateRuntimeProfile(ctx context.Context, request OptCreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error)
+	CreateRuntimeProfile(ctx context.Context, request *CreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error)
 	// CreateSigningRequest invokes createSigningRequest operation.
 	//
 	// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for
@@ -222,7 +222,7 @@ type Invoker interface {
 	// Create an invite code. Requires manage_members permission.
 	//
 	// POST /teams/{id}/invites
-	CreateTeamInvite(ctx context.Context, request OptCreateTeamInviteReq, params CreateTeamInviteParams) (CreateTeamInviteRes, error)
+	CreateTeamInvite(ctx context.Context, request *CreateTeamInviteReq, params CreateTeamInviteParams) (CreateTeamInviteRes, error)
 	// DeleteDiary invokes deleteDiary operation.
 	//
 	// Delete a diary and cascade-delete its entries.
@@ -321,7 +321,7 @@ type Invoker interface {
 	// in the issuing team and returns exactly one selected credential.
 	//
 	// POST /auth/enroll
-	EnrollAgent(ctx context.Context, request OptEnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error)
+	EnrollAgent(ctx context.Context, request *EnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error)
 	// FailTaskAttempt invokes failTaskAttempt operation.
 	//
 	// Mark an attempt as failed with error details.
@@ -765,7 +765,7 @@ type Invoker interface {
 	// ProvisionAgentCredential invokes provisionAgentCredential operation.
 	//
 	// POST /oauth2/provision
-	ProvisionAgentCredential(ctx context.Context, request OptProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error)
+	ProvisionAgentCredential(ctx context.Context, request *ProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error)
 	// RecoverAgentCredentials invokes recoverAgentCredentials operation.
 	//
 	// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key.
@@ -792,7 +792,7 @@ type Invoker interface {
 	// RejectSigningRequest invokes rejectSigningRequest operation.
 	//
 	// POST /crypto/signing-requests/{id}/reject
-	RejectSigningRequest(ctx context.Context, request OptRejectSigningRequestReq, params RejectSigningRequestParams) (RejectSigningRequestRes, error)
+	RejectSigningRequest(ctx context.Context, request *RejectSigningRequestReq, params RejectSigningRequestParams) (RejectSigningRequestRes, error)
 	// RejectTransfer invokes rejectTransfer operation.
 	//
 	// Reject a pending diary transfer.
@@ -837,7 +837,7 @@ type Invoker interface {
 	// Permanently revoke an agent API key.
 	//
 	// POST /agent-keys/{keyId}/revoke
-	RevokeAgentKey(ctx context.Context, request OptRevokeAgentKeyReq, params RevokeAgentKeyParams) (RevokeAgentKeyRes, error)
+	RevokeAgentKey(ctx context.Context, request RevokeAgentKeyReq, params RevokeAgentKeyParams) (RevokeAgentKeyRes, error)
 	// RevokeDiaryGrant invokes revokeDiaryGrant operation.
 	//
 	// Revoke a writer or manager grant from a diary.
@@ -847,7 +847,7 @@ type Invoker interface {
 	// RevokeSigningCredential invokes revokeSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/revoke
-	RevokeSigningCredential(ctx context.Context, request OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
+	RevokeSigningCredential(ctx context.Context, request *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
 	// RevokeTaskGrant invokes revokeTaskGrant operation.
 	//
 	// Revoke an explicit writer or manager task grant.
@@ -877,13 +877,13 @@ type Invoker interface {
 	// API reports is read from the current agent record, never from token claims.
 	//
 	// POST /auth/rotate-identity-key
-	RotateIdentityKey(ctx context.Context, request OptRotateIdentityKeyRequest) (RotateIdentityKeyRes, error)
+	RotateIdentityKey(ctx context.Context, request *RotateIdentityKeyRequest) (RotateIdentityKeyRes, error)
 	// SearchDiary invokes searchDiary operation.
 	//
 	// Search diary entries using hybrid search.
 	//
 	// POST /diaries/search
-	SearchDiary(ctx context.Context, request OptSearchDiaryReq) (SearchDiaryRes, error)
+	SearchDiary(ctx context.Context, request *SearchDiaryReq) (SearchDiaryRes, error)
 	// SearchPublicFeed invokes searchPublicFeed operation.
 	//
 	// Semantic + full-text search across public diary entries. No authentication required.
@@ -895,7 +895,7 @@ type Invoker interface {
 	// Replace the set of tool policies bound to a runtime profile.
 	//
 	// PUT /runtime-profiles/{profileId}/policies
-	SetRuntimeProfilePolicies(ctx context.Context, request OptSetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error)
+	SetRuntimeProfilePolicies(ctx context.Context, request *SetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error)
 	// StageTaskArtifact invokes stageTaskArtifact operation.
 	//
 	// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via
@@ -921,31 +921,31 @@ type Invoker interface {
 	// SuspendSigningCredential invokes suspendSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/suspend
-	SuspendSigningCredential(ctx context.Context, request OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
+	SuspendSigningCredential(ctx context.Context, request *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
 	// TaskHeartbeat invokes taskHeartbeat operation.
 	//
 	// Send a heartbeat to keep the attempt lease alive.
 	//
 	// POST /tasks/{id}/attempts/{n}/heartbeat
-	TaskHeartbeat(ctx context.Context, request OptTaskHeartbeatReq, params TaskHeartbeatParams) (TaskHeartbeatRes, error)
+	TaskHeartbeat(ctx context.Context, request *TaskHeartbeatReq, params TaskHeartbeatParams) (TaskHeartbeatRes, error)
 	// UpdateContextPack invokes updateContextPack operation.
 	//
 	// Update a context pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 	//
 	// PATCH /packs/{id}
-	UpdateContextPack(ctx context.Context, request OptUpdateContextPackReq, params UpdateContextPackParams) (UpdateContextPackRes, error)
+	UpdateContextPack(ctx context.Context, request *UpdateContextPackReq, params UpdateContextPackParams) (UpdateContextPackRes, error)
 	// UpdateDiary invokes updateDiary operation.
 	//
 	// Update diary name or visibility.
 	//
 	// PATCH /diaries/{id}
-	UpdateDiary(ctx context.Context, request OptUpdateDiaryReq, params UpdateDiaryParams) (UpdateDiaryRes, error)
+	UpdateDiary(ctx context.Context, request *UpdateDiaryReq, params UpdateDiaryParams) (UpdateDiaryRes, error)
 	// UpdateDiaryEntryById invokes updateDiaryEntryById operation.
 	//
 	// Update a diary entry (content, title, tags).
 	//
 	// PATCH /entries/{entryId}
-	UpdateDiaryEntryById(ctx context.Context, request OptUpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (UpdateDiaryEntryByIdRes, error)
+	UpdateDiaryEntryById(ctx context.Context, request *UpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (UpdateDiaryEntryByIdRes, error)
 	// UpdateEntryRelationStatus invokes updateEntryRelationStatus operation.
 	//
 	// Update the status of an entry relation.
@@ -955,38 +955,38 @@ type Invoker interface {
 	// UpdateProject invokes updateProject operation.
 	//
 	// PATCH /projects/{projectId}
-	UpdateProject(ctx context.Context, request OptUpdateProjectReq, params UpdateProjectParams) (UpdateProjectRes, error)
+	UpdateProject(ctx context.Context, request *UpdateProjectReq, params UpdateProjectParams) (UpdateProjectRes, error)
 	// UpdateRenderedPack invokes updateRenderedPack operation.
 	//
 	// Update a rendered pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 	//
 	// PATCH /rendered-packs/{id}
-	UpdateRenderedPack(ctx context.Context, request OptUpdateRenderedPackReq, params UpdateRenderedPackParams) (UpdateRenderedPackRes, error)
+	UpdateRenderedPack(ctx context.Context, request *UpdateRenderedPackReq, params UpdateRenderedPackParams) (UpdateRenderedPackRes, error)
 	// UpdateRuntimeModel invokes updateRuntimeModel operation.
 	//
 	// Update a team-scoped runtime model catalog entry. Global entries are not modifiable through this
 	// endpoint.
 	//
 	// PATCH /runtime-models/{modelId}
-	UpdateRuntimeModel(ctx context.Context, request OptUpdateRuntimeModelBody, params UpdateRuntimeModelParams) (UpdateRuntimeModelRes, error)
+	UpdateRuntimeModel(ctx context.Context, request *UpdateRuntimeModelBody, params UpdateRuntimeModelParams) (UpdateRuntimeModelRes, error)
 	// UpdateRuntimePolicy invokes updateRuntimePolicy operation.
 	//
 	// Rename a policy and/or add/remove granted tools.
 	//
 	// PATCH /runtime-policies/{policyId}
-	UpdateRuntimePolicy(ctx context.Context, request OptUpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (UpdateRuntimePolicyRes, error)
+	UpdateRuntimePolicy(ctx context.Context, request *UpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (UpdateRuntimePolicyRes, error)
 	// UpdateRuntimeProfile invokes updateRuntimeProfile operation.
 	//
 	// Update one runtime profile.
 	//
 	// PATCH /runtime-profiles/{profileId}
-	UpdateRuntimeProfile(ctx context.Context, request OptUpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (UpdateRuntimeProfileRes, error)
+	UpdateRuntimeProfile(ctx context.Context, request *UpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (UpdateRuntimeProfileRes, error)
 	// UpdateTaskMetadata invokes updateTaskMetadata operation.
 	//
 	// Update mutable task metadata used for cohorting and search.
 	//
 	// PATCH /tasks/{id}
-	UpdateTaskMetadata(ctx context.Context, request OptUpdateTaskMetadataReq, params UpdateTaskMetadataParams) (UpdateTaskMetadataRes, error)
+	UpdateTaskMetadata(ctx context.Context, request *UpdateTaskMetadataReq, params UpdateTaskMetadataParams) (UpdateTaskMetadataRes, error)
 	// UpdateTeamMemberRole invokes updateTeamMemberRole operation.
 	//
 	// Update an agent role between member, executor, and manager, or a human role between member and
@@ -1019,7 +1019,7 @@ type Invoker interface {
 	// accepting human authentication material.
 	//
 	// POST /crypto/preview-sign/challenges/validate
-	ValidatePreviewSignChallenge(ctx context.Context, request OptValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error)
+	ValidatePreviewSignChallenge(ctx context.Context, request *ValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error)
 	// VerifyAgentSignature invokes verifyAgentSignature operation.
 	//
 	// Verify a signature belongs to the specified agent.
@@ -1095,12 +1095,12 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 // task.
 //
 // POST /tasks/{id}/attempts/{n}/abort
-func (c *Client) AbortTaskAttempt(ctx context.Context, request OptAbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error) {
+func (c *Client) AbortTaskAttempt(ctx context.Context, request *AbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error) {
 	res, err := c.sendAbortTaskAttempt(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendAbortTaskAttempt(ctx context.Context, request OptAbortTaskAttemptReq, params AbortTaskAttemptParams) (res AbortTaskAttemptRes, err error) {
+func (c *Client) sendAbortTaskAttempt(ctx context.Context, request *AbortTaskAttemptReq, params AbortTaskAttemptParams) (res AbortTaskAttemptRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("abortTaskAttempt"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -2200,12 +2200,12 @@ func (c *Client) sendAppendTaskMessages(ctx context.Context, request *AppendTask
 // ApproveSigningCredential invokes approveSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/approve
-func (c *Client) ApproveSigningCredential(ctx context.Context, request OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error) {
+func (c *Client) ApproveSigningCredential(ctx context.Context, request *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error) {
 	res, err := c.sendApproveSigningCredential(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendApproveSigningCredential(ctx context.Context, request OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (res ApproveSigningCredentialRes, err error) {
+func (c *Client) sendApproveSigningCredential(ctx context.Context, request *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (res ApproveSigningCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("approveSigningCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -3363,12 +3363,12 @@ func (c *Client) sendClaimSigningRequest(ctx context.Context, request *ClaimSign
 // Claim a queued task and start an attempt.
 //
 // POST /tasks/{id}/claim
-func (c *Client) ClaimTask(ctx context.Context, request OptClaimTaskReq, params ClaimTaskParams) (ClaimTaskRes, error) {
+func (c *Client) ClaimTask(ctx context.Context, request *ClaimTaskReq, params ClaimTaskParams) (ClaimTaskRes, error) {
 	res, err := c.sendClaimTask(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendClaimTask(ctx context.Context, request OptClaimTaskReq, params ClaimTaskParams) (res ClaimTaskRes, err error) {
+func (c *Client) sendClaimTask(ctx context.Context, request *ClaimTaskReq, params ClaimTaskParams) (res ClaimTaskRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("claimTask"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -5448,12 +5448,12 @@ func (c *Client) sendCreateProject(ctx context.Context, request *CreateProjectRe
 // management permission on the active team.
 //
 // POST /runtime-models
-func (c *Client) CreateRuntimeModel(ctx context.Context, request OptCreateRuntimeModelBody, params CreateRuntimeModelParams) (CreateRuntimeModelRes, error) {
+func (c *Client) CreateRuntimeModel(ctx context.Context, request *CreateRuntimeModelBody, params CreateRuntimeModelParams) (CreateRuntimeModelRes, error) {
 	res, err := c.sendCreateRuntimeModel(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendCreateRuntimeModel(ctx context.Context, request OptCreateRuntimeModelBody, params CreateRuntimeModelParams) (res CreateRuntimeModelRes, err error) {
+func (c *Client) sendCreateRuntimeModel(ctx context.Context, request *CreateRuntimeModelBody, params CreateRuntimeModelParams) (res CreateRuntimeModelRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("createRuntimeModel"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -5617,12 +5617,12 @@ func (c *Client) sendCreateRuntimeModel(ctx context.Context, request OptCreateRu
 // Create a team-scoped tool policy granting a set of tools.
 //
 // POST /runtime-policies
-func (c *Client) CreateRuntimePolicy(ctx context.Context, request OptCreateRuntimePolicyBody, params CreateRuntimePolicyParams) (CreateRuntimePolicyRes, error) {
+func (c *Client) CreateRuntimePolicy(ctx context.Context, request *CreateRuntimePolicyBody, params CreateRuntimePolicyParams) (CreateRuntimePolicyRes, error) {
 	res, err := c.sendCreateRuntimePolicy(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendCreateRuntimePolicy(ctx context.Context, request OptCreateRuntimePolicyBody, params CreateRuntimePolicyParams) (res CreateRuntimePolicyRes, err error) {
+func (c *Client) sendCreateRuntimePolicy(ctx context.Context, request *CreateRuntimePolicyBody, params CreateRuntimePolicyParams) (res CreateRuntimePolicyRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("createRuntimePolicy"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -5783,12 +5783,12 @@ func (c *Client) sendCreateRuntimePolicy(ctx context.Context, request OptCreateR
 // Create a runtime profile for the active team context.
 //
 // POST /runtime-profiles
-func (c *Client) CreateRuntimeProfile(ctx context.Context, request OptCreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error) {
+func (c *Client) CreateRuntimeProfile(ctx context.Context, request *CreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error) {
 	res, err := c.sendCreateRuntimeProfile(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendCreateRuntimeProfile(ctx context.Context, request OptCreateRuntimeProfileBody, params CreateRuntimeProfileParams) (res CreateRuntimeProfileRes, err error) {
+func (c *Client) sendCreateRuntimeProfile(ctx context.Context, request *CreateRuntimeProfileBody, params CreateRuntimeProfileParams) (res CreateRuntimeProfileRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("createRuntimeProfile"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -6623,12 +6623,12 @@ func (c *Client) sendCreateTeam(ctx context.Context, request *CreateTeamReq) (re
 // Create an invite code. Requires manage_members permission.
 //
 // POST /teams/{id}/invites
-func (c *Client) CreateTeamInvite(ctx context.Context, request OptCreateTeamInviteReq, params CreateTeamInviteParams) (CreateTeamInviteRes, error) {
+func (c *Client) CreateTeamInvite(ctx context.Context, request *CreateTeamInviteReq, params CreateTeamInviteParams) (CreateTeamInviteRes, error) {
 	res, err := c.sendCreateTeamInvite(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendCreateTeamInvite(ctx context.Context, request OptCreateTeamInviteReq, params CreateTeamInviteParams) (res CreateTeamInviteRes, err error) {
+func (c *Client) sendCreateTeamInvite(ctx context.Context, request *CreateTeamInviteReq, params CreateTeamInviteParams) (res CreateTeamInviteRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("createTeamInvite"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -9457,12 +9457,12 @@ func (c *Client) sendDownloadTaskArtifactByCid(ctx context.Context, params Downl
 // in the issuing team and returns exactly one selected credential.
 //
 // POST /auth/enroll
-func (c *Client) EnrollAgent(ctx context.Context, request OptEnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error) {
+func (c *Client) EnrollAgent(ctx context.Context, request *EnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error) {
 	res, err := c.sendEnrollAgent(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendEnrollAgent(ctx context.Context, request OptEnrollAgentReq, params EnrollAgentParams) (res EnrollAgentRes, err error) {
+func (c *Client) sendEnrollAgent(ctx context.Context, request *EnrollAgentReq, params EnrollAgentParams) (res EnrollAgentRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("enrollAgent"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -23213,12 +23213,12 @@ func (c *Client) sendPreviewRenderedPack(ctx context.Context, request *PreviewRe
 // ProvisionAgentCredential invokes provisionAgentCredential operation.
 //
 // POST /oauth2/provision
-func (c *Client) ProvisionAgentCredential(ctx context.Context, request OptProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error) {
+func (c *Client) ProvisionAgentCredential(ctx context.Context, request *ProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error) {
 	res, err := c.sendProvisionAgentCredential(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendProvisionAgentCredential(ctx context.Context, request OptProvisionAgentCredentialReq) (res ProvisionAgentCredentialRes, err error) {
+func (c *Client) sendProvisionAgentCredential(ctx context.Context, request *ProvisionAgentCredentialReq) (res ProvisionAgentCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("provisionAgentCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -23640,12 +23640,12 @@ func (c *Client) sendRegisterExecutorManifest(ctx context.Context, request *Regi
 // RejectSigningRequest invokes rejectSigningRequest operation.
 //
 // POST /crypto/signing-requests/{id}/reject
-func (c *Client) RejectSigningRequest(ctx context.Context, request OptRejectSigningRequestReq, params RejectSigningRequestParams) (RejectSigningRequestRes, error) {
+func (c *Client) RejectSigningRequest(ctx context.Context, request *RejectSigningRequestReq, params RejectSigningRequestParams) (RejectSigningRequestRes, error) {
 	res, err := c.sendRejectSigningRequest(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendRejectSigningRequest(ctx context.Context, request OptRejectSigningRequestReq, params RejectSigningRequestParams) (res RejectSigningRequestRes, err error) {
+func (c *Client) sendRejectSigningRequest(ctx context.Context, request *RejectSigningRequestReq, params RejectSigningRequestParams) (res RejectSigningRequestRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("rejectSigningRequest"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -24962,12 +24962,12 @@ func (c *Client) sendRequestRecoveryChallenge(ctx context.Context, request *Reco
 // Permanently revoke an agent API key.
 //
 // POST /agent-keys/{keyId}/revoke
-func (c *Client) RevokeAgentKey(ctx context.Context, request OptRevokeAgentKeyReq, params RevokeAgentKeyParams) (RevokeAgentKeyRes, error) {
+func (c *Client) RevokeAgentKey(ctx context.Context, request RevokeAgentKeyReq, params RevokeAgentKeyParams) (RevokeAgentKeyRes, error) {
 	res, err := c.sendRevokeAgentKey(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendRevokeAgentKey(ctx context.Context, request OptRevokeAgentKeyReq, params RevokeAgentKeyParams) (res RevokeAgentKeyRes, err error) {
+func (c *Client) sendRevokeAgentKey(ctx context.Context, request RevokeAgentKeyReq, params RevokeAgentKeyParams) (res RevokeAgentKeyRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("revokeAgentKey"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -25340,12 +25340,12 @@ func (c *Client) sendRevokeDiaryGrant(ctx context.Context, request *RevokeDiaryG
 // RevokeSigningCredential invokes revokeSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/revoke
-func (c *Client) RevokeSigningCredential(ctx context.Context, request OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error) {
+func (c *Client) RevokeSigningCredential(ctx context.Context, request *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error) {
 	res, err := c.sendRevokeSigningCredential(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendRevokeSigningCredential(ctx context.Context, request OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (res RevokeSigningCredentialRes, err error) {
+func (c *Client) sendRevokeSigningCredential(ctx context.Context, request *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (res RevokeSigningCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("revokeSigningCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -26071,12 +26071,12 @@ func (c *Client) sendRotateClientSecret(ctx context.Context) (res RotateClientSe
 // API reports is read from the current agent record, never from token claims.
 //
 // POST /auth/rotate-identity-key
-func (c *Client) RotateIdentityKey(ctx context.Context, request OptRotateIdentityKeyRequest) (RotateIdentityKeyRes, error) {
+func (c *Client) RotateIdentityKey(ctx context.Context, request *RotateIdentityKeyRequest) (RotateIdentityKeyRes, error) {
 	res, err := c.sendRotateIdentityKey(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendRotateIdentityKey(ctx context.Context, request OptRotateIdentityKeyRequest) (res RotateIdentityKeyRes, err error) {
+func (c *Client) sendRotateIdentityKey(ctx context.Context, request *RotateIdentityKeyRequest) (res RotateIdentityKeyRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("rotateIdentityKey"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -26223,12 +26223,12 @@ func (c *Client) sendRotateIdentityKey(ctx context.Context, request OptRotateIde
 // Search diary entries using hybrid search.
 //
 // POST /diaries/search
-func (c *Client) SearchDiary(ctx context.Context, request OptSearchDiaryReq) (SearchDiaryRes, error) {
+func (c *Client) SearchDiary(ctx context.Context, request *SearchDiaryReq) (SearchDiaryRes, error) {
 	res, err := c.sendSearchDiary(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendSearchDiary(ctx context.Context, request OptSearchDiaryReq) (res SearchDiaryRes, err error) {
+func (c *Client) sendSearchDiary(ctx context.Context, request *SearchDiaryReq) (res SearchDiaryRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("searchDiary"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -26567,12 +26567,12 @@ func (c *Client) sendSearchPublicFeed(ctx context.Context, params SearchPublicFe
 // Replace the set of tool policies bound to a runtime profile.
 //
 // PUT /runtime-profiles/{profileId}/policies
-func (c *Client) SetRuntimeProfilePolicies(ctx context.Context, request OptSetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error) {
+func (c *Client) SetRuntimeProfilePolicies(ctx context.Context, request *SetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error) {
 	res, err := c.sendSetRuntimeProfilePolicies(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendSetRuntimeProfilePolicies(ctx context.Context, request OptSetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (res SetRuntimeProfilePoliciesRes, err error) {
+func (c *Client) sendSetRuntimeProfilePolicies(ctx context.Context, request *SetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (res SetRuntimeProfilePoliciesRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("setRuntimeProfilePolicies"),
 		semconv.HTTPRequestMethodKey.String("PUT"),
@@ -27226,12 +27226,12 @@ func (c *Client) sendSubmitSignature(ctx context.Context, request *SubmitSignatu
 // SuspendSigningCredential invokes suspendSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/suspend
-func (c *Client) SuspendSigningCredential(ctx context.Context, request OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error) {
+func (c *Client) SuspendSigningCredential(ctx context.Context, request *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error) {
 	res, err := c.sendSuspendSigningCredential(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendSuspendSigningCredential(ctx context.Context, request OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (res SuspendSigningCredentialRes, err error) {
+func (c *Client) sendSuspendSigningCredential(ctx context.Context, request *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (res SuspendSigningCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("suspendSigningCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -27411,12 +27411,12 @@ func (c *Client) sendSuspendSigningCredential(ctx context.Context, request OptSu
 // Send a heartbeat to keep the attempt lease alive.
 //
 // POST /tasks/{id}/attempts/{n}/heartbeat
-func (c *Client) TaskHeartbeat(ctx context.Context, request OptTaskHeartbeatReq, params TaskHeartbeatParams) (TaskHeartbeatRes, error) {
+func (c *Client) TaskHeartbeat(ctx context.Context, request *TaskHeartbeatReq, params TaskHeartbeatParams) (TaskHeartbeatRes, error) {
 	res, err := c.sendTaskHeartbeat(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendTaskHeartbeat(ctx context.Context, request OptTaskHeartbeatReq, params TaskHeartbeatParams) (res TaskHeartbeatRes, err error) {
+func (c *Client) sendTaskHeartbeat(ctx context.Context, request *TaskHeartbeatReq, params TaskHeartbeatParams) (res TaskHeartbeatRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("taskHeartbeat"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -27618,12 +27618,12 @@ func (c *Client) sendTaskHeartbeat(ctx context.Context, request OptTaskHeartbeat
 // Update a context pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 //
 // PATCH /packs/{id}
-func (c *Client) UpdateContextPack(ctx context.Context, request OptUpdateContextPackReq, params UpdateContextPackParams) (UpdateContextPackRes, error) {
+func (c *Client) UpdateContextPack(ctx context.Context, request *UpdateContextPackReq, params UpdateContextPackParams) (UpdateContextPackRes, error) {
 	res, err := c.sendUpdateContextPack(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateContextPack(ctx context.Context, request OptUpdateContextPackReq, params UpdateContextPackParams) (res UpdateContextPackRes, err error) {
+func (c *Client) sendUpdateContextPack(ctx context.Context, request *UpdateContextPackReq, params UpdateContextPackParams) (res UpdateContextPackRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateContextPack"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -27788,12 +27788,12 @@ func (c *Client) sendUpdateContextPack(ctx context.Context, request OptUpdateCon
 // Update diary name or visibility.
 //
 // PATCH /diaries/{id}
-func (c *Client) UpdateDiary(ctx context.Context, request OptUpdateDiaryReq, params UpdateDiaryParams) (UpdateDiaryRes, error) {
+func (c *Client) UpdateDiary(ctx context.Context, request *UpdateDiaryReq, params UpdateDiaryParams) (UpdateDiaryRes, error) {
 	res, err := c.sendUpdateDiary(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateDiary(ctx context.Context, request OptUpdateDiaryReq, params UpdateDiaryParams) (res UpdateDiaryRes, err error) {
+func (c *Client) sendUpdateDiary(ctx context.Context, request *UpdateDiaryReq, params UpdateDiaryParams) (res UpdateDiaryRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateDiary"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -27975,12 +27975,12 @@ func (c *Client) sendUpdateDiary(ctx context.Context, request OptUpdateDiaryReq,
 // Update a diary entry (content, title, tags).
 //
 // PATCH /entries/{entryId}
-func (c *Client) UpdateDiaryEntryById(ctx context.Context, request OptUpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (UpdateDiaryEntryByIdRes, error) {
+func (c *Client) UpdateDiaryEntryById(ctx context.Context, request *UpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (UpdateDiaryEntryByIdRes, error) {
 	res, err := c.sendUpdateDiaryEntryById(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateDiaryEntryById(ctx context.Context, request OptUpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (res UpdateDiaryEntryByIdRes, err error) {
+func (c *Client) sendUpdateDiaryEntryById(ctx context.Context, request *UpdateDiaryEntryByIdReq, params UpdateDiaryEntryByIdParams) (res UpdateDiaryEntryByIdRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateDiaryEntryById"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -28313,12 +28313,12 @@ func (c *Client) sendUpdateEntryRelationStatus(ctx context.Context, request *Upd
 // UpdateProject invokes updateProject operation.
 //
 // PATCH /projects/{projectId}
-func (c *Client) UpdateProject(ctx context.Context, request OptUpdateProjectReq, params UpdateProjectParams) (UpdateProjectRes, error) {
+func (c *Client) UpdateProject(ctx context.Context, request *UpdateProjectReq, params UpdateProjectParams) (UpdateProjectRes, error) {
 	res, err := c.sendUpdateProject(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateProject(ctx context.Context, request OptUpdateProjectReq, params UpdateProjectParams) (res UpdateProjectRes, err error) {
+func (c *Client) sendUpdateProject(ctx context.Context, request *UpdateProjectReq, params UpdateProjectParams) (res UpdateProjectRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateProject"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -28500,12 +28500,12 @@ func (c *Client) sendUpdateProject(ctx context.Context, request OptUpdateProject
 // Update a rendered pack — pin/unpin or change expiration. Only the diary owner can manage packs.
 //
 // PATCH /rendered-packs/{id}
-func (c *Client) UpdateRenderedPack(ctx context.Context, request OptUpdateRenderedPackReq, params UpdateRenderedPackParams) (UpdateRenderedPackRes, error) {
+func (c *Client) UpdateRenderedPack(ctx context.Context, request *UpdateRenderedPackReq, params UpdateRenderedPackParams) (UpdateRenderedPackRes, error) {
 	res, err := c.sendUpdateRenderedPack(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateRenderedPack(ctx context.Context, request OptUpdateRenderedPackReq, params UpdateRenderedPackParams) (res UpdateRenderedPackRes, err error) {
+func (c *Client) sendUpdateRenderedPack(ctx context.Context, request *UpdateRenderedPackReq, params UpdateRenderedPackParams) (res UpdateRenderedPackRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateRenderedPack"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -28671,12 +28671,12 @@ func (c *Client) sendUpdateRenderedPack(ctx context.Context, request OptUpdateRe
 // endpoint.
 //
 // PATCH /runtime-models/{modelId}
-func (c *Client) UpdateRuntimeModel(ctx context.Context, request OptUpdateRuntimeModelBody, params UpdateRuntimeModelParams) (UpdateRuntimeModelRes, error) {
+func (c *Client) UpdateRuntimeModel(ctx context.Context, request *UpdateRuntimeModelBody, params UpdateRuntimeModelParams) (UpdateRuntimeModelRes, error) {
 	res, err := c.sendUpdateRuntimeModel(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateRuntimeModel(ctx context.Context, request OptUpdateRuntimeModelBody, params UpdateRuntimeModelParams) (res UpdateRuntimeModelRes, err error) {
+func (c *Client) sendUpdateRuntimeModel(ctx context.Context, request *UpdateRuntimeModelBody, params UpdateRuntimeModelParams) (res UpdateRuntimeModelRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateRuntimeModel"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -28841,12 +28841,12 @@ func (c *Client) sendUpdateRuntimeModel(ctx context.Context, request OptUpdateRu
 // Rename a policy and/or add/remove granted tools.
 //
 // PATCH /runtime-policies/{policyId}
-func (c *Client) UpdateRuntimePolicy(ctx context.Context, request OptUpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (UpdateRuntimePolicyRes, error) {
+func (c *Client) UpdateRuntimePolicy(ctx context.Context, request *UpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (UpdateRuntimePolicyRes, error) {
 	res, err := c.sendUpdateRuntimePolicy(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateRuntimePolicy(ctx context.Context, request OptUpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (res UpdateRuntimePolicyRes, err error) {
+func (c *Client) sendUpdateRuntimePolicy(ctx context.Context, request *UpdateRuntimePolicyBody, params UpdateRuntimePolicyParams) (res UpdateRuntimePolicyRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateRuntimePolicy"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -29025,12 +29025,12 @@ func (c *Client) sendUpdateRuntimePolicy(ctx context.Context, request OptUpdateR
 // Update one runtime profile.
 //
 // PATCH /runtime-profiles/{profileId}
-func (c *Client) UpdateRuntimeProfile(ctx context.Context, request OptUpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (UpdateRuntimeProfileRes, error) {
+func (c *Client) UpdateRuntimeProfile(ctx context.Context, request *UpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (UpdateRuntimeProfileRes, error) {
 	res, err := c.sendUpdateRuntimeProfile(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateRuntimeProfile(ctx context.Context, request OptUpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (res UpdateRuntimeProfileRes, err error) {
+func (c *Client) sendUpdateRuntimeProfile(ctx context.Context, request *UpdateRuntimeProfileBody, params UpdateRuntimeProfileParams) (res UpdateRuntimeProfileRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateRuntimeProfile"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -29195,12 +29195,12 @@ func (c *Client) sendUpdateRuntimeProfile(ctx context.Context, request OptUpdate
 // Update mutable task metadata used for cohorting and search.
 //
 // PATCH /tasks/{id}
-func (c *Client) UpdateTaskMetadata(ctx context.Context, request OptUpdateTaskMetadataReq, params UpdateTaskMetadataParams) (UpdateTaskMetadataRes, error) {
+func (c *Client) UpdateTaskMetadata(ctx context.Context, request *UpdateTaskMetadataReq, params UpdateTaskMetadataParams) (UpdateTaskMetadataRes, error) {
 	res, err := c.sendUpdateTaskMetadata(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendUpdateTaskMetadata(ctx context.Context, request OptUpdateTaskMetadataReq, params UpdateTaskMetadataParams) (res UpdateTaskMetadataRes, err error) {
+func (c *Client) sendUpdateTaskMetadata(ctx context.Context, request *UpdateTaskMetadataReq, params UpdateTaskMetadataParams) (res UpdateTaskMetadataRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("updateTaskMetadata"),
 		semconv.HTTPRequestMethodKey.String("PATCH"),
@@ -30234,12 +30234,12 @@ func (c *Client) sendUploadTaskArtifact(ctx context.Context, request UploadTaskA
 // accepting human authentication material.
 //
 // POST /crypto/preview-sign/challenges/validate
-func (c *Client) ValidatePreviewSignChallenge(ctx context.Context, request OptValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error) {
+func (c *Client) ValidatePreviewSignChallenge(ctx context.Context, request *ValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error) {
 	res, err := c.sendValidatePreviewSignChallenge(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendValidatePreviewSignChallenge(ctx context.Context, request OptValidatePreviewSignChallenge) (res ValidatePreviewSignChallengeRes, err error) {
+func (c *Client) sendValidatePreviewSignChallenge(ctx context.Context, request *ValidatePreviewSignChallenge) (res ValidatePreviewSignChallengeRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("validatePreviewSignChallenge"),
 		semconv.HTTPRequestMethodKey.String("POST"),

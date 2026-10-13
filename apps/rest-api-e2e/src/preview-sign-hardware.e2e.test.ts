@@ -172,6 +172,7 @@ describe.skipIf(process.env.MOLTNET_PREVIEW_SIGN_HARDWARE !== '1')(
           client: approverClient,
           headers: { 'x-moltnet-team-id': requester.personalTeamId },
           path: { id: credential.data!.id },
+          body: {},
         });
         expect(activated.data?.status).toBe('active');
 

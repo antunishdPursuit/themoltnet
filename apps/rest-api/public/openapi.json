@@ -15232,6 +15232,7 @@
           {
             "in": "query",
             "name": "bindingScope",
+            "required": false,
             "schema": {
               "$ref": "#/components/schemas/AgentKeyBindingScope"
             }
@@ -15572,6 +15573,7 @@
           {
             "in": "query",
             "name": "bindingScope",
+            "required": false,
             "schema": {
               "$ref": "#/components/schemas/AgentKeyBindingScope"
             }
@@ -15665,7 +15667,8 @@
                 ]
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "204": {
@@ -15769,6 +15772,7 @@
           {
             "in": "query",
             "name": "bindingScope",
+            "required": false,
             "schema": {
               "$ref": "#/components/schemas/AgentKeyBindingScope"
             }
@@ -16403,7 +16407,8 @@
                 ]
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -16631,7 +16636,8 @@
                 "$ref": "#/components/schemas/RotateIdentityKeyRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -16935,7 +16941,8 @@
                 "$ref": "#/components/schemas/ValidatePreviewSignChallenge"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -17510,7 +17517,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -17640,7 +17648,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -17770,7 +17779,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -18677,7 +18687,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -19297,7 +19308,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -20251,7 +20263,8 @@
               }
             }
           },
-          "description": "At least one of name or visibility must be provided."
+          "description": "At least one of name or visibility must be provided.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -22233,7 +22246,8 @@
               }
             }
           },
-          "description": "At least one of title, content, tags, importance, or entryType must be provided."
+          "description": "At least one of title, content, tags, importance, or entryType must be provided.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -22354,6 +22368,7 @@
           {
             "in": "query",
             "name": "relation",
+            "required": false,
             "schema": {
               "$ref": "#/components/schemas/RelationType"
             }
@@ -22361,6 +22376,7 @@
           {
             "in": "query",
             "name": "status",
+            "required": false,
             "schema": {
               "$ref": "#/components/schemas/RelationStatus"
             }
@@ -23674,7 +23690,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -25804,7 +25821,8 @@
               }
             }
           },
-          "description": "At least one of pinned or expiresAt must be provided. See route handler for field-combination constraints."
+          "description": "At least one of pinned or expiresAt must be provided. See route handler for field-combination constraints.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -26698,7 +26716,10 @@
                   },
                   "renderMethod": {
                     "description": "Render method label. Server render methods start with \"server:\" and must omit renderedMarkdown; caller-authored methods start with \"agent:\", \"pi:\" or \"agent-\" and require it.",
-                    "example": "server:pack-to-docs-v1",
+                    "examples": [
+                      "server:pack-to-docs-v1",
+                      "agent:pack-to-docs-v1"
+                    ],
                     "maxLength": 100,
                     "minLength": 1,
                     "pattern": "^(server:|agent:|pi:|agent-)\\S+$",
@@ -26869,7 +26890,10 @@
                 "properties": {
                   "renderMethod": {
                     "description": "Render method label. Server render methods start with \"server:\" and must omit renderedMarkdown; caller-authored methods start with \"agent:\", \"pi:\" or \"agent-\" and require it.",
-                    "example": "server:pack-to-docs-v1",
+                    "examples": [
+                      "server:pack-to-docs-v1",
+                      "agent:pack-to-docs-v1"
+                    ],
                     "maxLength": 100,
                     "minLength": 1,
                     "pattern": "^(server:|agent:|pi:|agent-)\\S+$",
@@ -28107,7 +28131,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -29415,7 +29440,8 @@
               }
             }
           },
-          "description": "At least one field must be provided. See route handler for field-combination constraints."
+          "description": "At least one field must be provided. See route handler for field-combination constraints.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -29636,7 +29662,8 @@
                 "$ref": "#/components/schemas/CreateRuntimeModelBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -29932,7 +29959,8 @@
                 "$ref": "#/components/schemas/UpdateRuntimeModelBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -30143,7 +30171,8 @@
                 "$ref": "#/components/schemas/CreateRuntimePolicyBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -30469,7 +30498,8 @@
                 "$ref": "#/components/schemas/UpdateRuntimePolicyBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -30690,7 +30720,8 @@
                 "$ref": "#/components/schemas/CreateRuntimeProfileBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -30986,7 +31017,8 @@
                 "$ref": "#/components/schemas/UpdateRuntimeProfileBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -31331,7 +31363,8 @@
                 "$ref": "#/components/schemas/SetProfilePoliciesBody"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "204": {
@@ -35045,7 +35078,8 @@
               }
             }
           },
-          "description": "Runtime session content stream."
+          "description": "Runtime session content stream.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -41896,7 +41930,8 @@
               }
             }
           },
-          "description": "Task artifact content stream."
+          "description": "Task artifact content stream.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -43236,6 +43271,7 @@
           {
             "in": "query",
             "name": "status",
+            "required": false,
             "schema": {
               "$ref": "#/components/schemas/TaskStatus"
             }
@@ -44212,7 +44248,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -44462,7 +44499,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -45646,7 +45684,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -46254,7 +46293,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -49360,7 +49400,8 @@
               }
             }
           },
-          "description": "Task artifact content stream."
+          "description": "Task artifact content stream.",
+          "required": true
         },
         "responses": {
           "200": {
@@ -52780,7 +52821,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -53396,7 +53438,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {

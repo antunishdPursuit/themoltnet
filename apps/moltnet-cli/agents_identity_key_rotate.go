@@ -205,7 +205,7 @@ func runAgentsIdentityKeyRotateCmd(ctx context.Context, out, errOut io.Writer, o
 			stage, cause, newRef.Provider, newRef.Key, newFingerprint, path)
 	}
 
-	res, callErr := client.RotateIdentityKey(ctx, moltnetapi.NewOptRotateIdentityKeyRequest(request))
+	res, callErr := client.RotateIdentityKey(ctx, &request)
 	rotated, isRotated := res.(*moltnetapi.RotateIdentityKeyResponse)
 	switch {
 	case callErr == nil && isRotated:
