@@ -12,6 +12,7 @@ import {
   listRuntimeModelsOptions,
   listRuntimeProfilesOptions,
 } from '@moltnet/api-client/query';
+import { supportsRuntimeModelCapability } from '@moltnet/runtime-profiles';
 import {
   CONTEXT_REF_MAX_CONTENT_LENGTH,
   resolveRuntimeProfileContextRecipe,
@@ -238,21 +239,48 @@ export function ProfilesPage() {
     }
   }, [selectedProfile]);
 
-  const providers = useMemo(
+  const generationModels = useMemo(
     () =>
-      [...new Set(runtimeModels.map((model) => model.provider))].sort((a, b) =>
-        a.localeCompare(b),
+      runtimeModels.filter((model) =>
+        supportsRuntimeModelCapability(model.capabilities, 'generation'),
       ),
     [runtimeModels],
   );
+  const classificationModels = useMemo(
+    () =>
+      runtimeModels.filter((model) =>
+        supportsRuntimeModelCapability(model.capabilities, 'classification'),
+      ),
+    [runtimeModels],
+  );
+  const providers = useMemo(
+    () => [...new Set(generationModels.map((model) => model.provider))].sort(),
+    [generationModels],
+  );
+  const classificationProviders = useMemo(
+    () =>
+      [...new Set(classificationModels.map((model) => model.provider))].sort(),
+    [classificationModels],
+  );
   const modelOptions = useMemo(
     () =>
-      runtimeModels
-        .filter((candidate) =>
-          form.provider ? candidate.provider === form.provider : true,
+      generationModels
+        .filter(
+          (candidate) => !form.provider || candidate.provider === form.provider,
         )
         .sort(compareRuntimeModels),
-    [runtimeModels, form.provider],
+    [generationModels, form.provider],
+  );
+  const classificationModelOptions = useMemo(
+    () =>
+      classificationModels
+        .filter(
+          (candidate) =>
+            !form.classificationProvider ||
+            candidate.provider === form.classificationProvider,
+        )
+        .sort(compareRuntimeModels),
+    [classificationModels, form.classificationProvider],
   );
 
   function updateField<K extends keyof ProfileFormState>(
@@ -531,6 +559,7 @@ export function ProfilesPage() {
               />
               <LabeledInput
                 label="Classification provider"
+                list="runtime-profile-classification-provider-options"
                 value={form.classificationProvider}
                 onChange={(value) =>
                   updateField('classificationProvider', value)
@@ -538,6 +567,7 @@ export function ProfilesPage() {
               />
               <LabeledInput
                 label="Classification model"
+                list="runtime-profile-classification-model-options"
                 value={form.classificationModel}
                 onChange={(value) => updateField('classificationModel', value)}
               />
@@ -603,6 +633,21 @@ export function ProfilesPage() {
               />
             </div>
 
+            <datalist id="runtime-profile-classification-provider-options">
+              {classificationProviders.map((provider) => (
+                <option key={provider} value={provider} />
+              ))}
+            </datalist>
+            <datalist id="runtime-profile-classification-model-options">
+              {classificationModelOptions.map((model) => (
+                <option
+                  key={`${model.provider}/${model.model}`}
+                  value={model.model}
+                >
+                  {formatRuntimeModel(model)}
+                </option>
+              ))}
+            </datalist>
             <datalist id="runtime-profile-provider-options">
               {providers.map((provider) => (
                 <option key={provider} value={provider} />

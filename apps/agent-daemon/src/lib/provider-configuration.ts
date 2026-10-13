@@ -217,10 +217,14 @@ export class ProviderConfigurationService {
                 .result(providerId, [])
                 .models.map((model) => [model.id, model]),
             );
-            models = models.map((model) => ({
-              ...detected.get(model.id),
-              ...model,
-            }));
+            models = models.map((model) => {
+              const metadata = detected.get(model.id);
+              // Decision models cannot be used through the chat API, even
+              // when the id was originally entered as a generic model.
+              return metadata?.type === 'classifier'
+                ? { ...metadata }
+                : { ...metadata, ...model };
+            });
           }
         }
         const entry: ProviderEntry = {
@@ -455,7 +459,10 @@ export class ProviderConfigurationService {
     if (isOllamaProvider(providerId, parsed)) {
       const ids = result.models
         .filter(
-          (model) => result.unresolved.includes(model.id) || model.reasoning,
+          (model) =>
+            result.unresolved.includes(model.id) ||
+            model.reasoning ||
+            (model.type === 'classifier' && !model.contextWindow),
         )
         .map((model) => model.id);
       await this.resolveOllamaCapabilities({
@@ -476,6 +483,8 @@ export class ProviderConfigurationService {
     const declared = new Map(provider.models.map((model) => [model.id, model]));
     const models = resolved.models.map((model) => {
       const override = declared.get(model.id);
+      if (override?.type === 'classifier') return copyProviderModel(override);
+      if (model.type === 'classifier') return model;
       return {
         ...model,
         ...(override?.input?.length ? { input: [...override.input] } : {}),

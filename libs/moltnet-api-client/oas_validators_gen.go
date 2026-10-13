@@ -5530,7 +5530,7 @@ func (s *CreateRuntimeModelBody) Validate() error {
 			MaxLengthSet:  true,
 			Email:         false,
 			Hostname:      false,
-			Regex:         regexMap["^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"],
+			Regex:         regexMap["^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$"],
 			MinNumeric:    0,
 			MinNumericSet: false,
 			MaxNumeric:    0,
@@ -5574,7 +5574,30 @@ func (s *CreateRuntimeModelBody) Validate() error {
 	return nil
 }
 
-func (s CreateRuntimeModelBodyCapabilities) Validate() error {
+func (s *CreateRuntimeModelBodyCapabilities) Validate() error {
+	if s == nil {
+		return validate.ErrNilPointer
+	}
+
+	var failures []validate.FieldError
+	if err := func() error {
+		if err := s.AdditionalProps.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "AdditionalProps",
+			Error: err,
+		})
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+	return nil
+}
+
+func (s CreateRuntimeModelBodyCapabilitiesAdditional) Validate() error {
 	var failures []validate.FieldError
 	for key, elem := range s {
 		if err := func() error {
@@ -5596,16 +5619,16 @@ func (s CreateRuntimeModelBodyCapabilities) Validate() error {
 	return nil
 }
 
-func (s CreateRuntimeModelBodyCapabilitiesItem) Validate() error {
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) Validate() error {
 	switch s.Type {
-	case BoolCreateRuntimeModelBodyCapabilitiesItem:
+	case BoolCreateRuntimeModelBodyCapabilitiesAdditionalItem:
 		return nil // no validation needed
-	case Float64CreateRuntimeModelBodyCapabilitiesItem:
+	case Float64CreateRuntimeModelBodyCapabilitiesAdditionalItem:
 		if err := (validate.Float{}).Validate(float64(s.Float64)); err != nil {
 			return errors.Wrap(err, "float")
 		}
 		return nil
-	case StringCreateRuntimeModelBodyCapabilitiesItem:
+	case StringCreateRuntimeModelBodyCapabilitiesAdditionalItem:
 		if err := (validate.String{
 			MinLength:     0,
 			MinLengthSet:  false,
@@ -28555,7 +28578,7 @@ func (s *RuntimeModel) Validate() error {
 			MaxLengthSet:  true,
 			Email:         false,
 			Hostname:      false,
-			Regex:         regexMap["^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"],
+			Regex:         regexMap["^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$"],
 			MinNumeric:    0,
 			MinNumericSet: false,
 			MaxNumeric:    0,
@@ -28599,7 +28622,30 @@ func (s *RuntimeModel) Validate() error {
 	return nil
 }
 
-func (s RuntimeModelCapabilities) Validate() error {
+func (s *RuntimeModelCapabilities) Validate() error {
+	if s == nil {
+		return validate.ErrNilPointer
+	}
+
+	var failures []validate.FieldError
+	if err := func() error {
+		if err := s.AdditionalProps.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "AdditionalProps",
+			Error: err,
+		})
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+	return nil
+}
+
+func (s RuntimeModelCapabilitiesAdditional) Validate() error {
 	var failures []validate.FieldError
 	for key, elem := range s {
 		if err := func() error {
@@ -28621,16 +28667,16 @@ func (s RuntimeModelCapabilities) Validate() error {
 	return nil
 }
 
-func (s RuntimeModelCapabilitiesItem) Validate() error {
+func (s RuntimeModelCapabilitiesAdditionalItem) Validate() error {
 	switch s.Type {
-	case BoolRuntimeModelCapabilitiesItem:
+	case BoolRuntimeModelCapabilitiesAdditionalItem:
 		return nil // no validation needed
-	case Float64RuntimeModelCapabilitiesItem:
+	case Float64RuntimeModelCapabilitiesAdditionalItem:
 		if err := (validate.Float{}).Validate(float64(s.Float64)); err != nil {
 			return errors.Wrap(err, "float")
 		}
 		return nil
-	case StringRuntimeModelCapabilitiesItem:
+	case StringRuntimeModelCapabilitiesAdditionalItem:
 		if err := (validate.String{
 			MinLength:     0,
 			MinLengthSet:  false,
@@ -28777,7 +28823,7 @@ func (s *RuntimeModelListResponseItemsItem) Validate() error {
 			MaxLengthSet:  true,
 			Email:         false,
 			Hostname:      false,
-			Regex:         regexMap["^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"],
+			Regex:         regexMap["^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$"],
 			MinNumeric:    0,
 			MinNumericSet: false,
 			MaxNumeric:    0,
@@ -28821,7 +28867,30 @@ func (s *RuntimeModelListResponseItemsItem) Validate() error {
 	return nil
 }
 
-func (s RuntimeModelListResponseItemsItemCapabilities) Validate() error {
+func (s *RuntimeModelListResponseItemsItemCapabilities) Validate() error {
+	if s == nil {
+		return validate.ErrNilPointer
+	}
+
+	var failures []validate.FieldError
+	if err := func() error {
+		if err := s.AdditionalProps.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "AdditionalProps",
+			Error: err,
+		})
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+	return nil
+}
+
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditional) Validate() error {
 	var failures []validate.FieldError
 	for key, elem := range s {
 		if err := func() error {
@@ -28843,16 +28912,16 @@ func (s RuntimeModelListResponseItemsItemCapabilities) Validate() error {
 	return nil
 }
 
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) Validate() error {
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) Validate() error {
 	switch s.Type {
-	case BoolRuntimeModelListResponseItemsItemCapabilitiesItem:
+	case BoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem:
 		return nil // no validation needed
-	case Float64RuntimeModelListResponseItemsItemCapabilitiesItem:
+	case Float64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem:
 		if err := (validate.Float{}).Validate(float64(s.Float64)); err != nil {
 			return errors.Wrap(err, "float")
 		}
 		return nil
-	case StringRuntimeModelListResponseItemsItemCapabilitiesItem:
+	case StringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem:
 		if err := (validate.String{
 			MinLength:     0,
 			MinLengthSet:  false,
@@ -37890,7 +37959,7 @@ func (s *UpdateRuntimeModelBody) Validate() error {
 					MaxLengthSet:  true,
 					Email:         false,
 					Hostname:      false,
-					Regex:         regexMap["^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"],
+					Regex:         regexMap["^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$"],
 					MinNumeric:    0,
 					MinNumericSet: false,
 					MaxNumeric:    0,
@@ -37946,7 +38015,30 @@ func (s *UpdateRuntimeModelBody) Validate() error {
 	return nil
 }
 
-func (s UpdateRuntimeModelBodyCapabilities) Validate() error {
+func (s *UpdateRuntimeModelBodyCapabilities) Validate() error {
+	if s == nil {
+		return validate.ErrNilPointer
+	}
+
+	var failures []validate.FieldError
+	if err := func() error {
+		if err := s.AdditionalProps.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		failures = append(failures, validate.FieldError{
+			Name:  "AdditionalProps",
+			Error: err,
+		})
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+	return nil
+}
+
+func (s UpdateRuntimeModelBodyCapabilitiesAdditional) Validate() error {
 	var failures []validate.FieldError
 	for key, elem := range s {
 		if err := func() error {
@@ -37968,16 +38060,16 @@ func (s UpdateRuntimeModelBodyCapabilities) Validate() error {
 	return nil
 }
 
-func (s UpdateRuntimeModelBodyCapabilitiesItem) Validate() error {
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) Validate() error {
 	switch s.Type {
-	case BoolUpdateRuntimeModelBodyCapabilitiesItem:
+	case BoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem:
 		return nil // no validation needed
-	case Float64UpdateRuntimeModelBodyCapabilitiesItem:
+	case Float64UpdateRuntimeModelBodyCapabilitiesAdditionalItem:
 		if err := (validate.Float{}).Validate(float64(s.Float64)); err != nil {
 			return errors.Wrap(err, "float")
 		}
 		return nil
-	case StringUpdateRuntimeModelBodyCapabilitiesItem:
+	case StringUpdateRuntimeModelBodyCapabilitiesAdditionalItem:
 		if err := (validate.String{
 			MinLength:     0,
 			MinLengthSet:  false,

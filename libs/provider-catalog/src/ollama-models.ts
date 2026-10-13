@@ -37,6 +37,35 @@ export const ollamaModels: readonly RuntimeModelCatalogEntry[] = [
 }));
 
 /**
+ * Local System One suggestions, reviewed against Ollama's decision guide.
+ * https://docs.ollama.com/capabilities/decision
+ * Version requirements and vision are model capabilities; context depends on
+ * the installed model/server, so no context window is inferred here.
+ */
+export const ollamaClassifierModels: readonly RuntimeModelCatalogEntry[] = [
+  { model: 'nimble', minimumOllamaVersion: '0.35.0', supportsVision: false },
+  { model: 'tev1', minimumOllamaVersion: '0.35.0', supportsVision: false },
+  { model: 'clef', minimumOllamaVersion: '0.35.1', supportsVision: true },
+  { model: 'clef-flash', minimumOllamaVersion: '0.35.1', supportsVision: true },
+].map(({ model, minimumOllamaVersion, supportsVision }) => ({
+  provider: 'ollama',
+  model,
+  displayName: `Ollama · ${model}`,
+  description: `Local System One decision model; requires Ollama v${minimumOllamaVersion}+. Installation is not implied.`,
+  capabilities: {
+    generation: false,
+    classification: true,
+    api: 'typesafe-system-one',
+    minimumOllamaVersion,
+    supportsVision,
+    supportsTemperature: false,
+    supportsTopP: false,
+    supportsTopK: false,
+    supportsMaxOutputTokens: false,
+  },
+}));
+
+/**
  * Ollama Cloud entries generated from the public model list and per-model
  * `/api/show` metadata at https://ollama.com (see `generate:ollama-cloud`).
  * Ids are the ones the `ollama-cloud` provider accepts, without local-proxy

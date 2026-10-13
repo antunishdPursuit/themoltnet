@@ -26,15 +26,45 @@ export const RuntimeModelName = Type.String({
   minLength: 1,
   maxLength: 200,
   // Permissive on case so the route can lowercase on write.
-  pattern: '^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$',
+  pattern: '^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$',
 });
 export type RuntimeModelName = Static<typeof RuntimeModelName>;
 
-export const RuntimeModelCapabilities = Type.Record(
-  Type.String({ minLength: 1, maxLength: 64 }),
-  Type.Union([Type.Boolean(), Type.Number(), Type.String({ maxLength: 256 })]),
+// TypeBox does not infer the index signature from additionalProperties.
+export const RuntimeModelCapabilities = Type.Unsafe<
+  Record<string, boolean | number | string | undefined> & {
+    generation?: boolean;
+    classification?: boolean;
+  }
+>(
+  Type.Object(
+    {
+      generation: Type.Optional(Type.Boolean()),
+      classification: Type.Optional(Type.Boolean()),
+    },
+    {
+      propertyNames: Type.String({ minLength: 1, maxLength: 64 }),
+      additionalProperties: Type.Union([
+        Type.Boolean(),
+        Type.Number(),
+        Type.String({ maxLength: 256 }),
+      ]),
+    },
+  ),
 );
 export type RuntimeModelCapabilities = Static<typeof RuntimeModelCapabilities>;
+
+/** Catalog hints do not restrict references to daemon-local models. */
+export function supportsRuntimeModelCapability(
+  capabilities: RuntimeModelCapabilities | undefined,
+  capability: 'generation' | 'classification',
+): boolean {
+  if (capability === 'classification')
+    return capabilities?.classification === true;
+  return typeof capabilities?.generation === 'boolean'
+    ? capabilities.generation
+    : capabilities?.classification !== true;
+}
 
 export const RuntimeModel = Type.Object(
   {

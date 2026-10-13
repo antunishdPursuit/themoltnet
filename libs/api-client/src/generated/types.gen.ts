@@ -472,7 +472,9 @@ export type CreateAgentKeyBody = {
 
 export type CreateRuntimeModelBody = {
   capabilities?: {
-    [key: string]: boolean | number | string;
+    classification?: boolean;
+    generation?: boolean;
+    [key: string]: boolean | number | string | boolean | undefined;
   };
   description?: string;
   displayName?: string;
@@ -1968,7 +1970,9 @@ export type RotateSecretResponse = {
 
 export type RuntimeModel = {
   capabilities: {
-    [key: string]: boolean | number | string;
+    classification?: boolean;
+    generation?: boolean;
+    [key: string]: boolean | number | string | boolean | undefined;
   };
   createdAt: string;
   createdByAgentId: string | null;
@@ -1986,7 +1990,9 @@ export type RuntimeModel = {
 export type RuntimeModelListResponse = {
   items: Array<{
     capabilities: {
-      [key: string]: boolean | number | string;
+      classification?: boolean;
+      generation?: boolean;
+      [key: string]: boolean | number | string | boolean | undefined;
     };
     createdAt: string;
     createdByAgentId: string | null;
@@ -2951,7 +2957,9 @@ export type ToolEnforcement = 'off' | 'watch' | 'enforce';
 
 export type UpdateRuntimeModelBody = {
   capabilities?: {
-    [key: string]: boolean | number | string;
+    classification?: boolean;
+    generation?: boolean;
+    [key: string]: boolean | number | string | boolean | undefined;
   };
   description?: string;
   displayName?: string;
