@@ -34,21 +34,55 @@ const WORKSPACE_ROOT = '.';
 /**
  * Packages whose version changes what a scan finds: the CLI plus every
  * top-level rule package in the config. Parsed as JSON5, as Secretlint does,
- * so a comment in the config does not break the project graph.
+ * so a comment in the config does not break the project graph. Rule ids that
+ * are file paths are not packages; they are returned as files to hash.
  */
-export function externalDependencies(configPath: string): string[] {
-  let config: { rules?: Array<{ id?: unknown }> };
+export function ruleDependencies(
+  configPath: string,
+  workspaceRoot: string,
+): { packages: string[]; files: string[] } {
+  const fail = (reason: string): never => {
+    throw new Error(
+      `secretlint plugin: cannot read ${posix.relative(workspaceRoot, configPath)}: ${reason}`,
+    );
+  };
+  let config: unknown;
   try {
     config = JSON5.parse(readFileSync(configPath, 'utf8'));
   } catch (error) {
+    fail((error as Error).message);
+  }
+  const rules = (config as { rules?: unknown } | null)?.rules ?? [];
+  if (!Array.isArray(rules)) fail('"rules" must be an array');
+  const ids = (rules as unknown[]).map((rule) =>
+    typeof rule === 'object' && rule !== null
+      ? (rule as { id?: unknown }).id
+      : undefined,
+  );
+  if (ids.some((id) => typeof id !== 'string')) {
+    fail('every rule needs a string "id"');
+  }
+  const isPath = (id: string) => id.startsWith('.') || id.startsWith('/');
+  return {
+    packages: ['secretlint', ...(ids as string[]).filter((id) => !isPath(id))],
+    files: (ids as string[])
+      .filter(isPath)
+      .map((id) =>
+        posix.relative(workspaceRoot, posix.resolve(dirname(configPath), id)),
+      ),
+  };
+}
+
+// Picomatch and Nx would read these as glob syntax in a directory name.
+const GLOB_SYNTAX = /[*?[\]{}()!]/;
+
+function assertLiteralPath(path: string): string {
+  if (GLOB_SYNTAX.test(path)) {
     throw new Error(
-      `secretlint plugin: cannot read ${configPath}: ${(error as Error).message}`,
+      `secretlint plugin: "${path}" contains glob syntax and cannot be scanned literally; rename it`,
     );
   }
-  const rules = (config?.rules ?? [])
-    .map((rule) => rule.id)
-    .filter((id): id is string => typeof id === 'string');
-  return ['secretlint', ...rules];
+  return path;
 }
 
 /**
@@ -62,23 +96,24 @@ export function orphanGlobs(
   workspaceRoot: string,
 ): string[] {
   const roots = new Set(projectRoots);
-  const insideProject = (dir: string) =>
+  const belongsToProject = (dir: string) =>
     projectRoots.some((root) => dir === root || dir.startsWith(`${root}/`));
   // Directories that hold project roots but belong to no project themselves.
   const ancestors = new Set([WORKSPACE_ROOT]);
   for (const root of projectRoots) {
     for (let dir = posix.dirname(root); dir !== WORKSPACE_ROOT; ) {
-      if (!insideProject(dir)) ancestors.add(dir);
+      if (!belongsToProject(dir)) ancestors.add(dir);
       dir = posix.dirname(dir);
     }
   }
   const gitignore = join(workspaceRoot, '.gitignore');
+  // `.git` is never in .gitignore, but it must never be scanned or hashed.
   const ignored = ignore()
     .add('.git')
     .add(existsSync(gitignore) ? readFileSync(gitignore, 'utf8') : '');
 
   const globs: string[] = [];
-  for (const dir of [...ancestors].sort()) {
+  for (const dir of ancestors) {
     let hasFiles = false;
     for (const entry of readdirSync(join(workspaceRoot, dir), {
       withFileTypes: true,
@@ -87,12 +122,14 @@ export function orphanGlobs(
       if (entry.isDirectory()) {
         if (roots.has(path) || ancestors.has(path)) continue;
         if (ignored.ignores(`${path}/`)) continue;
-        globs.push(`${path}/**/*`);
+        globs.push(`${assertLiteralPath(path)}/**/*`);
       } else if (!ignored.ignores(path)) {
         hasFiles = true;
       }
     }
-    if (hasFiles) globs.push(dir === WORKSPACE_ROOT ? '*' : `${dir}/*`);
+    if (hasFiles) {
+      globs.push(dir === WORKSPACE_ROOT ? '*' : `${assertLiteralPath(dir)}/*`);
+    }
   }
   // readdir order is filesystem-dependent; a stable command keeps the target stable.
   return globs.sort();
@@ -104,7 +141,7 @@ const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 function buildTarget(
   globs: readonly string[],
   config: string,
-  dependencies: string[],
+  dependencies: { packages: string[]; files: string[] },
   description: string,
 ): TargetConfiguration {
   return {
@@ -113,7 +150,11 @@ function buildTarget(
     inputs: [
       ...globs.map((glob) => `{workspaceRoot}/${glob}`),
       `{workspaceRoot}/${config}`,
-      { externalDependencies: dependencies },
+      ...dependencies.files.map((file) => `{workspaceRoot}/${file}`),
+      // The CLI reads .secretlintignore in every directory it walks,
+      // including ancestors of a project; any of them can hide files.
+      '{workspaceRoot}/**/.secretlintignore',
+      { externalDependencies: dependencies.packages },
     ],
     outputs: [],
     metadata: { description, technologies: ['secretlint'] },
@@ -128,11 +169,13 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
       options?.workspaceTargetName ?? `${targetName}:workspace`;
     const hostRoot = options?.workspaceTargetProjectRoot ?? 'tools';
 
+    // The workspace root has no project of its own: its files are orphans.
     const projectRoots = [
       ...new Set(
         configFiles
           .map((file) => dirname(file))
-          .filter((root) => root !== WORKSPACE_ROOT),
+          .filter((root) => root !== WORKSPACE_ROOT)
+          .map(assertLiteralPath),
       ),
     ];
     if (!projectRoots.includes(hostRoot)) {
@@ -144,12 +187,16 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
     }
 
     // Each config is parsed once per graph build, not once per project.
-    const dependenciesByConfig = new Map<string, string[]>();
+    const dependenciesByConfig = new Map<
+      string,
+      ReturnType<typeof ruleDependencies>
+    >();
     const dependenciesFor = (config: string) => {
       let dependencies = dependenciesByConfig.get(config);
       if (!dependencies) {
-        dependencies = externalDependencies(
+        dependencies = ruleDependencies(
           join(context.workspaceRoot, config),
+          context.workspaceRoot,
         );
         dependenciesByConfig.set(config, dependencies);
       }
@@ -161,15 +208,15 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
     const firstFileByRoot = new Map<string, string>();
     for (const file of configFiles) {
       const root = dirname(file);
-      if (!firstFileByRoot.has(root)) firstFileByRoot.set(root, file);
+      if (root !== WORKSPACE_ROOT && !firstFileByRoot.has(root)) {
+        firstFileByRoot.set(root, file);
+      }
     }
 
     return createNodesFromFiles(
-      (file, _options, context) => {
+      (file) => {
         const root = dirname(file);
-        if (root === WORKSPACE_ROOT || firstFileByRoot.get(root) !== file) {
-          return {};
-        }
+        if (firstFileByRoot.get(root) !== file) return {};
         const ownConfig = `${root}/${CONFIG_FILE}`;
         const config = existsSync(join(context.workspaceRoot, ownConfig))
           ? ownConfig

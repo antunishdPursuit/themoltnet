@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import type { CreateNodesContextV2, ProjectConfiguration } from '@nx/devkit';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createNodesV2, externalDependencies, orphanGlobs } from './index';
+import { createNodesV2, orphanGlobs, ruleDependencies } from './index';
 
 const ROOT_CONFIG = `{
   // Comments are valid: Secretlint parses its config as JSON5.
@@ -14,11 +14,12 @@ const ROOT_CONFIG = `{
     { "id": "@secretlint/secretlint-rule-pattern" },
   ],
 }`;
-const ROOT_DEPENDENCIES = [
+const ROOT_PACKAGES = [
   'secretlint',
   '@secretlint/secretlint-rule-preset-recommend',
   '@secretlint/secretlint-rule-pattern',
 ];
+const IGNORE_FILES = '{workspaceRoot}/**/.secretlintignore';
 
 describe('secretlint plugin', () => {
   let workspaceRoot: string;
@@ -80,18 +81,18 @@ describe('secretlint plugin', () => {
     expect(target?.command).toBe(
       "secretlint 'libs/a/**/*' --secretlintrc '.secretlintrc.json'",
     );
-    expect(target?.options).toBeUndefined();
     expect(target?.cache).toBe(true);
     expect(target?.inputs).toEqual([
       '{workspaceRoot}/libs/a/**/*',
       '{workspaceRoot}/.secretlintrc.json',
-      { externalDependencies: ROOT_DEPENDENCIES },
+      IGNORE_FILES,
+      { externalDependencies: ROOT_PACKAGES },
     ]);
   });
 
   it('uses a project config when one exists', async () => {
     // Arrange
-    touch('libs/a/.secretlintrc.json', '{ "rules": [] }');
+    touch('libs/a/.secretlintrc.json', '{ "rules": [{ "id": "./rule.js" }] }');
 
     // Act
     const entries = await run(['libs/a/package.json', 'tools/package.json']);
@@ -101,9 +102,35 @@ describe('secretlint plugin', () => {
     expect(target?.command).toContain(
       "--secretlintrc 'libs/a/.secretlintrc.json'",
     );
+    expect(target?.inputs).toContain('{workspaceRoot}/libs/a/rule.js');
     expect(target?.inputs).toContainEqual({
       externalDependencies: ['secretlint'],
     });
+  });
+
+  it('quotes paths so shell syntax stays literal', async () => {
+    // Arrange
+    touch("libs/it's $HOME/package.json");
+
+    // Act
+    const entries = await run([
+      "libs/it's $HOME/package.json",
+      'tools/package.json',
+    ]);
+
+    // Assert
+    expect(
+      byRoot(entries)["libs/it's $HOME"].targets?.secretlint?.command,
+    ).toBe(
+      "secretlint 'libs/it'\\''s $HOME/**/*' --secretlintrc '.secretlintrc.json'",
+    );
+  });
+
+  it('rejects a project root containing glob syntax', async () => {
+    // Act / Assert
+    await expect(
+      run(['libs/[id]/package.json', 'tools/package.json']),
+    ).rejects.toThrow(/"libs\/\[id\]" contains glob syntax/);
   });
 
   it('wires the workspace target to the orphan globs and the root config', async () => {
@@ -139,17 +166,30 @@ describe('secretlint plugin', () => {
       '{workspaceRoot}/infra/*',
       '{workspaceRoot}/infra/ory/**/*',
       '{workspaceRoot}/.secretlintrc.json',
-      { externalDependencies: ROOT_DEPENDENCIES },
+      IGNORE_FILES,
+      { externalDependencies: ROOT_PACKAGES },
     ]);
   });
 
-  it('emits a directory with two manifests once', async () => {
+  it('hosts the workspace target on the configured project', async () => {
     // Act
-    const entries = await run([
-      'libs/a/package.json',
-      'libs/a/project.json',
-      'tools/package.json',
-    ]);
+    const entries = await run(['libs/a/package.json'], {
+      workspaceTargetProjectRoot: 'libs/a',
+      workspaceTargetName: 'orphans',
+    });
+
+    // Assert
+    expect(Object.keys(byRoot(entries)['libs/a'].targets ?? {}).sort()).toEqual(
+      ['orphans', 'secretlint'],
+    );
+  });
+
+  it.each([
+    [['libs/a/package.json', 'libs/a/project.json']],
+    [['libs/a/project.json', 'libs/a/package.json']],
+  ])('emits a directory with two manifests once (%j)', async (manifests) => {
+    // Act
+    const entries = await run([...manifests, 'tools/package.json']);
 
     // Assert
     expect(entries.filter(([root]) => root === 'libs/a')).toHaveLength(1);
@@ -162,13 +202,35 @@ describe('secretlint plugin', () => {
     );
   });
 
+  it('names a malformed project config while building the graph', async () => {
+    // Arrange
+    touch('libs/a/.secretlintrc.json', '{ "rules": {} }');
+
+    // Act
+    const error = await run(['libs/a/package.json', 'tools/package.json']).then(
+      () => undefined,
+      (caught: unknown) => caught as { errors?: Array<[string, Error]> },
+    );
+
+    // Assert: Nx reports each per-file error with its manifest.
+    expect(error?.errors).toEqual([
+      [
+        'libs/a/package.json',
+        expect.objectContaining({
+          message: expect.stringMatching(
+            /cannot read libs\/a\/\.secretlintrc\.json: "rules" must be an array/,
+          ),
+        }),
+      ],
+    ]);
+  });
+
   it('skips gitignored files and directories when computing orphan globs', () => {
     // Act: libs/ holds only a gitignored file besides its project.
     const globs = orphanGlobs(['libs/a', 'tools'], workspaceRoot);
 
     // Assert
-    expect(globs).not.toContain('libs/*');
-    expect(globs).not.toContain('node_modules/**/*');
+    expect(globs).toEqual(['*', '.github/**/*', 'infra/**/*', 'packages/**/*']);
   });
 
   it('computes orphan globs without a .gitignore', () => {
@@ -183,16 +245,19 @@ describe('secretlint plugin', () => {
     expect(globs).toContain('node_modules/**/*');
   });
 
-  describe('externalDependencies', () => {
-    it('keeps only string rule ids', () => {
+  describe('ruleDependencies', () => {
+    const read = () =>
+      ruleDependencies(join(workspaceRoot, 'rc.json'), workspaceRoot);
+
+    it('splits rule packages from local rule files', () => {
       // Arrange
-      touch('rc.json', '{ "rules": [{ "id": "a" }, { "id": 1 }, {}] }');
+      touch('rc.json', '{ "rules": [{ "id": "a" }, { "id": "./local.js" }] }');
 
       // Act / Assert
-      expect(externalDependencies(join(workspaceRoot, 'rc.json'))).toEqual([
-        'secretlint',
-        'a',
-      ]);
+      expect(read()).toEqual({
+        packages: ['secretlint', 'a'],
+        files: ['local.js'],
+      });
     });
 
     it('accepts a config without rules', () => {
@@ -200,19 +265,20 @@ describe('secretlint plugin', () => {
       touch('rc.json', '{}');
 
       // Act / Assert
-      expect(externalDependencies(join(workspaceRoot, 'rc.json'))).toEqual([
-        'secretlint',
-      ]);
+      expect(read()).toEqual({ packages: ['secretlint'], files: [] });
     });
 
-    it('names the config file when it cannot be parsed', () => {
+    it.each([
+      ['{ "rules": [', /cannot read rc\.json/],
+      ['{ "rules": {} }', /"rules" must be an array/],
+      ['{ "rules": [null] }', /every rule needs a string "id"/],
+      ['{ "rules": [{ "id": 1 }] }', /every rule needs a string "id"/],
+    ])('names the config file when %s is invalid', (content, message) => {
       // Arrange
-      touch('rc.json', '{ "rules": [');
+      touch('rc.json', content);
 
       // Act / Assert
-      expect(() =>
-        externalDependencies(join(workspaceRoot, 'rc.json')),
-      ).toThrow(/secretlint plugin: cannot read .*rc\.json/);
+      expect(read).toThrow(message);
     });
   });
 });

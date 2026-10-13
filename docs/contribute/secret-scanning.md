@@ -1,7 +1,8 @@
 # Secret Scanning
 
-Every Nx project has a cached `secretlint` target that scans the project's files
-with [Secretlint](https://github.com/secretlint/secretlint). CI runs it through
+Every Nx project except the workspace root has a cached `secretlint` target that
+scans the project's files with
+[Secretlint](https://github.com/secretlint/secretlint). CI runs it through
 `nx affected`, so a pull request scans only the projects it changes.
 
 ## Targets
@@ -12,7 +13,7 @@ the root one.
 
 | Target                                | Runs                                                                                                                     |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `<project>:secretlint`                | `secretlint "<projectRoot>/**/*"`                                                                                        |
+| `<project>:secretlint`                | `secretlint '<projectRoot>/**/*' --secretlintrc <config>`                                                                |
 | `@moltnet/tools:secretlint:workspace` | `secretlint` over every directory and file outside all projects, such as `.github/**/*`, `infra/ory/**/*` and root files |
 
 The plugin computes the workspace target's globs from the project roots, so
@@ -46,16 +47,12 @@ Findings are masked in the output, so CI logs never print the matched value.
 
 ## Configuration
 
-The root `.secretlintrc.json` applies to every project. It enables:
+The root `.secretlintrc.json` applies to every project that has no config of its
+own, and to the workspace target. Read it for the enabled rules and `allows`
+patterns.
 
-- `@secretlint/secretlint-rule-preset-recommend`, with `allows` entries for the
-  local development database passwords used by Docker Compose and the e2e stack;
-- `@secretlint/secretlint-rule-azure`;
-- `@secretlint/secretlint-rule-pattern` for MoltNet credentials files
-  (`private_key`, `client_secret`) and short PKCS8 private keys.
-
-A change to the root config marks every project as affected, so CI rescans the
-workspace with the new rules.
+A change to the root config marks every project as affected, so CI rescans those
+projects with the new rules.
 
 To use different rules in one project, add `{projectRoot}/.secretlintrc.json`.
 It replaces the root config for that project; it does not extend it.
@@ -75,3 +72,8 @@ hide a real secret added later.
 
 Add an `allows` pattern to `.secretlintrc.json` only for a value that recurs
 across many files, such as a local development password.
+
+Do not add a `.secretlintignore` file. The CLI honours one in any directory, so
+it can hide files from every scan; suppress findings inline instead. Every
+target hashes all `.secretlintignore` files, so adding or removing one reruns
+the scans.
