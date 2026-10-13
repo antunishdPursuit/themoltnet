@@ -6,6 +6,7 @@ import {
   ModelDiscoveryCollector,
   OLLAMA_THINKING_LEVEL_MAP,
   parseProviderBaseUrl,
+  readOllamaCapabilities,
 } from './model-discovery.js';
 
 function expectDiscoveryCode(run: () => unknown, code: string): void {
@@ -21,6 +22,47 @@ function expectDiscoveryCode(run: () => unknown, code: string): void {
 }
 
 describe('provider model discovery protocol', () => {
+  it('detects decision models and removes chat-only metadata after probing', () => {
+    const collector = new ModelDiscoveryCollector();
+    collector.addOllamaResponse({
+      models: [
+        { name: 'nimble:latest', capabilities: ['decision'] },
+        { name: 'chat', capabilities: ['completion', 'vision'] },
+      ],
+    });
+    collector.setCapabilities(
+      'nimble:latest',
+      readOllamaCapabilities({
+        capabilities: ['decision'],
+        model_info: {
+          'general.architecture': 'qwen35',
+          'qwen35.context_length': 262144,
+        },
+      })!,
+    );
+    expect(collector.result('ollama', []).models).toEqual([
+      { id: 'chat', input: ['text', 'image'], reasoning: false },
+      {
+        id: 'nimble:latest',
+        type: 'classifier',
+        api: 'typesafe-system-one',
+        contextWindow: 262144,
+      },
+    ]);
+  });
+
+  it.each([0, -1, 1.5, '262144', null])(
+    'ignores invalid decision context window %s',
+    (context) => {
+      expect(
+        readOllamaCapabilities({
+          capabilities: ['decision'],
+          model_info: { 'qwen35.context_length': context },
+        }),
+      ).toEqual({ type: 'classifier', api: 'typesafe-system-one' });
+    },
+  );
+
   it('derives thinking levels from Ollama model metadata', () => {
     const collector = new ModelDiscoveryCollector();
     collector.addOllamaResponse({

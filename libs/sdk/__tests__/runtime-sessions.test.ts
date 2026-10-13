@@ -205,6 +205,38 @@ describe('Durable operation retries', () => {
     expect(JSON.parse(await requests[0].clone().text())).toEqual(commit);
   });
 
+  it('allocates a fresh candidate after a lost ID response and database contention', async () => {
+    vi.useFakeTimers();
+    let nextId = 2;
+    let calls = 0;
+    const { sessions, requests } = setup(() => {
+      if (++calls === 1) {
+        nextId++; // Allocated, but the response never reached the caller.
+        throw new TypeError('lost allocation response');
+      }
+      if (calls === 2) return Response.json({}, { status: 503 });
+      return Response.json({ id: nextId++ });
+    });
+    const allocated = sessions.mintId('store', writer, options);
+    await vi.advanceTimersByTimeAsync(3_000);
+    await expect(allocated).resolves.toEqual({ id: 3 });
+    await expect(sessions.mintId('store', writer, options)).resolves.toEqual({
+      id: 4,
+    });
+    for (const request of requests)
+      expect(await request.json()).toEqual(writer);
+  });
+
+  it('does not retry ID allocation with stale writer authority', async () => {
+    const { sessions, requests } = setup(() =>
+      Response.json({}, { status: 409 }),
+    );
+    await expect(
+      sessions.mintId('store', writer, options),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(requests).toHaveLength(1);
+  });
+
   it('retries renewal with the same authority', async () => {
     vi.useFakeTimers();
     let attempt = 0;
@@ -249,51 +281,57 @@ describe('Durable operation retries', () => {
     expect(requests).toHaveLength(2);
   });
 
-  it('bounds repeated transient failures to four requests', async () => {
-    vi.useFakeTimers();
-    const { sessions, requests } = setup(() =>
-      Response.json({}, { status: 503 }),
-    );
-    const rejected = expect(
-      sessions.append('store', commit, options),
-    ).rejects.toMatchObject({ statusCode: 503 });
-    await vi.advanceTimersByTimeAsync(5_000);
-    await rejected;
-    expect(requests).toHaveLength(4);
-  });
-
-  it('stops during backoff when the shared operation budget expires', async () => {
-    vi.useFakeTimers();
-    const controller = new AbortController();
-    const { sessions, requests } = setup(() => {
-      setTimeout(() => controller.abort(new Error('lease deadline')), 50);
-      return Response.json({}, { status: 503 });
-    });
-    const rejected = expect(
-      sessions.append('store', commit, {
-        ...options,
-        signal: controller.signal,
-      }),
-    ).rejects.toThrow();
-    await vi.advanceTimersByTimeAsync(2_000);
-    await rejected;
-    expect(requests).toHaveLength(1);
-  });
-
-  it.each(['open', 'mintId'] as const)(
-    'does not replay %s after an ambiguous response',
+  it.each(['append', 'mintId'] as const)(
+    'bounds %s failures to four requests',
     async (method) => {
-      const { sessions, requests } = setup(() => {
-        throw new TypeError('fetch failed');
-      });
-      await expect(
-        method === 'open'
-          ? sessions.open(authority, options)
+      vi.useFakeTimers();
+      const { sessions, requests } = setup(() =>
+        Response.json({}, { status: 503 }),
+      );
+      const rejected = expect(
+        method === 'append'
+          ? sessions.append('store', commit, options)
           : sessions.mintId('store', writer, options),
+      ).rejects.toMatchObject({ statusCode: 503 });
+      await vi.advanceTimersByTimeAsync(5_000);
+      await rejected;
+      expect(requests).toHaveLength(4);
+    },
+  );
+
+  it.each(['append', 'mintId'] as const)(
+    'stops %s backoff when the operation budget expires',
+    async (method) => {
+      vi.useFakeTimers();
+      const controller = new AbortController();
+      const { sessions, requests } = setup(() => {
+        setTimeout(() => controller.abort(new Error('lease deadline')), 50);
+        return Response.json({}, { status: 503 });
+      });
+      const rejected = expect(
+        method === 'append'
+          ? sessions.append('store', commit, {
+              ...options,
+              signal: controller.signal,
+            })
+          : sessions.mintId('store', writer, {
+              ...options,
+              signal: controller.signal,
+            }),
       ).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(2_000);
+      await rejected;
       expect(requests).toHaveLength(1);
     },
   );
+
+  it('does not replay writer acquisition after an ambiguous response', async () => {
+    const { sessions, requests } = setup(() => {
+      throw new TypeError('fetch failed');
+    });
+    await expect(sessions.open(authority, options)).rejects.toThrow();
+    expect(requests).toHaveLength(1);
+  });
 
   it('retries read headers while retaining the commit cursor', async () => {
     vi.useFakeTimers();

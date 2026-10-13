@@ -13,16 +13,20 @@ import {
   type ToolRegistration,
 } from '@earendil-works/pi-durable';
 import {
+  AgentRuntime,
+  ApiTaskReporter,
   type ClaimedTask,
   createSubagentContractRegistry,
   TaskExecutionInterrupted,
   type TaskReporter,
 } from '@themoltnet/agent-runtime';
+import type { RuntimeSessionsNamespace, TasksNamespace } from '@themoltnet/sdk';
 import { describe, expect, it, type Mock, vi } from 'vitest';
 
 import { remoteLog } from '../__tests__/durable-log.js';
 import { createDurableTaskExecutor } from './durable-executor.js';
 import { ApiDurableStorage } from './durable-storage.js';
+import { acquireDurableTransport } from './durable-transport.js';
 
 function task(
   id = 'aaaaaaaa-0000-4000-8000-000000000001',
@@ -184,6 +188,10 @@ describe('Durable task integration', () => {
     expect(prompt).toContain('Agent submission schema:');
     expect(prompt).toContain('"summary"');
     expect(prompt).toContain('The first valid submission is final');
+    expect(prompt).toContain('Omit optional fields when they do not apply');
+    expect(prompt).toContain(
+      'Include branch only when the task used a Git branch',
+    );
   });
 
   it('normalizes strict-mode nulls and records submit-gate verification durably', async () => {
@@ -832,4 +840,171 @@ describe('turn limits and cleanup', () => {
       stderr.mockRestore();
     }
   });
+});
+
+it('stops an in-flight tool on server timeout and drains the next task without refinalizing', async () => {
+  vi.useFakeTimers();
+  try {
+    const claimed = task();
+    claimed.claimAuthority = {
+      leaseId: 'lease',
+      executorFingerprint: 'executor',
+    } as ClaimedTask['claimAuthority'];
+    const remote = remoteLog();
+    let timedOut = false;
+    const startedAt = new Date().toISOString();
+    const conflict = Object.assign(
+      new Error('Attempt authority is no longer active'),
+      { statusCode: 409 },
+    );
+    const stores = {
+      open: vi.fn(async () => ({
+        storeId: 'store',
+        writerToken: 'writer',
+        writerExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+      })),
+      renew: vi.fn(async () => {
+        if (timedOut) throw conflict;
+        return { writerExpiresAt: new Date(Date.now() + 30_000).toISOString() };
+      }),
+      read: vi.fn(async (_id: string, seq: number) =>
+        remote.transport.read(seq, BACKGROUND_CONTEXT),
+      ),
+      mintId: vi.fn(async () => ({ id: await remote.transport.mintId() })),
+      append: vi.fn(
+        async (
+          _id: string,
+          commit: Parameters<typeof remote.transport.append>[0],
+        ) => remote.transport.append(commit, BACKGROUND_CONTEXT),
+      ),
+      release: vi.fn(async () => {}),
+    };
+    const tasks = {
+      heartbeat: vi.fn(async () => ({ cancelled: false })),
+      appendMessages: vi.fn(async () => ({ count: 1 })),
+      listAttempts: vi.fn(async () => [
+        {
+          attemptN: 1,
+          status: 'timed_out',
+          startedAt,
+          completedAt: new Date().toISOString(),
+          error: {
+            code: 'running_total_exceeded',
+            message: 'running_total_exceeded',
+          },
+          output: null,
+          outputCid: null,
+          usage: null,
+        },
+      ]),
+    };
+    const faux = fauxProvider({ tokensPerSecond: 0 });
+    const models = createModels();
+    models.setProvider(faux.provider);
+    faux.setResponses([
+      fauxAssistantMessage(fauxToolCall('wait', {}), { stopReason: 'toolUse' }),
+      submitted(),
+    ]);
+    let markToolStarted!: () => void;
+    const toolStarted = new Promise<void>((resolve) => {
+      markToolStarted = resolve;
+    });
+    const toolStopped = vi.fn();
+    const environmentClosed = vi.fn();
+    const execute = createDurableTaskExecutor({
+      models,
+      model: { provider: faux.provider.id, modelId: faux.models[0].id },
+      open: async (claim, signal) => {
+        const connection = await acquireDurableTransport({
+          stores: stores as unknown as RuntimeSessionsNamespace,
+          claimed: claim,
+          signal,
+        });
+        return {
+          ...connection,
+          storage: await ApiDurableStorage.open(
+            connection.transport,
+            BACKGROUND_CONTEXT,
+          ),
+          prepare: async () => ({
+            authorizeTool: async () => undefined,
+            close: environmentClosed,
+            tools: [
+              defineTool({
+                name: 'wait',
+                description: 'Wait for external work',
+                parameters: Type.Object({}),
+                async execute(_args, _api, context) {
+                  markToolStarted();
+                  await new Promise<void>((_resolve, reject) => {
+                    const stop = () => {
+                      toolStopped();
+                      reject(
+                        new Error('Tool aborted', {
+                          cause: context.abortSignal?.reason,
+                        }),
+                      );
+                    };
+                    if (context.abortSignal?.aborted) stop();
+                    else
+                      context.abortSignal?.addEventListener('abort', stop, {
+                        once: true,
+                      });
+                  });
+                  return { content: [] };
+                },
+              }),
+            ],
+          }),
+        };
+      },
+    });
+    const queue = [claimed, task('bbbbbbbb-0000-4000-8000-000000000002')];
+    const next = setup();
+    next.faux.setResponses([submitted()]);
+    const finished = vi.fn();
+    const apiReporter = new ApiTaskReporter({
+      tasks: tasks as unknown as TasksNamespace,
+      teamId: 'team',
+      heartbeatIntervalMs: 0,
+    });
+    const finalize = vi.spyOn(apiReporter, 'finalize');
+    const runtime = new AgentRuntime({
+      source: {
+        claim: async () => queue.shift() ?? null,
+        close: async () => {},
+      },
+      makeReporter: (claim) =>
+        claim.task.id === claimed.task.id ? apiReporter : reporter(),
+      executeTask: (claim, events) =>
+        claim.task.id === claimed.task.id
+          ? execute(claim, events)
+          : next.execute(claim, events),
+      onTaskFinished: finished,
+    });
+    const pending = runtime.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await toolStarted;
+    // The server's running budget expires while a tool is still executing.
+    timedOut = true;
+    await vi.advanceTimersByTimeAsync(5_000);
+    const outputs = await pending;
+    expect(outputs.map((output) => output.status)).toEqual([
+      'failed',
+      'completed',
+    ]);
+    expect(outputs[0].error?.code).toBe('running_total_exceeded');
+    expect(toolStopped).toHaveBeenCalledTimes(1);
+    expect(environmentClosed).toHaveBeenCalledTimes(1);
+    expect(faux.state.callCount).toBe(1);
+    expect(finalize).not.toHaveBeenCalled();
+    expect(finished).toHaveBeenCalledTimes(1);
+    expect(finished.mock.calls[0][0].taskId).toBe(outputs[1].taskId);
+    expect(stores.release).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(stores.renew).toHaveBeenCalledTimes(1);
+    expect(tasks.listAttempts).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });

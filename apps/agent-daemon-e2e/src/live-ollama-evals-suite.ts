@@ -37,7 +37,9 @@ const CORPUS_ROOT = join(import.meta.dirname, '../../..', 'evals-v2');
  * Submit validation recovery happens inside each task's active Pi session;
  * these whole-task reruns only tolerate independent model sampling variance.
  * A scenario that never passes in N runs is a genuine red; retries are logged
- * so the flake rate stays visible rather than silently masked.
+ * so the flake rate stays visible rather than silently masked. Scenarios with
+ * `blocking: false` in `eval.json` report that red as a GitHub warning
+ * annotation instead of failing the lane.
  */
 const MAX_SCENARIO_RUNS = 3;
 const LIVE_EVAL_PARTITION_COUNT = 2;
@@ -220,10 +222,17 @@ export function defineLiveOllamaEvalSuite(partitionIndex: number): void {
             }
           }
 
-          expect(
-            result?.passed ?? false,
-            `${scenario.slug} did not pass in ${MAX_SCENARIO_RUNS} run(s) — last: ${lastDetail}`,
-          ).toBe(true);
+          const passed = result?.passed ?? false;
+          const failureMessage = `${scenario.slug} did not pass in ${MAX_SCENARIO_RUNS} run(s) — last: ${lastDetail}`;
+          if (!passed && !scenario.blocking) {
+            // Workflow-command syntax: GitHub Actions turns this stdout line
+            // into a warning annotation on the run summary.
+            process.stdout.write(
+              `::warning title=Non-blocking eval failed::${failureMessage.replace(/\r?\n/g, ' ')}\n`,
+            );
+            return;
+          }
+          expect(passed, failureMessage).toBe(true);
         },
         1_800_000,
       );

@@ -159,6 +159,12 @@ only after the attempt has started. Listing and downloading require normal task
 read access. Artifacts inherit the task's team scope and tenant storage policy;
 their bindings are deleted with the task.
 
+Staging and attempt upload scan artifact bytes for credential-like material
+before storing them. This also applies to supported compressed content (`gzip`,
+`br`, and `deflate`). A match returns HTTP 400; redact the file and retry the
+upload. Invalid content encoding also returns HTTP 400. If validation is
+temporarily unavailable, retry after the HTTP 503 response.
+
 Unbound staged objects are swept after the orphan grace period, which defaults
 to 48 hours and is configured by `TASK_ARTIFACT_ORPHAN_GRACE_SEC`. Objects with
 artifact rows remain protected; shared CIDs are retained while any binding still

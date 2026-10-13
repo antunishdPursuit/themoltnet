@@ -275,3 +275,74 @@ it('does not finalize a durably interrupted attempt', async () => {
   expect(source.events).toContain('close');
   expect(reporter.events).toContain('close');
 });
+
+it('reports an authoritative timeout and continues without finalizing it again', async () => {
+  const first = makeFulfillBriefTask({
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  });
+  const next = makeFulfillBriefTask({
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  });
+  const timeout = {
+    ...makeOutput(first, 'failed'),
+    error: {
+      code: 'running_total_exceeded',
+      message: 'running_total_exceeded',
+      retryable: false,
+    },
+  };
+  const reporter = Object.assign(new RecordingReporter(), {
+    reconcileAttempt: vi.fn(async () => timeout),
+  });
+  // A late local cancellation must not overwrite the server's timeout.
+  reporter.triggerCancel();
+  const onTaskFinished = vi.fn();
+  const runtime = new AgentRuntime({
+    source: new ArraySource([first, next]),
+    makeReporter: ({ task }) =>
+      task.id === first.id ? reporter : new RecordingReporter(),
+    onTaskFinished,
+    executeTask: async ({ task }) => {
+      if (task.id === first.id)
+        throw new TaskExecutionInterrupted('writer lost');
+      return makeOutput(task, 'completed');
+    },
+  });
+
+  const outputs = await runtime.start();
+
+  expect(outputs).toEqual([timeout, makeOutput(next, 'completed')]);
+  expect(onTaskFinished).toHaveBeenCalledTimes(1);
+  expect(onTaskFinished).toHaveBeenCalledWith(
+    makeOutput(next, 'completed'),
+    expect.objectContaining({ task: next }),
+  );
+  expect(runtime.getStatus().tasksProcessed).toBe(2);
+});
+
+it.each(['active', 'lookup failed'])(
+  'keeps interruption semantics when reconciliation is %s',
+  async (mode) => {
+    const interruption = new TaskExecutionInterrupted('writer lost', {
+      cause: new Error('transport failed'),
+    });
+    const onTaskFinished = vi.fn();
+    const reporter = Object.assign(new RecordingReporter(), {
+      reconcileAttempt: vi.fn(async () => {
+        if (mode === 'lookup failed') throw new Error('API unavailable');
+        return null;
+      }),
+    });
+    const runtime = new AgentRuntime({
+      source: new ArraySource([makeFulfillBriefTask()]),
+      makeReporter: () => reporter,
+      executeTask: async () => {
+        throw interruption;
+      },
+      onTaskFinished,
+    });
+
+    await expect(runtime.start()).rejects.toBe(interruption);
+    expect(onTaskFinished).not.toHaveBeenCalled();
+  },
+);

@@ -22,11 +22,11 @@ catalogs:
       specifier: ^20.1.0
       version: 20.5.3
     '@dbos-inc/dbos-sdk':
-      specifier: 4.24.16
-      version: 4.24.16
+      specifier: 4.27.6
+      version: 4.27.6
     '@dbos-inc/drizzle-datasource':
-      specifier: 4.24.16
-      version: 4.24.16
+      specifier: 4.27.6
+      version: 4.27.6
     '@dotenvx/dotenvx':
       specifier: ^1.59.1
       version: 1.59.1
@@ -192,6 +192,18 @@ catalogs:
     '@scalar/fastify-api-reference':
       specifier: ^1.0.0
       version: 1.44.25
+    '@secretlint/core':
+      specifier: ^13.0.7
+      version: 13.0.7
+    '@secretlint/secretlint-rule-azure':
+      specifier: ^13.0.7
+      version: 13.0.7
+    '@secretlint/secretlint-rule-pattern':
+      specifier: ^13.0.7
+      version: 13.0.7
+    '@secretlint/secretlint-rule-preset-recommend':
+      specifier: ^13.0.7
+      version: 13.0.7
     '@swc-node/register':
       specifier: ~1.11.1
       version: 1.11.1
@@ -1474,10 +1486,10 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@dbos-inc/drizzle-datasource':
         specifier: 'catalog:'
-        version: 4.24.16(@dbos-inc/dbos-sdk@4.24.16)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
+        version: 4.27.6(@dbos-inc/dbos-sdk@4.27.6)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
       '@fastify/cors':
         specifier: 'catalog:'
         version: 11.2.0
@@ -2264,10 +2276,10 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@dbos-inc/drizzle-datasource':
         specifier: 'catalog:'
-        version: 4.24.16(@dbos-inc/dbos-sdk@4.24.16)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
+        version: 4.27.6(@dbos-inc/dbos-sdk@4.27.6)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
       '@moltnet/models':
         specifier: workspace:*
         version: link:../models
@@ -2908,6 +2920,18 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.1
+      '@secretlint/core':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-azure':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-pattern':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-preset-recommend':
+        specifier: 'catalog:'
+        version: 13.0.7
       '@themoltnet/agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
@@ -2957,6 +2981,9 @@ importers:
       '@moltnet/runtime-profiles':
         specifier: workspace:*
         version: link:../runtime-profiles
+      '@moltnet/secret-scanner':
+        specifier: workspace:*
+        version: link:../secret-scanner
       '@moltnet/tasks':
         specifier: workspace:*
         version: link:../tasks
@@ -3232,6 +3259,31 @@ importers:
         specifier: 'catalog:'
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.19.19)(@vitest/ui@3.2.7)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.33.0)(terser@5.47.1)(tsx@4.21.0)(yaml@2.8.4)
 
+  libs/secret-scanner:
+    dependencies:
+      '@secretlint/core':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-azure':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-pattern':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-preset-recommend':
+        specifier: 'catalog:'
+        version: 13.0.7
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.19
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.19.19)(@vitest/ui@3.2.7)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@2.0.1))(lightningcss@1.33.0)(terser@5.47.1)(tsx@4.21.0)(yaml@2.8.4)
+
   libs/security-review:
     devDependencies:
       '@types/node':
@@ -3304,7 +3356,7 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@moltnet/crypto-service':
         specifier: workspace:*
         version: link:../crypto-service
@@ -3355,6 +3407,9 @@ importers:
       '@moltnet/database':
         specifier: workspace:*
         version: link:../database
+      '@moltnet/secret-scanner':
+        specifier: workspace:*
+        version: link:../secret-scanner
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -3506,11 +3561,17 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@moltnet/database':
         specifier: workspace:*
         version: link:../database
     devDependencies:
+      '@testcontainers/postgresql':
+        specifier: 'catalog:'
+        version: 11.12.0
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -4903,13 +4964,13 @@ packages:
   '@dabh/diagnostics@2.0.8':
     resolution: {integrity: sha512-R4MSXTVnuMzGD7bzHdW2ZhhdPC/igELENcq5IjEverBvq5hn1SXCWcsi6eSsdWP0/Ur+SItRRjAktmdoX/8R/Q==}
 
-  '@dbos-inc/dbos-sdk@4.24.16':
-    resolution: {integrity: sha512-H6Kxd7QHluYR5sw0nVPsaOMW9/VlSgUZjfcpllmUY5D4O8tBuXXRqTFX3y41KrNjT3sTdETP9tyHwsZ8lqI54Q==}
+  '@dbos-inc/dbos-sdk@4.27.6':
+    resolution: {integrity: sha512-mr5CEllYovAHPh/TpQcvxTYM+4t4tgV7CjkZGe7hzNxw9Nzf6l7ggxJKDbewLFwgwx8NaWcWw21ESHXNE1UwrA==}
     engines: {node: '>=20'}
     hasBin: true
 
-  '@dbos-inc/drizzle-datasource@4.24.16':
-    resolution: {integrity: sha512-GHTkqzJJa4taKyHDB3Dahc74SLvGwPJAprEcQY+LVIVk0hY8ASrj4y6AJcyomtLevBC1ZVviVuRG0PI6/nsXvg==}
+  '@dbos-inc/drizzle-datasource@4.27.6':
+    resolution: {integrity: sha512-nAdXqyYb7FKgNKJXLMpTwIkD2Famgs4EO9vlWOYlUfUwUoRdrseZ8iVxerdgwXaOWgKYHFdyk6M0thWOPEnnpA==}
     peerDependencies:
       '@dbos-inc/dbos-sdk': '*'
       drizzle-orm: '*'
@@ -7965,6 +8026,44 @@ packages:
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
+  '@secretlint/config-loader@13.0.7':
+    resolution: {integrity: sha512-0jjO646AnOwTF/iYTfe1EE/tVW2PH/VWRVlCXypffaVHBnJOP6yprL4WCjrQs9h4XUfbQgGmX+86I0MkQ5pebA==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/core@13.0.7':
+    resolution: {integrity: sha512-IcOR87MpNjp/WTO7bVMsIj3qkhVD+Qr/oNaA0Xl4Ok1LqG4bjXu5RjiY0Kid70BoR9eCJgkoq5gNHDGXPx+o1g==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/profiler@13.0.7':
+    resolution: {integrity: sha512-srhOnrrS8u6vkje+YhYZXoXXwgwZlt60x5q9C2vDjPHfkQcEXMXNDdtX7Dx1Bkw7GKuCNIn+3R5AEOphHikQ/Q==}
+
+  '@secretlint/resolver@13.0.7':
+    resolution: {integrity: sha512-Ru3qBQqfi9s/uazHiVcyAvlQuq3X8q/8eXNqacZ0r/DvWtjb2JBBhIjzx/RrbfJhlsd5yjsrE6C1/Q710Em1Hw==}
+
+  '@secretlint/secretlint-rule-azure@13.0.7':
+    resolution: {integrity: sha512-sf+xex5O24nqo4nu7AcRCmmZeh7nbQE78rkYp/ApaT7af4YAORNdwXC0sZmS62xHKJxOdBTb36bEP8UzkdZZSg==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/secretlint-rule-pattern@13.0.7':
+    resolution: {integrity: sha512-h05l2ZJalQvD/udVQUPNOsIsBtNHx7gfLCvn9z4/IcGwxLgNoD+iDnYN7uZaerCbGGkgcKNMCXmaH+72rzYBuw==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/secretlint-rule-preset-recommend@13.0.7':
+    resolution: {integrity: sha512-hfdYra+ZB6RmviEApxeL/YCx4ovBtpj0d9c+uhlCZaCikObjb8Sb8yqBN6g8/9tt7qD7LXGE3k9RtVvGK1fNVw==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/source-creator@13.0.7':
+    resolution: {integrity: sha512-agf2lHf3f5CRHl7ZSQV2NTx4niPOf9qkLnuowSGoqeWycK5PTuyinlTqp6iq0gQt6TBhvyFu3nKNkXcrB9jWxw==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/tester@13.0.7':
+    resolution: {integrity: sha512-Miuye3tZxxVCdbpHYFlYkC+YrpiL2P9IfcWhhSWaTdnB7v992wCc/tk+cQYt80sH0ejbloZYyOBnaDF5rNxUNQ==}
+    engines: {node: '>=22.0.0'}
+
+  '@secretlint/types@13.0.7':
+    resolution: {integrity: sha512-5DI1W8vTjBt5ZSrLXNMCX439f+36fzQLrSGi0JPu1vhBKl3QLxPu/ilPJ5x2Ul7pU3aWUrpRva9mvojSAi4h0A==}
+    engines: {node: '>=22.0.0'}
+
   '@sentry/conventions@0.16.0':
     resolution: {integrity: sha512-fO9PLmHdVURcSPUpWCItWAtgKiMwGdJHbovoSEyLplX5sxs2ugvI4CBPTrkkgqhObnZOD0CnWBKDzSVQYBKEyQ==}
     engines: {node: '>=14'}
@@ -8327,6 +8426,9 @@ packages:
         optional: true
       '@types/react-dom':
         optional: true
+
+  '@textlint/regexp-string-matcher@2.0.2':
+    resolution: {integrity: sha512-OXLD9XRxMhd3S0LWuPHpiARQOI7z9tCOs0FsynccW2lmyZzHHFJ9/eR6kuK9xF459Qf+740qI5h+/0cx+NljzA==}
 
   '@thednp/dommatrix@2.0.12':
     resolution: {integrity: sha512-eOshhlSShBXLfrMQqqhA450TppJXhKriaQdN43mmniOCMn9sD60QKF1Axsj7bKl339WH058LuGFS6H84njYH5w==}
@@ -9529,6 +9631,10 @@ packages:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
 
+  binaryextensions@6.11.0:
+    resolution: {integrity: sha512-sXnYK/Ij80TO3lcqZVV2YgfKN5QjUWIRk/XSm2J/4bd/lPko3lvk0O4ZppH6m+6hB2/GTu+ptNwVFe1xh+QLQw==}
+    engines: {node: '>=4'}
+
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
 
@@ -9551,6 +9657,9 @@ packages:
   boolean@3.2.0:
     resolution: {integrity: sha512-d0II/GO9uf9lfUHH2BQsjxzRJZBdsjgsBiW4BvhWk/3qoKwQFjIDVN19PfX8F2D/r9PCMTtLWjYVCFrpeYUzsw==}
     deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+  boundary@2.0.0:
+    resolution: {integrity: sha512-rJKn5ooC9u8q13IMCrW0RSp31pxBCHE3y9V/tp3TdWSLf8Em3p6Di4NBpfzbJge9YjjFEsD0RtFEjtvHL5VyEA==}
 
   bowser@2.14.1:
     resolution: {integrity: sha512-tzPjzCxygAKWFOJP011oxFHs57HzIhOEracIgAePE4pqB3LikALKnSzUyU4MGs9/iCEUuHlAJTjTc5M+u7YEGg==}
@@ -10542,6 +10651,10 @@ packages:
     resolution: {integrity: sha512-wCL/Ydgt0DPkWecjhhPj2/lnDxsGeHLPKeJYKKMTNol+ULFVg4WaTvxoB19GU4tieM6LSA3vZEdZxmDC0DwIpQ==}
     engines: {node: '>=20.0.0'}
     hasBin: true
+
+  editions@6.22.0:
+    resolution: {integrity: sha512-UgGlf8IW75je7HZjNDpJdCv4cGJWIi6yumFdZ0R7A8/CIhQiWUjyGLCxdHpd8bmyD1gnkfUNK0oeOXqUS2cpfQ==}
+    engines: {ecmascript: '>= es5', node: '>=4'}
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
@@ -11890,6 +12003,10 @@ packages:
     resolution: {integrity: sha512-HGYWWS/ehqTV3xN10i23tkPkpH46MLCIMFNCaaKNavAXTF1RkqxawEPtnjnGZ6XKSInBKkiOA5BKS+aZiY3AvA==}
     engines: {node: '>=8'}
 
+  istextorbinary@9.5.0:
+    resolution: {integrity: sha512-5mbUj3SiZXCuRf9fT3ibzbSSEWiy63gFfksmGfdOzujPjW3k+z8WvIBxcJHBoQNlaZaiyB25deviif2+osLmLw==}
+    engines: {node: '>=4'}
+
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
@@ -12353,8 +12470,17 @@ packages:
   lodash.pickby@4.6.0:
     resolution: {integrity: sha512-AZV+GsS/6ckvPOVQPXSiFFacKvKB4kOQu6ynt9wz0F3LO4R9Ij4K1ddYsIytDpSgLz88JHd9P+oaLeej5/Sl7Q==}
 
+  lodash.sortby@4.7.0:
+    resolution: {integrity: sha512-HDWXG8isMntAyRF5vZ7xKuEvOhT4AhlRt/3czTSjvGUxjYCBVRQY48ViDHyfYz9VIoBkW4TMGQNapx+l3RUwdA==}
+
   lodash.union@4.6.0:
     resolution: {integrity: sha512-c4pB2CdGrGdjMKYLA+XiRDO7Y0PRQbm/Gzg8qMj+QH+pFVAoTp5sBpO0odL3FjoPCGjK96p6qsP+yQoiLoOBcw==}
+
+  lodash.uniq@4.5.0:
+    resolution: {integrity: sha512-xfBaXQd9ryd9dlSDvnvI0lvxfLJlYAZzXomUYzLKtUeOQvOP5piqAWuGtrhWeqaXK9hhoM/iyJc5AV+XfsX3HQ==}
+
+  lodash.uniqwith@4.5.0:
+    resolution: {integrity: sha512-7lYL8bLopMoy4CTICbxygAUq6CdRJ36vFc80DucPueUee+d5NBRxz3FdT9Pes/HEx5mPoT9jwnsEJWz1N7uq7Q==}
 
   lodash.zip@4.2.0:
     resolution: {integrity: sha512-C7IOaBBK/0gMORRBd8OETNx3kmOkgIWIPvyDpZSCTwUrpYmgZwJkjZeOD8ww4xbOUOs4/attY+pciKvadNfFbg==}
@@ -13481,6 +13607,9 @@ packages:
     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
     engines: {node: '>= 0.10'}
 
+  rc-config-loader@4.1.4:
+    resolution: {integrity: sha512-3GiwEzklkbXTDp52UR5nT8iXgYAx1V9ZG/kDZT7p60u2GCv2XTwQq4NzinMoMpNtXhmt3WkhYXcj6HH8HdwCEQ==}
+
   rc9@3.1.0:
     resolution: {integrity: sha512-ufjkNVzbRHKcCOmTahZkmVsyc3W+MSk3jY03m+a7tGHkIsdVMG9l10/3HvFbWkkKzY5VFp3pkRsIo/UYgmFL7Q==}
 
@@ -14171,6 +14300,9 @@ packages:
     resolution: {integrity: sha512-ki4hZQfh5rX0QDLLkOCj+h+CVNkqmp/CMf8v8kZpkNVK6jGQooMytqzLZYUVYIZcFZ6yDB70EfD8POcFXiF5oA==}
     engines: {node: '>=18'}
 
+  structured-source@4.0.0:
+    resolution: {integrity: sha512-qGzRFNJDjFieQkl/sVOI2dUjHKRyL9dAJi2gCPGJLbJHBIkyOHxjuocpIEfbLioX+qSJpvbYdT49/YCdMznKxA==}
+
   style-mod@4.1.3:
     resolution: {integrity: sha512-i/n8VsZydrugj3Iuzll8+x/00GH2vnYsk1eomD8QiRrSAeW6ItbCQDtfXCeJHd0iwiNagqjQkvpvREEPtW3IoQ==}
 
@@ -14244,6 +14376,10 @@ packages:
 
   text-hex@1.0.0:
     resolution: {integrity: sha512-uuVGNWzgJ4yhRaNSiubPY7OjISw4sw4E5Uv0wbjp+OzcbmVU/rsT8ujgcXJhn9ypzsgr5vlzpPqP+MBBKcGvbg==}
+
+  textextensions@6.11.0:
+    resolution: {integrity: sha512-tXJwSr9355kFJI3lbCkPpUH5cP8/M0GGy2xLO34aZCjMXBaK3SoPnZwr/oWmo1FdCnELcs4npdCIOFtq9W3ruQ==}
+    engines: {node: '>=4'}
 
   thread-stream@3.1.0:
     resolution: {integrity: sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==}
@@ -14641,6 +14777,10 @@ packages:
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
+
+  version-range@4.15.0:
+    resolution: {integrity: sha512-Ck0EJbAGxHwprkzFO966t4/5QkRuzh+/I1RxhLgUKKwEn+Cd8NwM60mE3AqBZg5gYODoXW0EFsQvbZjRlvdqbg==}
+    engines: {node: '>=4'}
 
   vfile-message@4.0.3:
     resolution: {integrity: sha512-QTHzsGd1EhbZs4AsQ20JX1rC3cOlt/IWJruk893DfLRr57lcnOeMaWG4K0JrRta4mIJZKth2Au3mM3u03/JWKw==}
@@ -16629,7 +16769,7 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
-  '@dbos-inc/dbos-sdk@4.24.16':
+  '@dbos-inc/dbos-sdk@4.27.6':
     dependencies:
       commander: 12.0.0
       pg: 8.18.0
@@ -16642,9 +16782,9 @@ snapshots:
       - pg-native
       - utf-8-validate
 
-  '@dbos-inc/drizzle-datasource@4.24.16(@dbos-inc/dbos-sdk@4.24.16)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))':
+  '@dbos-inc/drizzle-datasource@4.27.6(@dbos-inc/dbos-sdk@4.27.6)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))':
     dependencies:
-      '@dbos-inc/dbos-sdk': 4.24.16
+      '@dbos-inc/dbos-sdk': 4.27.6
       drizzle-orm: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0)
       pg: 8.18.0
       superjson: 1.13.3
@@ -19899,6 +20039,62 @@ snapshots:
 
   '@sec-ant/readable-stream@0.4.1': {}
 
+  '@secretlint/config-loader@13.0.7':
+    dependencies:
+      '@secretlint/profiler': 13.0.7
+      '@secretlint/resolver': 13.0.7
+      '@secretlint/types': 13.0.7
+      ajv: 8.20.0
+      debug: 4.4.3(supports-color@8.1.1)
+      rc-config-loader: 4.1.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@secretlint/core@13.0.7':
+    dependencies:
+      '@secretlint/profiler': 13.0.7
+      '@secretlint/types': 13.0.7
+      debug: 4.4.3(supports-color@8.1.1)
+      structured-source: 4.0.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@secretlint/profiler@13.0.7': {}
+
+  '@secretlint/resolver@13.0.7': {}
+
+  '@secretlint/secretlint-rule-azure@13.0.7':
+    dependencies:
+      '@secretlint/types': 13.0.7
+      '@textlint/regexp-string-matcher': 2.0.2
+
+  '@secretlint/secretlint-rule-pattern@13.0.7':
+    dependencies:
+      '@secretlint/tester': 13.0.7
+      '@secretlint/types': 13.0.7
+      '@textlint/regexp-string-matcher': 2.0.2
+      micromatch: 4.0.8
+    transitivePeerDependencies:
+      - supports-color
+
+  '@secretlint/secretlint-rule-preset-recommend@13.0.7': {}
+
+  '@secretlint/source-creator@13.0.7':
+    dependencies:
+      '@secretlint/types': 13.0.7
+      istextorbinary: 9.5.0
+
+  '@secretlint/tester@13.0.7':
+    dependencies:
+      '@secretlint/config-loader': 13.0.7
+      '@secretlint/core': 13.0.7
+      '@secretlint/source-creator': 13.0.7
+      '@secretlint/types': 13.0.7
+    transitivePeerDependencies:
+      - supports-color
+
+  '@secretlint/types@13.0.7': {}
+
   '@sentry/conventions@0.16.0': {}
 
   '@sentry/core@10.72.0':
@@ -20246,6 +20442,13 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.10
       '@types/react-dom': 19.2.3(@types/react@19.2.10)
+
+  '@textlint/regexp-string-matcher@2.0.2':
+    dependencies:
+      escape-string-regexp: 4.0.0
+      lodash.sortby: 4.7.0
+      lodash.uniq: 4.5.0
+      lodash.uniqwith: 4.5.0
 
   '@thednp/dommatrix@2.0.12': {}
 
@@ -21847,6 +22050,10 @@ snapshots:
 
   binary-extensions@2.3.0: {}
 
+  binaryextensions@6.11.0:
+    dependencies:
+      editions: 6.22.0
+
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
@@ -21879,6 +22086,8 @@ snapshots:
   boolbase@1.0.0: {}
 
   boolean@3.2.0: {}
+
+  boundary@2.0.0: {}
 
   bowser@2.14.1: {}
 
@@ -22810,6 +23019,10 @@ snapshots:
       which: 6.0.1
     transitivePeerDependencies:
       - supports-color
+
+  editions@6.22.0:
+    dependencies:
+      version-range: 4.15.0
 
   ee-first@1.1.1: {}
 
@@ -24534,6 +24747,12 @@ snapshots:
       html-escaper: 2.0.2
       istanbul-lib-report: 3.0.1
 
+  istextorbinary@9.5.0:
+    dependencies:
+      binaryextensions: 6.11.0
+      editions: 6.22.0
+      textextensions: 6.11.0
+
   jackspeak@3.4.3:
     dependencies:
       '@isaacs/cliui': 8.0.2
@@ -25061,7 +25280,13 @@ snapshots:
 
   lodash.pickby@4.6.0: {}
 
+  lodash.sortby@4.7.0: {}
+
   lodash.union@4.6.0: {}
+
+  lodash.uniq@4.5.0: {}
+
+  lodash.uniqwith@4.5.0: {}
 
   lodash.zip@4.2.0: {}
 
@@ -26514,6 +26739,15 @@ snapshots:
       iconv-lite: 0.7.3
       unpipe: 1.0.0
 
+  rc-config-loader@4.1.4:
+    dependencies:
+      debug: 4.4.3(supports-color@8.1.1)
+      js-yaml: 4.3.2
+      json5: 2.2.3
+      require-from-string: 2.0.2
+    transitivePeerDependencies:
+      - supports-color
+
   rc9@3.1.0:
     dependencies:
       defu: 6.1.7
@@ -27388,6 +27622,10 @@ snapshots:
     dependencies:
       '@tokenizer/token': 0.3.0
 
+  structured-source@4.0.0:
+    dependencies:
+      boundary: 2.0.0
+
   style-mod@4.1.3: {}
 
   stylis@4.4.0: {}
@@ -27512,6 +27750,10 @@ snapshots:
       - react-native-b4a
 
   text-hex@1.0.0: {}
+
+  textextensions@6.11.0:
+    dependencies:
+      editions: 6.22.0
 
   thread-stream@3.1.0:
     dependencies:
@@ -27918,6 +28160,8 @@ snapshots:
       spdx-expression-parse: 3.0.1
 
   vary@1.1.2: {}
+
+  version-range@4.15.0: {}
 
   vfile-message@4.0.3:
     dependencies:

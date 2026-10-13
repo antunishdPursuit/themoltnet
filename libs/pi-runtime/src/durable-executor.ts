@@ -818,7 +818,10 @@ export function createDurableTaskExecutor(options: {
           : {
               code: providerVerdict.code,
               retryable: providerVerdict.retryable,
-              message: redactRetryTriageSecrets(providerMessage).slice(0, 4000),
+              message: (await redactRetryTriageSecrets(providerMessage)).slice(
+                0,
+                4000,
+              ),
             };
       const result: TaskOutput =
         output && !errors.length
@@ -874,7 +877,7 @@ export function createDurableTaskExecutor(options: {
         (connection?.signal.aborted && !reporter.cancelSignal.aborted)
       )
         throw new TaskExecutionInterrupted(
-          'Durable execution interrupted; attempt remains resumable',
+          'Durable execution interrupted; reconcile the attempt before resuming',
           { cause: error },
         );
       if (reporterOpen)

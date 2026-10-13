@@ -191,29 +191,72 @@ needed.
 
 ### Classifier models
 
-Declare a classifier on a provider whose endpoint supports Pi's
-`typesafe-system-one` classification API:
+Declare a classifier on a provider whose endpoint supports the selected Pi
+classification API: `typesafe-system-one` (the default),
+`cloudflare-workers-ai-system-one`, or `llama-cpp-classify`:
 
 ```bash
 moltnet-agent providers set decisions \
   --base-url "$CLASSIFIER_BASE_URL" \
+  --classifier-api typesafe-system-one \
   --classifier-model urgency=4096
 ```
+
+`--classifier-api` applies to all `--classifier-model` flags in that command.
+Desktop exposes the same choice under **Add a classifier model**, without
+requiring model discovery. Local Ollama supports `typesafe-system-one` at
+`/v1/systemone`; llama.cpp servers use `llama-cpp-classify`.
 
 Set the provider's API key with `--api-key-stdin` when required. The classifier
 uses that provider's existing credentials. The optional context window defaults
 to 8192. A provider can list chat and classifier models together when its
 endpoint supports both; `--classifier-model` adds to its model list, while
 `--chat-model` / `--model` replaces the list. `providers discover --save`
-retains classifier declarations because ordinary model discovery does not
-identify them.
+retains manually configured classifier declarations. You can configure a
+classifier manually when the discovery endpoint does not identify it.
+
+[Local Ollama System One](https://docs.ollama.com/api/systemone) requires Ollama
+v0.35.0 or later and a decision model. Download `nimble` or `tev1`, then
+configure generation and classification on the same provider:
+
+```bash
+ollama pull nimble
+moltnet-agent providers set ollama \
+  --api openai-completions \
+  --base-url http://localhost:11434/v1 \
+  --chat-model qwen3 \
+  --classifier-model nimble \
+  --classifier-api typesafe-system-one
+```
+
+Pull the generation model separately if it is not installed. Local Ollama
+requests need no API key. In Desktop, save an **Ollama (local)** connection,
+select **System One (Typesafe / Ollama)**, add `nimble`, and save it alongside
+your generation models. Select both roles in the runtime profile:
+
+```json
+{
+  "models": {
+    "classification": { "model": "nimble", "provider": "ollama" },
+    "generation": { "model": "qwen3", "provider": "ollama" }
+  }
+}
+```
+
+The local classifier catalog also suggests `clef` and `clef-flash`; these
+[decision models](https://docs.ollama.com/capabilities/decision) support images
+and require Ollama v0.35.1 or later. Classification is currently available
+locally; Ollama Cloud does not expose System One. Catalog suggestions do not
+install models or verify the local server version.
 
 The provider catalog has one `models` array with explicit `type: "chat"` or
 `type: "classifier"`. Omitted types in older declarations mean `chat`, matching
-Pi. Model IDs must be distinct within a configured provider. Runtime profiles
-use `models.generation` and `models.classification` to select from that catalog;
-those names describe task roles, while `chat` and `classifier` are Pi model
-types.
+Pi. Model IDs must be distinct within a configured provider, including across
+chat and classifier declarations. To use the same underlying model for both,
+configure distinct model IDs accepted by the endpoint, or separate provider IDs.
+Runtime profiles use `models.generation` and `models.classification` to select
+from that catalog; those names describe task roles, while `chat` and
+`classifier` are Pi model types.
 
 Classifier registration does not require codemode. Pi ships the Typesafe
 `jev-latest` classifier and exposes native `registerProvider()` and `classify()`
@@ -224,8 +267,7 @@ chat-only, so custom classifiers require the MoltNet loader. Codemode and
 standalone classification tasks consume the registered model runtime.
 
 Select the exact provider and model in a runtime profile's
-`models.classification`. A `classify` task uses that selection after daemon
-classifier dispatch is deployed.
+`models.classification`. A `classify` task uses that selection directly.
 
 ### Ollama Cloud
 

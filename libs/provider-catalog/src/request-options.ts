@@ -1,4 +1,8 @@
-import { ollamaCloudModels, ollamaModels } from './ollama-models.js';
+import {
+  ollamaClassifierModels,
+  ollamaCloudModels,
+  ollamaModels,
+} from './ollama-models.js';
 import { piRuntimeModels } from './pi-runtime-models.generated.js';
 import { type RequestOptionName, requestOptionNames } from './types.js';
 
@@ -11,6 +15,7 @@ const capabilityNames: Record<RequestOptionName, string> = {
 const catalogEntries = [
   ...piRuntimeModels,
   ...ollamaModels,
+  ...ollamaClassifierModels,
   ...ollamaCloudModels,
 ];
 

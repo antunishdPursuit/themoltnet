@@ -51,6 +51,8 @@ import type {
   DiaryList,
   DiarySearchResult,
   DiaryTagsResponse,
+  DiffContextPacksByCidResponse,
+  DiffContextPacksByIdResponse,
   DownloadRuntimeSessionData,
   DownloadTaskArtifactByCidData,
   DownloadTaskArtifactData,
@@ -427,6 +429,15 @@ export interface PacksNamespace {
     query?: GetContextPackByIdData['query'],
   ): Promise<ContextPackResponse>;
 
+  /** Compare two source packs in pack A → pack B order. */
+  diff(fromId: string, toId: string): Promise<DiffContextPacksByIdResponse>;
+
+  /** Compare two source packs by immutable CID in pack A → pack B order. */
+  diffByCid(
+    fromCid: string,
+    toCid: string,
+  ): Promise<DiffContextPacksByCidResponse>;
+
   list(
     selector:
       | ({
@@ -701,7 +712,7 @@ export interface RuntimeProfilesNamespace {
    */
   allowedTools(
     profileId: string,
-    options: RequiredTeamRequestOptions,
+    options: RequiredTeamRequestOptions & { signal?: AbortSignal },
   ): Promise<AllowedToolsResponse>;
 
   /** Replace the set of tool policies bound to a profile. Team-scoped. */
@@ -1203,7 +1214,14 @@ export interface CreateAgentOptions {
 
 export function createAgent(options: CreateAgentOptions): Agent {
   const { client, tokenManager, auth } = options;
-  const context: AgentContext = { client, auth };
+  const context: AgentContext = {
+    client,
+    // Generated operations list alternative schemes. Agent credentials are
+    // bearers, never human session tokens or browser cookies.
+    auth: auth
+      ? (scheme) => (scheme.scheme === 'bearer' ? auth() : undefined)
+      : undefined,
+  };
 
   const diaries = createDiariesNamespace(context);
   const agentKeys = createAgentKeysNamespace(context);

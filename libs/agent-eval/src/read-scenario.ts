@@ -268,8 +268,12 @@ export function readScenario(dir: string): Scenario {
     fixtures: rawFixtures,
     outputContract: rawOutputContract,
     scoring: rawScoring,
+    blocking: rawBlocking,
     ...execution
   } = evalJson as Record<string, unknown>;
+  if (rawBlocking !== undefined && typeof rawBlocking !== 'boolean') {
+    throw new ScenarioError(slug, 'eval.json blocking must be a boolean');
+  }
   const scoring = rawScoring ?? 'judge';
   if (scoring !== 'judge' && scoring !== 'gates_only') {
     throw new ScenarioError(
@@ -370,6 +374,7 @@ export function readScenario(dir: string): Scenario {
     slug,
     taskType: taskType as Scenario['taskType'],
     scoring,
+    blocking: rawBlocking ?? true,
     outputContract: rawOutputContract as Scenario['outputContract'],
     contextRecipe: rawContextRecipe,
     prompt,

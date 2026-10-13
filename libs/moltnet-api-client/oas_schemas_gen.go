@@ -6782,110 +6782,146 @@ func (s *CreateRuntimeModelBody) SetProvider(val string) {
 	s.Provider = val
 }
 
-type CreateRuntimeModelBodyCapabilities map[string]CreateRuntimeModelBodyCapabilitiesItem
+type CreateRuntimeModelBodyCapabilities struct {
+	Classification  OptBool `json:"classification"`
+	Generation      OptBool `json:"generation"`
+	AdditionalProps CreateRuntimeModelBodyCapabilitiesAdditional
+}
 
-func (s *CreateRuntimeModelBodyCapabilities) init() CreateRuntimeModelBodyCapabilities {
+// GetClassification returns the value of Classification.
+func (s *CreateRuntimeModelBodyCapabilities) GetClassification() OptBool {
+	return s.Classification
+}
+
+// GetGeneration returns the value of Generation.
+func (s *CreateRuntimeModelBodyCapabilities) GetGeneration() OptBool {
+	return s.Generation
+}
+
+// GetAdditionalProps returns the value of AdditionalProps.
+func (s *CreateRuntimeModelBodyCapabilities) GetAdditionalProps() CreateRuntimeModelBodyCapabilitiesAdditional {
+	return s.AdditionalProps
+}
+
+// SetClassification sets the value of Classification.
+func (s *CreateRuntimeModelBodyCapabilities) SetClassification(val OptBool) {
+	s.Classification = val
+}
+
+// SetGeneration sets the value of Generation.
+func (s *CreateRuntimeModelBodyCapabilities) SetGeneration(val OptBool) {
+	s.Generation = val
+}
+
+// SetAdditionalProps sets the value of AdditionalProps.
+func (s *CreateRuntimeModelBodyCapabilities) SetAdditionalProps(val CreateRuntimeModelBodyCapabilitiesAdditional) {
+	s.AdditionalProps = val
+}
+
+type CreateRuntimeModelBodyCapabilitiesAdditional map[string]CreateRuntimeModelBodyCapabilitiesAdditionalItem
+
+func (s *CreateRuntimeModelBodyCapabilitiesAdditional) init() CreateRuntimeModelBodyCapabilitiesAdditional {
 	m := *s
 	if m == nil {
-		m = map[string]CreateRuntimeModelBodyCapabilitiesItem{}
+		m = map[string]CreateRuntimeModelBodyCapabilitiesAdditionalItem{}
 		*s = m
 	}
 	return m
 }
 
-// CreateRuntimeModelBodyCapabilitiesItem represents sum type.
-type CreateRuntimeModelBodyCapabilitiesItem struct {
+// CreateRuntimeModelBodyCapabilitiesAdditionalItem represents sum type.
+type CreateRuntimeModelBodyCapabilitiesAdditionalItem struct {
 	// Type selects the active sum variant, switch on this field.
-	Type    CreateRuntimeModelBodyCapabilitiesItemType
+	Type    CreateRuntimeModelBodyCapabilitiesAdditionalItemType
 	Bool    bool
 	Float64 float64
 	String  string
 }
 
-// CreateRuntimeModelBodyCapabilitiesItemType is oneOf type of CreateRuntimeModelBodyCapabilitiesItem.
-type CreateRuntimeModelBodyCapabilitiesItemType string
+// CreateRuntimeModelBodyCapabilitiesAdditionalItemType is oneOf type of CreateRuntimeModelBodyCapabilitiesAdditionalItem.
+type CreateRuntimeModelBodyCapabilitiesAdditionalItemType string
 
-// Possible values for CreateRuntimeModelBodyCapabilitiesItemType.
+// Possible values for CreateRuntimeModelBodyCapabilitiesAdditionalItemType.
 const (
-	BoolCreateRuntimeModelBodyCapabilitiesItem    CreateRuntimeModelBodyCapabilitiesItemType = "bool"
-	Float64CreateRuntimeModelBodyCapabilitiesItem CreateRuntimeModelBodyCapabilitiesItemType = "float64"
-	StringCreateRuntimeModelBodyCapabilitiesItem  CreateRuntimeModelBodyCapabilitiesItemType = "string"
+	BoolCreateRuntimeModelBodyCapabilitiesAdditionalItem    CreateRuntimeModelBodyCapabilitiesAdditionalItemType = "bool"
+	Float64CreateRuntimeModelBodyCapabilitiesAdditionalItem CreateRuntimeModelBodyCapabilitiesAdditionalItemType = "float64"
+	StringCreateRuntimeModelBodyCapabilitiesAdditionalItem  CreateRuntimeModelBodyCapabilitiesAdditionalItemType = "string"
 )
 
-// IsBool reports whether CreateRuntimeModelBodyCapabilitiesItem is bool.
-func (s CreateRuntimeModelBodyCapabilitiesItem) IsBool() bool {
-	return s.Type == BoolCreateRuntimeModelBodyCapabilitiesItem
+// IsBool reports whether CreateRuntimeModelBodyCapabilitiesAdditionalItem is bool.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) IsBool() bool {
+	return s.Type == BoolCreateRuntimeModelBodyCapabilitiesAdditionalItem
 }
 
-// IsFloat64 reports whether CreateRuntimeModelBodyCapabilitiesItem is float64.
-func (s CreateRuntimeModelBodyCapabilitiesItem) IsFloat64() bool {
-	return s.Type == Float64CreateRuntimeModelBodyCapabilitiesItem
+// IsFloat64 reports whether CreateRuntimeModelBodyCapabilitiesAdditionalItem is float64.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) IsFloat64() bool {
+	return s.Type == Float64CreateRuntimeModelBodyCapabilitiesAdditionalItem
 }
 
-// IsString reports whether CreateRuntimeModelBodyCapabilitiesItem is string.
-func (s CreateRuntimeModelBodyCapabilitiesItem) IsString() bool {
-	return s.Type == StringCreateRuntimeModelBodyCapabilitiesItem
+// IsString reports whether CreateRuntimeModelBodyCapabilitiesAdditionalItem is string.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) IsString() bool {
+	return s.Type == StringCreateRuntimeModelBodyCapabilitiesAdditionalItem
 }
 
-// SetBool sets CreateRuntimeModelBodyCapabilitiesItem to bool.
-func (s *CreateRuntimeModelBodyCapabilitiesItem) SetBool(v bool) {
-	s.Type = BoolCreateRuntimeModelBodyCapabilitiesItem
+// SetBool sets CreateRuntimeModelBodyCapabilitiesAdditionalItem to bool.
+func (s *CreateRuntimeModelBodyCapabilitiesAdditionalItem) SetBool(v bool) {
+	s.Type = BoolCreateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.Bool = v
 }
 
-// GetBool returns bool and true boolean if CreateRuntimeModelBodyCapabilitiesItem is bool.
-func (s CreateRuntimeModelBodyCapabilitiesItem) GetBool() (v bool, ok bool) {
+// GetBool returns bool and true boolean if CreateRuntimeModelBodyCapabilitiesAdditionalItem is bool.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) GetBool() (v bool, ok bool) {
 	if !s.IsBool() {
 		return v, false
 	}
 	return s.Bool, true
 }
 
-// NewBoolCreateRuntimeModelBodyCapabilitiesItem returns new CreateRuntimeModelBodyCapabilitiesItem from bool.
-func NewBoolCreateRuntimeModelBodyCapabilitiesItem(v bool) CreateRuntimeModelBodyCapabilitiesItem {
-	var s CreateRuntimeModelBodyCapabilitiesItem
+// NewBoolCreateRuntimeModelBodyCapabilitiesAdditionalItem returns new CreateRuntimeModelBodyCapabilitiesAdditionalItem from bool.
+func NewBoolCreateRuntimeModelBodyCapabilitiesAdditionalItem(v bool) CreateRuntimeModelBodyCapabilitiesAdditionalItem {
+	var s CreateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.SetBool(v)
 	return s
 }
 
-// SetFloat64 sets CreateRuntimeModelBodyCapabilitiesItem to float64.
-func (s *CreateRuntimeModelBodyCapabilitiesItem) SetFloat64(v float64) {
-	s.Type = Float64CreateRuntimeModelBodyCapabilitiesItem
+// SetFloat64 sets CreateRuntimeModelBodyCapabilitiesAdditionalItem to float64.
+func (s *CreateRuntimeModelBodyCapabilitiesAdditionalItem) SetFloat64(v float64) {
+	s.Type = Float64CreateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.Float64 = v
 }
 
-// GetFloat64 returns float64 and true boolean if CreateRuntimeModelBodyCapabilitiesItem is float64.
-func (s CreateRuntimeModelBodyCapabilitiesItem) GetFloat64() (v float64, ok bool) {
+// GetFloat64 returns float64 and true boolean if CreateRuntimeModelBodyCapabilitiesAdditionalItem is float64.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) GetFloat64() (v float64, ok bool) {
 	if !s.IsFloat64() {
 		return v, false
 	}
 	return s.Float64, true
 }
 
-// NewFloat64CreateRuntimeModelBodyCapabilitiesItem returns new CreateRuntimeModelBodyCapabilitiesItem from float64.
-func NewFloat64CreateRuntimeModelBodyCapabilitiesItem(v float64) CreateRuntimeModelBodyCapabilitiesItem {
-	var s CreateRuntimeModelBodyCapabilitiesItem
+// NewFloat64CreateRuntimeModelBodyCapabilitiesAdditionalItem returns new CreateRuntimeModelBodyCapabilitiesAdditionalItem from float64.
+func NewFloat64CreateRuntimeModelBodyCapabilitiesAdditionalItem(v float64) CreateRuntimeModelBodyCapabilitiesAdditionalItem {
+	var s CreateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.SetFloat64(v)
 	return s
 }
 
-// SetString sets CreateRuntimeModelBodyCapabilitiesItem to string.
-func (s *CreateRuntimeModelBodyCapabilitiesItem) SetString(v string) {
-	s.Type = StringCreateRuntimeModelBodyCapabilitiesItem
+// SetString sets CreateRuntimeModelBodyCapabilitiesAdditionalItem to string.
+func (s *CreateRuntimeModelBodyCapabilitiesAdditionalItem) SetString(v string) {
+	s.Type = StringCreateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.String = v
 }
 
-// GetString returns string and true boolean if CreateRuntimeModelBodyCapabilitiesItem is string.
-func (s CreateRuntimeModelBodyCapabilitiesItem) GetString() (v string, ok bool) {
+// GetString returns string and true boolean if CreateRuntimeModelBodyCapabilitiesAdditionalItem is string.
+func (s CreateRuntimeModelBodyCapabilitiesAdditionalItem) GetString() (v string, ok bool) {
 	if !s.IsString() {
 		return v, false
 	}
 	return s.String, true
 }
 
-// NewStringCreateRuntimeModelBodyCapabilitiesItem returns new CreateRuntimeModelBodyCapabilitiesItem from string.
-func NewStringCreateRuntimeModelBodyCapabilitiesItem(v string) CreateRuntimeModelBodyCapabilitiesItem {
-	var s CreateRuntimeModelBodyCapabilitiesItem
+// NewStringCreateRuntimeModelBodyCapabilitiesAdditionalItem returns new CreateRuntimeModelBodyCapabilitiesAdditionalItem from string.
+func NewStringCreateRuntimeModelBodyCapabilitiesAdditionalItem(v string) CreateRuntimeModelBodyCapabilitiesAdditionalItem {
+	var s CreateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.SetString(v)
 	return s
 }
@@ -50699,110 +50735,146 @@ func (*RuntimeModel) createRuntimeModelRes() {}
 func (*RuntimeModel) getRuntimeModelRes()    {}
 func (*RuntimeModel) updateRuntimeModelRes() {}
 
-type RuntimeModelCapabilities map[string]RuntimeModelCapabilitiesItem
+type RuntimeModelCapabilities struct {
+	Classification  OptBool `json:"classification"`
+	Generation      OptBool `json:"generation"`
+	AdditionalProps RuntimeModelCapabilitiesAdditional
+}
 
-func (s *RuntimeModelCapabilities) init() RuntimeModelCapabilities {
+// GetClassification returns the value of Classification.
+func (s *RuntimeModelCapabilities) GetClassification() OptBool {
+	return s.Classification
+}
+
+// GetGeneration returns the value of Generation.
+func (s *RuntimeModelCapabilities) GetGeneration() OptBool {
+	return s.Generation
+}
+
+// GetAdditionalProps returns the value of AdditionalProps.
+func (s *RuntimeModelCapabilities) GetAdditionalProps() RuntimeModelCapabilitiesAdditional {
+	return s.AdditionalProps
+}
+
+// SetClassification sets the value of Classification.
+func (s *RuntimeModelCapabilities) SetClassification(val OptBool) {
+	s.Classification = val
+}
+
+// SetGeneration sets the value of Generation.
+func (s *RuntimeModelCapabilities) SetGeneration(val OptBool) {
+	s.Generation = val
+}
+
+// SetAdditionalProps sets the value of AdditionalProps.
+func (s *RuntimeModelCapabilities) SetAdditionalProps(val RuntimeModelCapabilitiesAdditional) {
+	s.AdditionalProps = val
+}
+
+type RuntimeModelCapabilitiesAdditional map[string]RuntimeModelCapabilitiesAdditionalItem
+
+func (s *RuntimeModelCapabilitiesAdditional) init() RuntimeModelCapabilitiesAdditional {
 	m := *s
 	if m == nil {
-		m = map[string]RuntimeModelCapabilitiesItem{}
+		m = map[string]RuntimeModelCapabilitiesAdditionalItem{}
 		*s = m
 	}
 	return m
 }
 
-// RuntimeModelCapabilitiesItem represents sum type.
-type RuntimeModelCapabilitiesItem struct {
+// RuntimeModelCapabilitiesAdditionalItem represents sum type.
+type RuntimeModelCapabilitiesAdditionalItem struct {
 	// Type selects the active sum variant, switch on this field.
-	Type    RuntimeModelCapabilitiesItemType
+	Type    RuntimeModelCapabilitiesAdditionalItemType
 	Bool    bool
 	Float64 float64
 	String  string
 }
 
-// RuntimeModelCapabilitiesItemType is oneOf type of RuntimeModelCapabilitiesItem.
-type RuntimeModelCapabilitiesItemType string
+// RuntimeModelCapabilitiesAdditionalItemType is oneOf type of RuntimeModelCapabilitiesAdditionalItem.
+type RuntimeModelCapabilitiesAdditionalItemType string
 
-// Possible values for RuntimeModelCapabilitiesItemType.
+// Possible values for RuntimeModelCapabilitiesAdditionalItemType.
 const (
-	BoolRuntimeModelCapabilitiesItem    RuntimeModelCapabilitiesItemType = "bool"
-	Float64RuntimeModelCapabilitiesItem RuntimeModelCapabilitiesItemType = "float64"
-	StringRuntimeModelCapabilitiesItem  RuntimeModelCapabilitiesItemType = "string"
+	BoolRuntimeModelCapabilitiesAdditionalItem    RuntimeModelCapabilitiesAdditionalItemType = "bool"
+	Float64RuntimeModelCapabilitiesAdditionalItem RuntimeModelCapabilitiesAdditionalItemType = "float64"
+	StringRuntimeModelCapabilitiesAdditionalItem  RuntimeModelCapabilitiesAdditionalItemType = "string"
 )
 
-// IsBool reports whether RuntimeModelCapabilitiesItem is bool.
-func (s RuntimeModelCapabilitiesItem) IsBool() bool {
-	return s.Type == BoolRuntimeModelCapabilitiesItem
+// IsBool reports whether RuntimeModelCapabilitiesAdditionalItem is bool.
+func (s RuntimeModelCapabilitiesAdditionalItem) IsBool() bool {
+	return s.Type == BoolRuntimeModelCapabilitiesAdditionalItem
 }
 
-// IsFloat64 reports whether RuntimeModelCapabilitiesItem is float64.
-func (s RuntimeModelCapabilitiesItem) IsFloat64() bool {
-	return s.Type == Float64RuntimeModelCapabilitiesItem
+// IsFloat64 reports whether RuntimeModelCapabilitiesAdditionalItem is float64.
+func (s RuntimeModelCapabilitiesAdditionalItem) IsFloat64() bool {
+	return s.Type == Float64RuntimeModelCapabilitiesAdditionalItem
 }
 
-// IsString reports whether RuntimeModelCapabilitiesItem is string.
-func (s RuntimeModelCapabilitiesItem) IsString() bool {
-	return s.Type == StringRuntimeModelCapabilitiesItem
+// IsString reports whether RuntimeModelCapabilitiesAdditionalItem is string.
+func (s RuntimeModelCapabilitiesAdditionalItem) IsString() bool {
+	return s.Type == StringRuntimeModelCapabilitiesAdditionalItem
 }
 
-// SetBool sets RuntimeModelCapabilitiesItem to bool.
-func (s *RuntimeModelCapabilitiesItem) SetBool(v bool) {
-	s.Type = BoolRuntimeModelCapabilitiesItem
+// SetBool sets RuntimeModelCapabilitiesAdditionalItem to bool.
+func (s *RuntimeModelCapabilitiesAdditionalItem) SetBool(v bool) {
+	s.Type = BoolRuntimeModelCapabilitiesAdditionalItem
 	s.Bool = v
 }
 
-// GetBool returns bool and true boolean if RuntimeModelCapabilitiesItem is bool.
-func (s RuntimeModelCapabilitiesItem) GetBool() (v bool, ok bool) {
+// GetBool returns bool and true boolean if RuntimeModelCapabilitiesAdditionalItem is bool.
+func (s RuntimeModelCapabilitiesAdditionalItem) GetBool() (v bool, ok bool) {
 	if !s.IsBool() {
 		return v, false
 	}
 	return s.Bool, true
 }
 
-// NewBoolRuntimeModelCapabilitiesItem returns new RuntimeModelCapabilitiesItem from bool.
-func NewBoolRuntimeModelCapabilitiesItem(v bool) RuntimeModelCapabilitiesItem {
-	var s RuntimeModelCapabilitiesItem
+// NewBoolRuntimeModelCapabilitiesAdditionalItem returns new RuntimeModelCapabilitiesAdditionalItem from bool.
+func NewBoolRuntimeModelCapabilitiesAdditionalItem(v bool) RuntimeModelCapabilitiesAdditionalItem {
+	var s RuntimeModelCapabilitiesAdditionalItem
 	s.SetBool(v)
 	return s
 }
 
-// SetFloat64 sets RuntimeModelCapabilitiesItem to float64.
-func (s *RuntimeModelCapabilitiesItem) SetFloat64(v float64) {
-	s.Type = Float64RuntimeModelCapabilitiesItem
+// SetFloat64 sets RuntimeModelCapabilitiesAdditionalItem to float64.
+func (s *RuntimeModelCapabilitiesAdditionalItem) SetFloat64(v float64) {
+	s.Type = Float64RuntimeModelCapabilitiesAdditionalItem
 	s.Float64 = v
 }
 
-// GetFloat64 returns float64 and true boolean if RuntimeModelCapabilitiesItem is float64.
-func (s RuntimeModelCapabilitiesItem) GetFloat64() (v float64, ok bool) {
+// GetFloat64 returns float64 and true boolean if RuntimeModelCapabilitiesAdditionalItem is float64.
+func (s RuntimeModelCapabilitiesAdditionalItem) GetFloat64() (v float64, ok bool) {
 	if !s.IsFloat64() {
 		return v, false
 	}
 	return s.Float64, true
 }
 
-// NewFloat64RuntimeModelCapabilitiesItem returns new RuntimeModelCapabilitiesItem from float64.
-func NewFloat64RuntimeModelCapabilitiesItem(v float64) RuntimeModelCapabilitiesItem {
-	var s RuntimeModelCapabilitiesItem
+// NewFloat64RuntimeModelCapabilitiesAdditionalItem returns new RuntimeModelCapabilitiesAdditionalItem from float64.
+func NewFloat64RuntimeModelCapabilitiesAdditionalItem(v float64) RuntimeModelCapabilitiesAdditionalItem {
+	var s RuntimeModelCapabilitiesAdditionalItem
 	s.SetFloat64(v)
 	return s
 }
 
-// SetString sets RuntimeModelCapabilitiesItem to string.
-func (s *RuntimeModelCapabilitiesItem) SetString(v string) {
-	s.Type = StringRuntimeModelCapabilitiesItem
+// SetString sets RuntimeModelCapabilitiesAdditionalItem to string.
+func (s *RuntimeModelCapabilitiesAdditionalItem) SetString(v string) {
+	s.Type = StringRuntimeModelCapabilitiesAdditionalItem
 	s.String = v
 }
 
-// GetString returns string and true boolean if RuntimeModelCapabilitiesItem is string.
-func (s RuntimeModelCapabilitiesItem) GetString() (v string, ok bool) {
+// GetString returns string and true boolean if RuntimeModelCapabilitiesAdditionalItem is string.
+func (s RuntimeModelCapabilitiesAdditionalItem) GetString() (v string, ok bool) {
 	if !s.IsString() {
 		return v, false
 	}
 	return s.String, true
 }
 
-// NewStringRuntimeModelCapabilitiesItem returns new RuntimeModelCapabilitiesItem from string.
-func NewStringRuntimeModelCapabilitiesItem(v string) RuntimeModelCapabilitiesItem {
-	var s RuntimeModelCapabilitiesItem
+// NewStringRuntimeModelCapabilitiesAdditionalItem returns new RuntimeModelCapabilitiesAdditionalItem from string.
+func NewStringRuntimeModelCapabilitiesAdditionalItem(v string) RuntimeModelCapabilitiesAdditionalItem {
+	var s RuntimeModelCapabilitiesAdditionalItem
 	s.SetString(v)
 	return s
 }
@@ -50959,110 +51031,146 @@ func (s *RuntimeModelListResponseItemsItem) SetUpdatedAt(val time.Time) {
 	s.UpdatedAt = val
 }
 
-type RuntimeModelListResponseItemsItemCapabilities map[string]RuntimeModelListResponseItemsItemCapabilitiesItem
+type RuntimeModelListResponseItemsItemCapabilities struct {
+	Classification  OptBool `json:"classification"`
+	Generation      OptBool `json:"generation"`
+	AdditionalProps RuntimeModelListResponseItemsItemCapabilitiesAdditional
+}
 
-func (s *RuntimeModelListResponseItemsItemCapabilities) init() RuntimeModelListResponseItemsItemCapabilities {
+// GetClassification returns the value of Classification.
+func (s *RuntimeModelListResponseItemsItemCapabilities) GetClassification() OptBool {
+	return s.Classification
+}
+
+// GetGeneration returns the value of Generation.
+func (s *RuntimeModelListResponseItemsItemCapabilities) GetGeneration() OptBool {
+	return s.Generation
+}
+
+// GetAdditionalProps returns the value of AdditionalProps.
+func (s *RuntimeModelListResponseItemsItemCapabilities) GetAdditionalProps() RuntimeModelListResponseItemsItemCapabilitiesAdditional {
+	return s.AdditionalProps
+}
+
+// SetClassification sets the value of Classification.
+func (s *RuntimeModelListResponseItemsItemCapabilities) SetClassification(val OptBool) {
+	s.Classification = val
+}
+
+// SetGeneration sets the value of Generation.
+func (s *RuntimeModelListResponseItemsItemCapabilities) SetGeneration(val OptBool) {
+	s.Generation = val
+}
+
+// SetAdditionalProps sets the value of AdditionalProps.
+func (s *RuntimeModelListResponseItemsItemCapabilities) SetAdditionalProps(val RuntimeModelListResponseItemsItemCapabilitiesAdditional) {
+	s.AdditionalProps = val
+}
+
+type RuntimeModelListResponseItemsItemCapabilitiesAdditional map[string]RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
+
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditional) init() RuntimeModelListResponseItemsItemCapabilitiesAdditional {
 	m := *s
 	if m == nil {
-		m = map[string]RuntimeModelListResponseItemsItemCapabilitiesItem{}
+		m = map[string]RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem{}
 		*s = m
 	}
 	return m
 }
 
-// RuntimeModelListResponseItemsItemCapabilitiesItem represents sum type.
-type RuntimeModelListResponseItemsItemCapabilitiesItem struct {
+// RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem represents sum type.
+type RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem struct {
 	// Type selects the active sum variant, switch on this field.
-	Type    RuntimeModelListResponseItemsItemCapabilitiesItemType
+	Type    RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType
 	Bool    bool
 	Float64 float64
 	String  string
 }
 
-// RuntimeModelListResponseItemsItemCapabilitiesItemType is oneOf type of RuntimeModelListResponseItemsItemCapabilitiesItem.
-type RuntimeModelListResponseItemsItemCapabilitiesItemType string
+// RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType is oneOf type of RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem.
+type RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType string
 
-// Possible values for RuntimeModelListResponseItemsItemCapabilitiesItemType.
+// Possible values for RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType.
 const (
-	BoolRuntimeModelListResponseItemsItemCapabilitiesItem    RuntimeModelListResponseItemsItemCapabilitiesItemType = "bool"
-	Float64RuntimeModelListResponseItemsItemCapabilitiesItem RuntimeModelListResponseItemsItemCapabilitiesItemType = "float64"
-	StringRuntimeModelListResponseItemsItemCapabilitiesItem  RuntimeModelListResponseItemsItemCapabilitiesItemType = "string"
+	BoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem    RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType = "bool"
+	Float64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType = "float64"
+	StringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem  RuntimeModelListResponseItemsItemCapabilitiesAdditionalItemType = "string"
 )
 
-// IsBool reports whether RuntimeModelListResponseItemsItemCapabilitiesItem is bool.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) IsBool() bool {
-	return s.Type == BoolRuntimeModelListResponseItemsItemCapabilitiesItem
+// IsBool reports whether RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem is bool.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) IsBool() bool {
+	return s.Type == BoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 }
 
-// IsFloat64 reports whether RuntimeModelListResponseItemsItemCapabilitiesItem is float64.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) IsFloat64() bool {
-	return s.Type == Float64RuntimeModelListResponseItemsItemCapabilitiesItem
+// IsFloat64 reports whether RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem is float64.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) IsFloat64() bool {
+	return s.Type == Float64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 }
 
-// IsString reports whether RuntimeModelListResponseItemsItemCapabilitiesItem is string.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) IsString() bool {
-	return s.Type == StringRuntimeModelListResponseItemsItemCapabilitiesItem
+// IsString reports whether RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem is string.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) IsString() bool {
+	return s.Type == StringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 }
 
-// SetBool sets RuntimeModelListResponseItemsItemCapabilitiesItem to bool.
-func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) SetBool(v bool) {
-	s.Type = BoolRuntimeModelListResponseItemsItemCapabilitiesItem
+// SetBool sets RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem to bool.
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) SetBool(v bool) {
+	s.Type = BoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	s.Bool = v
 }
 
-// GetBool returns bool and true boolean if RuntimeModelListResponseItemsItemCapabilitiesItem is bool.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) GetBool() (v bool, ok bool) {
+// GetBool returns bool and true boolean if RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem is bool.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) GetBool() (v bool, ok bool) {
 	if !s.IsBool() {
 		return v, false
 	}
 	return s.Bool, true
 }
 
-// NewBoolRuntimeModelListResponseItemsItemCapabilitiesItem returns new RuntimeModelListResponseItemsItemCapabilitiesItem from bool.
-func NewBoolRuntimeModelListResponseItemsItemCapabilitiesItem(v bool) RuntimeModelListResponseItemsItemCapabilitiesItem {
-	var s RuntimeModelListResponseItemsItemCapabilitiesItem
+// NewBoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem returns new RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem from bool.
+func NewBoolRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem(v bool) RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem {
+	var s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	s.SetBool(v)
 	return s
 }
 
-// SetFloat64 sets RuntimeModelListResponseItemsItemCapabilitiesItem to float64.
-func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) SetFloat64(v float64) {
-	s.Type = Float64RuntimeModelListResponseItemsItemCapabilitiesItem
+// SetFloat64 sets RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem to float64.
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) SetFloat64(v float64) {
+	s.Type = Float64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	s.Float64 = v
 }
 
-// GetFloat64 returns float64 and true boolean if RuntimeModelListResponseItemsItemCapabilitiesItem is float64.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) GetFloat64() (v float64, ok bool) {
+// GetFloat64 returns float64 and true boolean if RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem is float64.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) GetFloat64() (v float64, ok bool) {
 	if !s.IsFloat64() {
 		return v, false
 	}
 	return s.Float64, true
 }
 
-// NewFloat64RuntimeModelListResponseItemsItemCapabilitiesItem returns new RuntimeModelListResponseItemsItemCapabilitiesItem from float64.
-func NewFloat64RuntimeModelListResponseItemsItemCapabilitiesItem(v float64) RuntimeModelListResponseItemsItemCapabilitiesItem {
-	var s RuntimeModelListResponseItemsItemCapabilitiesItem
+// NewFloat64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem returns new RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem from float64.
+func NewFloat64RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem(v float64) RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem {
+	var s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	s.SetFloat64(v)
 	return s
 }
 
-// SetString sets RuntimeModelListResponseItemsItemCapabilitiesItem to string.
-func (s *RuntimeModelListResponseItemsItemCapabilitiesItem) SetString(v string) {
-	s.Type = StringRuntimeModelListResponseItemsItemCapabilitiesItem
+// SetString sets RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem to string.
+func (s *RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) SetString(v string) {
+	s.Type = StringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	s.String = v
 }
 
-// GetString returns string and true boolean if RuntimeModelListResponseItemsItemCapabilitiesItem is string.
-func (s RuntimeModelListResponseItemsItemCapabilitiesItem) GetString() (v string, ok bool) {
+// GetString returns string and true boolean if RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem is string.
+func (s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem) GetString() (v string, ok bool) {
 	if !s.IsString() {
 		return v, false
 	}
 	return s.String, true
 }
 
-// NewStringRuntimeModelListResponseItemsItemCapabilitiesItem returns new RuntimeModelListResponseItemsItemCapabilitiesItem from string.
-func NewStringRuntimeModelListResponseItemsItemCapabilitiesItem(v string) RuntimeModelListResponseItemsItemCapabilitiesItem {
-	var s RuntimeModelListResponseItemsItemCapabilitiesItem
+// NewStringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem returns new RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem from string.
+func NewStringRuntimeModelListResponseItemsItemCapabilitiesAdditionalItem(v string) RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem {
+	var s RuntimeModelListResponseItemsItemCapabilitiesAdditionalItem
 	s.SetString(v)
 	return s
 }
@@ -60634,110 +60742,146 @@ func (s *UpdateRuntimeModelBody) SetProvider(val OptString) {
 	s.Provider = val
 }
 
-type UpdateRuntimeModelBodyCapabilities map[string]UpdateRuntimeModelBodyCapabilitiesItem
+type UpdateRuntimeModelBodyCapabilities struct {
+	Classification  OptBool `json:"classification"`
+	Generation      OptBool `json:"generation"`
+	AdditionalProps UpdateRuntimeModelBodyCapabilitiesAdditional
+}
 
-func (s *UpdateRuntimeModelBodyCapabilities) init() UpdateRuntimeModelBodyCapabilities {
+// GetClassification returns the value of Classification.
+func (s *UpdateRuntimeModelBodyCapabilities) GetClassification() OptBool {
+	return s.Classification
+}
+
+// GetGeneration returns the value of Generation.
+func (s *UpdateRuntimeModelBodyCapabilities) GetGeneration() OptBool {
+	return s.Generation
+}
+
+// GetAdditionalProps returns the value of AdditionalProps.
+func (s *UpdateRuntimeModelBodyCapabilities) GetAdditionalProps() UpdateRuntimeModelBodyCapabilitiesAdditional {
+	return s.AdditionalProps
+}
+
+// SetClassification sets the value of Classification.
+func (s *UpdateRuntimeModelBodyCapabilities) SetClassification(val OptBool) {
+	s.Classification = val
+}
+
+// SetGeneration sets the value of Generation.
+func (s *UpdateRuntimeModelBodyCapabilities) SetGeneration(val OptBool) {
+	s.Generation = val
+}
+
+// SetAdditionalProps sets the value of AdditionalProps.
+func (s *UpdateRuntimeModelBodyCapabilities) SetAdditionalProps(val UpdateRuntimeModelBodyCapabilitiesAdditional) {
+	s.AdditionalProps = val
+}
+
+type UpdateRuntimeModelBodyCapabilitiesAdditional map[string]UpdateRuntimeModelBodyCapabilitiesAdditionalItem
+
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditional) init() UpdateRuntimeModelBodyCapabilitiesAdditional {
 	m := *s
 	if m == nil {
-		m = map[string]UpdateRuntimeModelBodyCapabilitiesItem{}
+		m = map[string]UpdateRuntimeModelBodyCapabilitiesAdditionalItem{}
 		*s = m
 	}
 	return m
 }
 
-// UpdateRuntimeModelBodyCapabilitiesItem represents sum type.
-type UpdateRuntimeModelBodyCapabilitiesItem struct {
+// UpdateRuntimeModelBodyCapabilitiesAdditionalItem represents sum type.
+type UpdateRuntimeModelBodyCapabilitiesAdditionalItem struct {
 	// Type selects the active sum variant, switch on this field.
-	Type    UpdateRuntimeModelBodyCapabilitiesItemType
+	Type    UpdateRuntimeModelBodyCapabilitiesAdditionalItemType
 	Bool    bool
 	Float64 float64
 	String  string
 }
 
-// UpdateRuntimeModelBodyCapabilitiesItemType is oneOf type of UpdateRuntimeModelBodyCapabilitiesItem.
-type UpdateRuntimeModelBodyCapabilitiesItemType string
+// UpdateRuntimeModelBodyCapabilitiesAdditionalItemType is oneOf type of UpdateRuntimeModelBodyCapabilitiesAdditionalItem.
+type UpdateRuntimeModelBodyCapabilitiesAdditionalItemType string
 
-// Possible values for UpdateRuntimeModelBodyCapabilitiesItemType.
+// Possible values for UpdateRuntimeModelBodyCapabilitiesAdditionalItemType.
 const (
-	BoolUpdateRuntimeModelBodyCapabilitiesItem    UpdateRuntimeModelBodyCapabilitiesItemType = "bool"
-	Float64UpdateRuntimeModelBodyCapabilitiesItem UpdateRuntimeModelBodyCapabilitiesItemType = "float64"
-	StringUpdateRuntimeModelBodyCapabilitiesItem  UpdateRuntimeModelBodyCapabilitiesItemType = "string"
+	BoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem    UpdateRuntimeModelBodyCapabilitiesAdditionalItemType = "bool"
+	Float64UpdateRuntimeModelBodyCapabilitiesAdditionalItem UpdateRuntimeModelBodyCapabilitiesAdditionalItemType = "float64"
+	StringUpdateRuntimeModelBodyCapabilitiesAdditionalItem  UpdateRuntimeModelBodyCapabilitiesAdditionalItemType = "string"
 )
 
-// IsBool reports whether UpdateRuntimeModelBodyCapabilitiesItem is bool.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) IsBool() bool {
-	return s.Type == BoolUpdateRuntimeModelBodyCapabilitiesItem
+// IsBool reports whether UpdateRuntimeModelBodyCapabilitiesAdditionalItem is bool.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) IsBool() bool {
+	return s.Type == BoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem
 }
 
-// IsFloat64 reports whether UpdateRuntimeModelBodyCapabilitiesItem is float64.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) IsFloat64() bool {
-	return s.Type == Float64UpdateRuntimeModelBodyCapabilitiesItem
+// IsFloat64 reports whether UpdateRuntimeModelBodyCapabilitiesAdditionalItem is float64.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) IsFloat64() bool {
+	return s.Type == Float64UpdateRuntimeModelBodyCapabilitiesAdditionalItem
 }
 
-// IsString reports whether UpdateRuntimeModelBodyCapabilitiesItem is string.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) IsString() bool {
-	return s.Type == StringUpdateRuntimeModelBodyCapabilitiesItem
+// IsString reports whether UpdateRuntimeModelBodyCapabilitiesAdditionalItem is string.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) IsString() bool {
+	return s.Type == StringUpdateRuntimeModelBodyCapabilitiesAdditionalItem
 }
 
-// SetBool sets UpdateRuntimeModelBodyCapabilitiesItem to bool.
-func (s *UpdateRuntimeModelBodyCapabilitiesItem) SetBool(v bool) {
-	s.Type = BoolUpdateRuntimeModelBodyCapabilitiesItem
+// SetBool sets UpdateRuntimeModelBodyCapabilitiesAdditionalItem to bool.
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditionalItem) SetBool(v bool) {
+	s.Type = BoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.Bool = v
 }
 
-// GetBool returns bool and true boolean if UpdateRuntimeModelBodyCapabilitiesItem is bool.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) GetBool() (v bool, ok bool) {
+// GetBool returns bool and true boolean if UpdateRuntimeModelBodyCapabilitiesAdditionalItem is bool.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) GetBool() (v bool, ok bool) {
 	if !s.IsBool() {
 		return v, false
 	}
 	return s.Bool, true
 }
 
-// NewBoolUpdateRuntimeModelBodyCapabilitiesItem returns new UpdateRuntimeModelBodyCapabilitiesItem from bool.
-func NewBoolUpdateRuntimeModelBodyCapabilitiesItem(v bool) UpdateRuntimeModelBodyCapabilitiesItem {
-	var s UpdateRuntimeModelBodyCapabilitiesItem
+// NewBoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem returns new UpdateRuntimeModelBodyCapabilitiesAdditionalItem from bool.
+func NewBoolUpdateRuntimeModelBodyCapabilitiesAdditionalItem(v bool) UpdateRuntimeModelBodyCapabilitiesAdditionalItem {
+	var s UpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.SetBool(v)
 	return s
 }
 
-// SetFloat64 sets UpdateRuntimeModelBodyCapabilitiesItem to float64.
-func (s *UpdateRuntimeModelBodyCapabilitiesItem) SetFloat64(v float64) {
-	s.Type = Float64UpdateRuntimeModelBodyCapabilitiesItem
+// SetFloat64 sets UpdateRuntimeModelBodyCapabilitiesAdditionalItem to float64.
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditionalItem) SetFloat64(v float64) {
+	s.Type = Float64UpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.Float64 = v
 }
 
-// GetFloat64 returns float64 and true boolean if UpdateRuntimeModelBodyCapabilitiesItem is float64.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) GetFloat64() (v float64, ok bool) {
+// GetFloat64 returns float64 and true boolean if UpdateRuntimeModelBodyCapabilitiesAdditionalItem is float64.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) GetFloat64() (v float64, ok bool) {
 	if !s.IsFloat64() {
 		return v, false
 	}
 	return s.Float64, true
 }
 
-// NewFloat64UpdateRuntimeModelBodyCapabilitiesItem returns new UpdateRuntimeModelBodyCapabilitiesItem from float64.
-func NewFloat64UpdateRuntimeModelBodyCapabilitiesItem(v float64) UpdateRuntimeModelBodyCapabilitiesItem {
-	var s UpdateRuntimeModelBodyCapabilitiesItem
+// NewFloat64UpdateRuntimeModelBodyCapabilitiesAdditionalItem returns new UpdateRuntimeModelBodyCapabilitiesAdditionalItem from float64.
+func NewFloat64UpdateRuntimeModelBodyCapabilitiesAdditionalItem(v float64) UpdateRuntimeModelBodyCapabilitiesAdditionalItem {
+	var s UpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.SetFloat64(v)
 	return s
 }
 
-// SetString sets UpdateRuntimeModelBodyCapabilitiesItem to string.
-func (s *UpdateRuntimeModelBodyCapabilitiesItem) SetString(v string) {
-	s.Type = StringUpdateRuntimeModelBodyCapabilitiesItem
+// SetString sets UpdateRuntimeModelBodyCapabilitiesAdditionalItem to string.
+func (s *UpdateRuntimeModelBodyCapabilitiesAdditionalItem) SetString(v string) {
+	s.Type = StringUpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.String = v
 }
 
-// GetString returns string and true boolean if UpdateRuntimeModelBodyCapabilitiesItem is string.
-func (s UpdateRuntimeModelBodyCapabilitiesItem) GetString() (v string, ok bool) {
+// GetString returns string and true boolean if UpdateRuntimeModelBodyCapabilitiesAdditionalItem is string.
+func (s UpdateRuntimeModelBodyCapabilitiesAdditionalItem) GetString() (v string, ok bool) {
 	if !s.IsString() {
 		return v, false
 	}
 	return s.String, true
 }
 
-// NewStringUpdateRuntimeModelBodyCapabilitiesItem returns new UpdateRuntimeModelBodyCapabilitiesItem from string.
-func NewStringUpdateRuntimeModelBodyCapabilitiesItem(v string) UpdateRuntimeModelBodyCapabilitiesItem {
-	var s UpdateRuntimeModelBodyCapabilitiesItem
+// NewStringUpdateRuntimeModelBodyCapabilitiesAdditionalItem returns new UpdateRuntimeModelBodyCapabilitiesAdditionalItem from string.
+func NewStringUpdateRuntimeModelBodyCapabilitiesAdditionalItem(v string) UpdateRuntimeModelBodyCapabilitiesAdditionalItem {
+	var s UpdateRuntimeModelBodyCapabilitiesAdditionalItem
 	s.SetString(v)
 	return s
 }

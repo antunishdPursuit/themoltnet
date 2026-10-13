@@ -588,3 +588,74 @@ describe('ApiTaskReporter', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
+
+it.each(['timed_out', 'failed', 'cancelled', 'completed'] as const)(
+  'reconciles only the claimed attempt and preserves a server %s outcome',
+  async (status) => {
+    const attempt = {
+      taskId: TASK_ID,
+      attemptN: 2,
+      status,
+      claimedAt: '2026-10-13T06:31:38Z',
+      startedAt: '2026-10-13T06:31:39Z',
+      completedAt: '2026-10-13T06:33:39Z',
+      output: null,
+      outputCid: null,
+      usage: null,
+      error:
+        status === 'timed_out'
+          ? {
+              code: 'running_total_exceeded',
+              message: 'running_total_exceeded',
+            }
+          : null,
+    };
+    const listAttempts = vi
+      .fn<TasksNamespace['listAttempts']>()
+      .mockResolvedValue([
+        { ...attempt, attemptN: 3, status: 'running' },
+        attempt,
+      ] as Awaited<ReturnType<TasksNamespace['listAttempts']>>);
+    const { tasks } = makeMockTasks({ listAttempts });
+    const reporter = new ApiTaskReporter({
+      tasks,
+      teamId: 'team',
+      heartbeatIntervalMs: 0,
+    });
+    await reporter.open({ taskId: TASK_ID, attemptN: 2 });
+    await reporter.close();
+
+    const output = await reporter.reconcileAttempt();
+
+    expect(output).toMatchObject({
+      taskId: TASK_ID,
+      attemptN: 2,
+      status: status === 'timed_out' ? 'failed' : status,
+      durationMs: 120_000,
+    });
+    if (status === 'timed_out')
+      expect(output?.error?.code).toBe('running_total_exceeded');
+    expect(listAttempts).toHaveBeenCalledWith(TASK_ID, {
+      teamId: 'team',
+      signal: expect.any(AbortSignal) as AbortSignal,
+    });
+  },
+);
+
+it.each(['claimed', 'running', 'missing'])(
+  'does not invent an outcome for a %s attempt',
+  async (status) => {
+    const listAttempts = vi
+      .fn<TasksNamespace['listAttempts']>()
+      .mockResolvedValue(
+        (status === 'missing' ? [] : [{ attemptN: 2, status }]) as Awaited<
+          ReturnType<TasksNamespace['listAttempts']>
+        >,
+      );
+    const { tasks } = makeMockTasks({ listAttempts });
+    const reporter = new ApiTaskReporter({ tasks, heartbeatIntervalMs: 0 });
+    await reporter.open({ taskId: TASK_ID, attemptN: 2 });
+    await reporter.close();
+    expect(await reporter.reconcileAttempt()).toBeNull();
+  },
+);
