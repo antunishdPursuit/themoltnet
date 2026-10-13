@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/getlarge/themoltnet/compare/signer-v0.2.10...signer-v0.3.0) (2026-10-13)
+
+
+### Features
+
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+* **tools:** check bundled externals against declared dependencies ([9f7d6ba](https://github.com/getlarge/themoltnet/commit/9f7d6ba6b4d9c42e481da4ef84aa2390996c0149))
+
 ## [0.2.10](https://github.com/getlarge/themoltnet/compare/signer-v0.2.9...signer-v0.2.10) (2026-10-12)
 
 

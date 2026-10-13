@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.1](https://github.com/getlarge/themoltnet/compare/database-v0.17.0...database-v0.17.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* align Durable lock ordering and recover from transient allocation failures ([24f50ec](https://github.com/getlarge/themoltnet/commit/24f50ec5eece6aafb02ad4a4ec8288efc49b1cdc))
+* **tasks:** order lifecycle and Durable authority locks consistently ([e5759ef](https://github.com/getlarge/themoltnet/commit/e5759ef5cf01ef964cbaffee07eb3cec49e0d13c))
+
 ## [0.17.0](https://github.com/getlarge/themoltnet/compare/database-v0.16.0...database-v0.17.0) (2026-10-12)
 
 

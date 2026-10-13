@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-action-v0.5.0...agent-daemon-action-v0.6.0) (2026-10-13)
+
+
+### Features
+
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+* **tools:** check bundled externals against declared dependencies ([9f7d6ba](https://github.com/getlarge/themoltnet/commit/9f7d6ba6b4d9c42e481da4ef84aa2390996c0149))
+* **tools:** infer per-project secretlint targets ([27bd19d](https://github.com/getlarge/themoltnet/commit/27bd19d2ff4e6d1efa513845d28cb0b8a8607d3b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [0.5.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-action-v0.4.0...agent-daemon-action-v0.5.0) (2026-10-12)
 
 

@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.67.0](https://github.com/getlarge/themoltnet/compare/rest-api-v0.66.0...rest-api-v0.67.0) (2026-10-13)
+
+
+### Features
+
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+* **tools:** check bundled externals against declared dependencies ([9f7d6ba](https://github.com/getlarge/themoltnet/commit/9f7d6ba6b4d9c42e481da4ef84aa2390996c0149))
+* **tools:** infer per-project secretlint targets ([27bd19d](https://github.com/getlarge/themoltnet/commit/27bd19d2ff4e6d1efa513845d28cb0b8a8607d3b))
+
+
+### Bug Fixes
+
+* address review round 1 on classifier protocols ([d9f90ad](https://github.com/getlarge/themoltnet/commit/d9f90ad154dd47f1b259602707fa4c65aaf9ab8f))
+* align Durable lock ordering and recover from transient allocation failures ([24f50ec](https://github.com/getlarge/themoltnet/commit/24f50ec5eece6aafb02ad4a4ec8288efc49b1cdc))
+* **api:** report transaction contention as retryable unavailability ([ace0a6e](https://github.com/getlarge/themoltnet/commit/ace0a6e4150336b7fed758783b58cb02f3501159))
+* **rest-api:** declare bundled secretlint runtime dependencies ([962d6fa](https://github.com/getlarge/themoltnet/commit/962d6faeddcc2bc42448e2e423e5c42ec9a85668))
+* **runtime:** support classifier providers across agent configuration ([86f44e0](https://github.com/getlarge/themoltnet/commit/86f44e0aa4d6d92a3f0d02fa82152272c2bfebad))
+* **security:** scan task artifacts and redact runtime diagnostics ([1a6bd9b](https://github.com/getlarge/themoltnet/commit/1a6bd9b34c898339d8efc7db9bb900ad11f902c4))
+* **task-artifacts:** reject credential-like uploads ([d2e27e2](https://github.com/getlarge/themoltnet/commit/d2e27e28bb2c70acac1b99e5935085f8e4d3dccb))
+* **tasks:** release orphan attempts outside DBOS steps ([4549ff2](https://github.com/getlarge/themoltnet/commit/4549ff2c38cd2870c0873c649a6530088a738046))
+* **tasks:** repair DBOS orphan recovery transaction boundary ([08f99a4](https://github.com/getlarge/themoltnet/commit/08f99a40ebe62627b326e5f05e3011d21cd1e5c5))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @moltnet/database bumped to 0.17.1
+
 ## [0.66.0](https://github.com/getlarge/themoltnet/compare/rest-api-v0.65.2...rest-api-v0.66.0) (2026-10-12)
 
 

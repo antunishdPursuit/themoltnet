@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.84.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.83.0...moltnet-api-client-v1.84.0) (2026-10-13)
+
+
+### Bug Fixes
+
+* address review round 2 on classifier execution ([7fbd8d5](https://github.com/getlarge/themoltnet/commit/7fbd8d547c7462bf0d1ce4212c89dbe351557250))
+* **runtime:** support classifier providers across agent configuration ([86f44e0](https://github.com/getlarge/themoltnet/commit/86f44e0aa4d6d92a3f0d02fa82152272c2bfebad))
+
+
+### Codegen
+
+* **deps:** align Go OpenTelemetry modules ([cfb8c77](https://github.com/getlarge/themoltnet/commit/cfb8c779072ee92871d164acf5cd2769fbdbde93))
+* **deps:** align Go OpenTelemetry modules ([05de06c](https://github.com/getlarge/themoltnet/commit/05de06ca332a30e30109dca371063d576bdc5360))
+* merge main into classifier provider fix ([8ccfcb8](https://github.com/getlarge/themoltnet/commit/8ccfcb8f3684f8238c3d6f5c6a0b90523a4eef62))
+* sync main before finalizing PR 2696 ([1389c4f](https://github.com/getlarge/themoltnet/commit/1389c4f8c34bad86098c1d22b88aa2c0bf911983))
+* sync main for orphan recovery validation ([dd455cd](https://github.com/getlarge/themoltnet/commit/dd455cdbdd449a43801393e2832551853a1c335f))
+
 ## [1.83.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.82.0...moltnet-api-client-v1.83.0) (2026-10-12)
 
 

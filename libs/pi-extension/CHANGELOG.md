@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.41.1](https://github.com/getlarge/themoltnet/compare/pi-extension-v0.41.0...pi-extension-v0.41.1) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/os-keyring bumped to 0.5.0
+    * @themoltnet/pi-runtime bumped to 0.24.0
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [0.41.0](https://github.com/getlarge/themoltnet/compare/pi-extension-v0.40.26...pi-extension-v0.41.0) (2026-10-12)
 
 
