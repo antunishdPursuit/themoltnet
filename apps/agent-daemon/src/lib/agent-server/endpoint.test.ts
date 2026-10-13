@@ -163,7 +163,7 @@ describe('per-store daemon discovery', () => {
   it.each([
     'https://example.com:41001',
     'http://127.0.0.1:0',
-    // secretlint-disable-next-line -- fake credentials in a URL fixture
+    // secretlint-disable-next-line @secretlint/secretlint-rule-basicauth -- fake credentials in a URL fixture
     'http://user:pass@127.0.0.1:41001',
     'http://127.0.0.1:41001/path',
   ])('rejects invalid discovery address %s', (url) => {

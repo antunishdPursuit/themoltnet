@@ -1,7 +1,5 @@
 package main
 
-// secretlint-disable -- fake GitHub tokens exercise git config repair
-
 import (
 	"encoding/json"
 	"os"
@@ -16,11 +14,13 @@ func TestRepair_StripsPollutedGitConfig(t *testing.T) {
 	gitDir := filepath.Join(dir, ".git")
 	os.MkdirAll(gitDir, 0o755)
 	gitConfig := filepath.Join(gitDir, "config")
+	// secretlint-disable @secretlint/secretlint-rule-basicauth -- fake token fixture
 	os.WriteFile(gitConfig, []byte(`[core]
 	repositoryformatversion = 0
 [url "https://x-access-token:ghs_LEAKED@github.com/"]
 	insteadof = git@github.com:
 `), 0o644)
+	// secretlint-enable @secretlint/secretlint-rule-basicauth
 
 	changed, err := repairGitConfigTokens(gitConfig)
 	if err != nil {

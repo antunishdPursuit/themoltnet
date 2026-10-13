@@ -316,9 +316,6 @@
         "{projectRoot}/.golangci.yml"
       ]
     },
-    "secretlint": {
-      "cache": true
-    },
     "test": {
       "cache": true,
       "inputs": ["default", "^production"]

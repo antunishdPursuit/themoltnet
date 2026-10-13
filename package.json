@@ -111,6 +111,7 @@
     "nx": "catalog:",
     "prettier": "catalog:",
     "prettier-plugin-sort-json": "catalog:",
+    "secretlint": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",

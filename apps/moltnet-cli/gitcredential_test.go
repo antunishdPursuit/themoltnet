@@ -1,7 +1,5 @@
 package main
 
-// secretlint-disable -- fake GitHub tokens exercise token-bearing insteadOf detection
-
 import (
 	"os"
 	"path/filepath"
@@ -10,11 +8,13 @@ import (
 )
 
 func TestHasTokenBearingRule(t *testing.T) {
+	// secretlint-disable @secretlint/secretlint-rule-basicauth -- fake token fixture
 	polluted := `[remote "origin"]
 	url = git@github.com:getlarge/themoltnet.git
 [url "https://x-access-token:ghs_ABC123@github.com/"]
 	insteadof = git@github.com:
 `
+	// secretlint-enable @secretlint/secretlint-rule-basicauth
 	if !hasTokenBearingRule(polluted) {
 		t.Fatal("expected token-bearing rule to be detected")
 	}
@@ -27,6 +27,7 @@ func TestHasTokenBearingRule(t *testing.T) {
 }
 
 func TestStripTokenBearingRules(t *testing.T) {
+	// secretlint-disable @secretlint/secretlint-rule-basicauth -- fake token fixture
 	in := `[core]
 	repositoryformatversion = 0
 [url "https://x-access-token:ghs_ABC123@github.com/"]
@@ -34,6 +35,7 @@ func TestStripTokenBearingRules(t *testing.T) {
 [branch "main"]
 	remote = origin
 `
+	// secretlint-enable @secretlint/secretlint-rule-basicauth
 	out := stripTokenBearingRules(in)
 	if strings.Contains(out, "ghs_") {
 		t.Fatalf("token not stripped:\n%s", out)
@@ -49,9 +51,11 @@ func TestStripTokenBearingRules(t *testing.T) {
 func TestCleanGitConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "config")
+	// secretlint-disable @secretlint/secretlint-rule-basicauth -- fake token fixture
 	os.WriteFile(p, []byte(`[url "https://x-access-token:ghp_DEADBEEF@github.com/"]
 	insteadof = git@github.com:
 `), 0o644)
+	// secretlint-enable @secretlint/secretlint-rule-basicauth
 	changed, err := cleanGitConfigFile(p)
 	if err != nil {
 		t.Fatal(err)
