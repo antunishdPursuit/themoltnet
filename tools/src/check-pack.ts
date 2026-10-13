@@ -317,7 +317,7 @@ function checkPackage(
   const pkgPath = join(pkgDir, 'package.json');
   let pkg: Record<string, unknown>;
   try {
-    pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as Record<string, unknown>;
   } catch {
     console.error(`  FAIL: could not read ${pkgPath}`);
     return false;
@@ -403,7 +403,7 @@ if (invokedDirectly) {
   for (const scanDir of scanDirs) {
     let dirEntries: Dirent[];
     try {
-      dirEntries = readdirSync(scanDir, { withFileTypes: true }) as Dirent[];
+      dirEntries = readdirSync(scanDir, { withFileTypes: true });
     } catch {
       continue;
     }
@@ -414,7 +414,10 @@ if (invokedDirectly) {
       const pkgPath = join(pkgDir, 'package.json');
       let pkg: Record<string, unknown>;
       try {
-        pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as Record<
+          string,
+          unknown
+        >;
       } catch {
         continue;
       }

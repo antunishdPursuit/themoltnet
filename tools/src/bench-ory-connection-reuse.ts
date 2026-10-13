@@ -255,9 +255,9 @@ const dispatcher = new UndiciAgent({
   connections: 10,
   pipelining: 1,
 });
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const keepAliveFetch: FetchAPI = (input: any, init?: any) =>
-  fetch(input, { ...init, dispatcher });
+// Node's fetch accepts undici's `dispatcher`; the DOM RequestInit type omits it.
+const keepAliveFetch: FetchAPI = (input, init) =>
+  fetch(input, { ...init, dispatcher } as RequestInit);
 const keepAliveClients = makeClients(keepAliveFetch);
 
 // ── Read (checkPermission — GET) ────────────────────────────────────────────

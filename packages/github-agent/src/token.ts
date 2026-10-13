@@ -44,7 +44,7 @@ async function readTokenCache(
 ): Promise<{ token: string; expiresAt: string } | null> {
   try {
     const raw = await readFile(cachePath, 'utf-8');
-    const cached: TokenCache = JSON.parse(raw);
+    const cached = JSON.parse(raw) as TokenCache;
     if (!cached.token || !cached.expires_at) return null;
     if (cached.app_id !== appId || cached.installation_id !== installationId) {
       return null;

@@ -98,7 +98,9 @@ describe('dispatch', () => {
       'MOLTNET_MAX_ATTEMPTS=99 is not an integer in [1, 10]; using server default',
     );
     expect(mocks.createTask).toHaveBeenCalledWith(
-      expect.not.objectContaining({ maxAttempts: expect.anything() }),
+      expect.not.objectContaining({
+        maxAttempts: expect.anything() as unknown,
+      }),
     );
   });
 

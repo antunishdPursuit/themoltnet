@@ -125,6 +125,11 @@ const stdin = () => readCalls(resolve(root, 'stdin.log'));
 const cloud =
   'id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY';
 
+/** The slice of the written Pi `models.json` these tests inspect. */
+interface PiModelsJson {
+  providers: Record<string, Record<string, unknown>>;
+}
+
 describe('cache write access', () => {
   it.each([
     ['read', 'false'],
@@ -291,12 +296,18 @@ describe('workflow Pi catalog', () => {
     expect(result.status, result.stderr).toBe(0);
     const dir = readFileSync(env, 'utf8').trim().split('=')[1];
     expect(
-      JSON.parse(readFileSync(resolve(dir, 'models.json'), 'utf8')).providers
-        .local,
+      (
+        JSON.parse(
+          readFileSync(resolve(dir, 'models.json'), 'utf8'),
+        ) as PiModelsJson
+      ).providers.local,
     ).not.toHaveProperty('apiKey');
     expect(
-      JSON.parse(readFileSync(resolve(dir, 'models.json'), 'utf8')).providers
-        .local,
+      (
+        JSON.parse(
+          readFileSync(resolve(dir, 'models.json'), 'utf8'),
+        ) as PiModelsJson
+      ).providers.local,
     ).not.toHaveProperty('compat');
   });
 
@@ -319,7 +330,7 @@ describe('workflow Pi catalog', () => {
     const dir = readFileSync(env, 'utf8').trim().split('=')[1];
     const config = JSON.parse(
       readFileSync(resolve(dir, 'models.json'), 'utf8'),
-    );
+    ) as PiModelsJson;
     expect(config.providers.other).not.toHaveProperty('compat');
   });
 

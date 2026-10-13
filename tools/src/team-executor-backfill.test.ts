@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   backfillTeamExecutors,
+  type TeamExecutorBackfillAdapters,
   type TeamRoleRelation,
   type TeamRoleTuple,
 } from './team-executor-backfill.js';
@@ -35,7 +36,7 @@ describe('team executor backfill', () => {
         tuple(PRESERVED_TEAM, 'members', 'current-agent-2'),
       ],
     };
-    const putTuple = vi.fn();
+    const putTuple = vi.fn<TeamExecutorBackfillAdapters['putTuple']>();
 
     const result = await backfillTeamExecutors(
       {
@@ -61,7 +62,7 @@ describe('team executor backfill', () => {
       executors: [tuple('team-1', 'executors', 'owner-agent')],
       members: [],
     };
-    const putTuple = vi.fn();
+    const putTuple = vi.fn<TeamExecutorBackfillAdapters['putTuple']>();
 
     const result = await backfillTeamExecutors(
       {
@@ -76,7 +77,7 @@ describe('team executor backfill', () => {
   });
 
   it('reports missing projections without writing in dry-run mode', async () => {
-    const putTuple = vi.fn();
+    const putTuple = vi.fn<TeamExecutorBackfillAdapters['putTuple']>();
 
     const result = await backfillTeamExecutors(
       {

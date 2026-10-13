@@ -85,7 +85,7 @@ function sanitizeValue(value: unknown, options: SanitizeOptions): unknown {
     return value.map((item) => sanitizeValue(item, options));
   }
   if (typeof value === 'object') {
-    const prototype = Object.getPrototypeOf(value);
+    const prototype: unknown = Object.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null) {
       throw new Error('refusing to persist a non-plain object');
     }

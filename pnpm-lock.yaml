@@ -321,6 +321,9 @@ catalogs:
     fastq:
       specifier: ^1.20.1
       version: 1.20.1
+    globals:
+      specifier: ^17.12.0
+      version: 17.12.0
     husky:
       specifier: ^9.1.0
       version: 9.1.7
@@ -598,6 +601,9 @@ importers:
       github-actionlint:
         specifier: 1.7.12
         version: 1.7.12
+      globals:
+        specifier: 'catalog:'
+        version: 17.12.0
       husky:
         specifier: 'catalog:'
         version: 9.1.7

@@ -46,6 +46,9 @@ pnpm exec nx run-many -t secretlint --skip-nx-cache            # full rescan
 
 Findings are masked in the output, so CI logs never print the matched value.
 
+The pre-commit hook also scans the staged files, each with the config its
+project's target would use, so a secret is caught before it is committed.
+
 ## Configuration
 
 The root `.secretlintrc.json` applies to every project that has no config of its

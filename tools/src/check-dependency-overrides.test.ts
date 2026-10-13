@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type AuditAdvisory,
   devOnlyAdvisories,
   overrideTarget,
-  // @ts-expect-error — plain .mjs tool script, no type declarations.
 } from '../check-dependency-overrides.mjs';
 
 /**
@@ -48,7 +48,7 @@ describe('devOnlyAdvisories', () => {
     id: string,
     module_name: string,
     severity = 'high',
-  ): Record<string, unknown> => ({
+  ): AuditAdvisory => ({
     github_advisory_id: id,
     module_name,
     severity,

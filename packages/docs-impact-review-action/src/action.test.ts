@@ -186,7 +186,8 @@ describe('prepare: committed bundle', () => {
             PROTECTED_PATHS: '.github/workflows/docs.yml',
           },
         },
-        (error, out) => (error ? fail(error) : done(out)),
+        // ExecFileException is an Error at runtime; its Omit<> type hides that.
+        (error, out) => (error ? fail(error as Error) : done(out)),
       );
     });
 

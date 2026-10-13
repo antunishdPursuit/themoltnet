@@ -15,8 +15,8 @@
 // Dependents and whole-project lint, typecheck and tests are intentionally NOT
 // run here; CI covers them.
 
-import { readdirSync } from 'node:fs';
-import { relative } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
 
 import { createProjectGraphAsync } from '@nx/devkit';
 
@@ -101,6 +101,33 @@ const actionlintTargets = (files) =>
     ),
   );
 
+/**
+ * Secretlint over exactly the staged files, before a secret reaches the public
+ * remote. Each file uses the nearest `.secretlintrc.json` above it, which is
+ * the owning project's config when it has one and the root config otherwise:
+ * the same choice the inferred `secretlint` targets make.
+ */
+function secretlintCommands(files) {
+  const byConfig = new Map();
+  // The CLI always skips its own config and ignore files, and exits non-zero
+  // when every file it was given is skipped.
+  const scannable = files
+    .map(toRepoPath)
+    .filter((file) => !/^\.secretlint(rc|ignore)/.test(basename(file)));
+  for (const file of scannable) {
+    let dir = dirname(file);
+    while (dir !== '.' && !existsSync(join(dir, '.secretlintrc.json'))) {
+      dir = dirname(dir);
+    }
+    const config = join(dir, '.secretlintrc.json');
+    byConfig.set(config, [...(byConfig.get(config) ?? []), file]);
+  }
+  return [...byConfig].map(
+    ([config, configFiles]) =>
+      `secretlint --no-glob --secretlintrc ${config} ${configFiles.map((file) => JSON.stringify(file)).join(' ')}`,
+  );
+}
+
 export default {
   '*.{yaml,yml}': (files) => {
     const targets = actionlintTargets(files);
@@ -120,4 +147,6 @@ export default {
   ],
   '*.{json,md,html}': (files) => [`nx format:write --files=${list(files)}`],
   '*.go': ['gofmt -w'],
+  // Every staged file, any type: secrets are not limited to source code.
+  '*': secretlintCommands,
 };

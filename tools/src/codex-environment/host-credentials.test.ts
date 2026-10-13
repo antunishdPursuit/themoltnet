@@ -76,7 +76,7 @@ describe('hostAuthenticationCapability', () => {
         headers: { 'content-type': 'application/json' },
       }),
     );
-    const body = await response.json();
+    const body = (await response.json()) as unknown;
 
     expect(response.status).toBe(200);
     expect(body).toEqual({

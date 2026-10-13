@@ -102,6 +102,7 @@
     "eslint-plugin-react-hooks": "catalog:",
     "eslint-plugin-simple-import-sort": "catalog:",
     "github-actionlint": "1.7.12",
+    "globals": "catalog:",
     "husky": "catalog:",
     "jiti": "catalog:",
     "jsdom": "catalog:",
