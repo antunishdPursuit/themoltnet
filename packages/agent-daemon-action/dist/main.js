@@ -22564,6 +22564,66 @@ var updateDiaryEntryById = (options) => (options.client ?? client).patch({
 	}
 });
 /**
+* List relations for a diary entry. When depth > 1, returns a BFS traversal (undirected — follows edges in both directions). Note: depth/parentRelationId annotations are not included in the list response schema.
+*/
+var listEntryRelations = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/entries/{entryId}/relations",
+	...options
+});
+/**
+* Create a relation between two diary entries. Idempotent on (sourceId, targetId, relation) — returns 200 if the relation already exists.
+*/
+var createEntryRelation = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/entries/{entryId}/relations",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+/**
 * Verify the content signature of a diary entry. Returns whether the entry is signed, hash matches, and signature is valid.
 */
 var verifyDiaryEntryById = (options) => (options.client ?? client).get({
@@ -22654,6 +22714,34 @@ var listContextPacks = (options) => (options?.client ?? client).get({
 	...options
 });
 /**
+* Compare two context packs by CID. Both packs must belong to the same diary.
+*/
+var diffContextPacksByCid = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/packs/by-cid/{cid}/diff/by-cid/{otherCid}",
+	...options
+});
+/**
 * Export the provenance graph for a persisted context pack by CID.
 */
 var getContextPackProvenanceByCid = (options) => (options.client ?? client).get({
@@ -22740,6 +22828,34 @@ var updateContextPack = (options) => (options.client ?? client).patch({
 		"Content-Type": "application/json",
 		...options.headers
 	}
+});
+/**
+* Compare two context packs by ID. Both packs must belong to the same diary.
+*/
+var diffContextPacksById = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/packs/{id}/diff/{otherId}",
+	...options
 });
 /**
 * Export the provenance graph for a persisted context pack by ID.
@@ -23049,6 +23165,66 @@ var recoverAgentCredentials = (options) => (options.client ?? client).post({
 */
 var verifyRecoveryChallenge = (options) => (options.client ?? client).post({
 	url: "/recovery/verify",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+/**
+* Delete an entry relation.
+*/
+var deleteEntryRelation = (options) => (options.client ?? client).delete({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/relations/{id}",
+	...options
+});
+/**
+* Update the status of an entry relation.
+*/
+var updateEntryRelationStatus = (options) => (options.client ?? client).patch({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/relations/{id}",
 	...options,
 	headers: {
 		"Content-Type": "application/json",
@@ -26726,6 +26902,26 @@ function createPacksNamespace(context) {
 				query
 			}));
 		},
+		async diff(fromId, toId) {
+			return unwrapResult(await diffContextPacksById({
+				client,
+				auth,
+				path: {
+					id: fromId,
+					otherId: toId
+				}
+			}));
+		},
+		async diffByCid(fromCid, toCid) {
+			return unwrapResult(await diffContextPacksByCid({
+				client,
+				auth,
+				path: {
+					cid: fromCid,
+					otherCid: toCid
+				}
+			}));
+		},
 		async list(selector) {
 			if ("diaryId" in selector) {
 				const { diaryId, ...query } = selector;
@@ -26969,6 +27165,45 @@ function createRecoveryNamespace(context) {
 	};
 }
 //#endregion
+//#region ../../libs/sdk/src/namespaces/relations.ts
+function createRelationsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(entryId, body) {
+			return unwrapResult(await createEntryRelation({
+				client,
+				auth,
+				path: { entryId },
+				body
+			}));
+		},
+		async list(entryId, query) {
+			return unwrapResult(await listEntryRelations({
+				client,
+				auth,
+				path: { entryId },
+				query
+			}));
+		},
+		async update(id, body) {
+			return unwrapResult(await updateEntryRelationStatus({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async delete(id) {
+			const result = await deleteEntryRelation({
+				client,
+				auth,
+				path: { id }
+			});
+			if (result.error) unwrapResult(result);
+		}
+	};
+}
+//#endregion
 //#region ../../libs/sdk/src/namespaces/runtime-policies.ts
 function createRuntimePoliciesNamespace(context) {
 	const { client, auth } = context;
@@ -27061,6 +27296,7 @@ function createRuntimeProfilesNamespace(context) {
 		},
 		async allowedTools(profileId, options) {
 			return unwrapResult(await getRuntimeProfileAllowedTools({
+				signal: options.signal,
 				client,
 				auth,
 				path: { profileId },
@@ -30506,16 +30742,22 @@ var RuntimeModelProvider = String$1({
 var RuntimeModelName = String$1({
 	minLength: 1,
 	maxLength: 200,
-	pattern: "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$"
+	pattern: "^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$"
 });
-var RuntimeModelCapabilities = Record(String$1({
-	minLength: 1,
-	maxLength: 64
-}), Union([
-	Boolean$1(),
-	Number$1(),
-	String$1({ maxLength: 256 })
-]));
+var RuntimeModelCapabilities = Unsafe(_Object_({
+	generation: Optional(Boolean$1()),
+	classification: Optional(Boolean$1())
+}, {
+	propertyNames: String$1({
+		minLength: 1,
+		maxLength: 64
+	}),
+	additionalProperties: Union([
+		Boolean$1(),
+		Number$1(),
+		String$1({ maxLength: 256 })
+	])
+}));
 _Object_({
 	id: String$1({ format: "uuid" }),
 	teamId: Union([String$1({ format: "uuid" }), Null()]),
@@ -34628,7 +34870,7 @@ function createRuntimeSessionsNamespace(context) {
 		},
 		async mintId(storeId, body, options) {
 			return unwrapResult(await mintRuntimeStoreId({
-				...request(options),
+				...retryRequest(options),
 				path: { storeId },
 				body
 			}));
@@ -35550,9 +35792,9 @@ async function validateFreeformInputAsync(input, ctx) {
 //#endregion
 //#region ../../libs/tasks/src/output-contract-validation.ts
 /**
-* Proposer-supplied `freeform` output contracts. The server stores them
-* verbatim and never interprets them; executors and readers enforce them with
-* the functions below so every consumer applies the same rules.
+* Proposer-supplied `freeform` output contracts. Submission validates the supported
+* schema subset before storing it verbatim. Executors and readers use the
+* same functions to enforce contracts, including previously stored tasks.
 */
 function getOutputContract(input) {
 	return input && typeof input === "object" && "outputContract" in input ? input.outputContract : void 0;
@@ -36965,7 +37207,7 @@ function validateTaskInput(taskType, input) {
 			message: validationError
 		}];
 	}
-	return [];
+	return validateOutputContract(taskType, input);
 }
 function checkVerificationInputCid(value, runtime) {
 	const verification = value !== null && typeof value === "object" ? value.verification : void 0;
@@ -38747,7 +38989,7 @@ function createAgent(options) {
 	const { client, tokenManager, auth } = options;
 	const context = {
 		client,
-		auth
+		auth: auth ? (scheme) => scheme.scheme === "bearer" ? auth() : void 0 : void 0
 	};
 	const diaries = createDiariesNamespace(context);
 	const agentKeys = createAgentKeysNamespace(context);
@@ -38755,6 +38997,7 @@ function createAgent(options) {
 	const diaryTransfers = createDiaryTransfersNamespace(context);
 	const packs = createPacksNamespace(context);
 	const entries = createEntriesNamespace(context);
+	const relations = createRelationsNamespace(context);
 	const agents = createAgentsNamespace(context);
 	const crypto = createCryptoNamespace(context, createSigningRequestsNamespace(context), createSigningCredentialsNamespace(context));
 	const authNs = createAuthNamespace(context);
@@ -38776,6 +39019,7 @@ function createAgent(options) {
 		diaryTransfers,
 		packs,
 		entries,
+		relations,
 		agents,
 		crypto,
 		auth: authNs,
