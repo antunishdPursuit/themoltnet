@@ -18,6 +18,7 @@
     "@moltnet/runtime-profiles": "workspace:*",
     "@moltnet/tasks": "workspace:*",
     "@earendil-works/pi-durable": "catalog:",
+    "@opentelemetry/api": "catalog:",
     "@earendil-works/chord": "catalog:"
   },
   "devDependencies": {

@@ -16,6 +16,7 @@ import type {
   ConversationMessage,
   ConversationSnapshot,
 } from '@moltnet/runtime-profiles';
+import { type Span, SpanStatusCode, trace } from '@opentelemetry/api';
 
 import { createProblem } from './problems.js';
 import type { RuntimeSessionSubject } from './runtime-sessions.js';
@@ -33,6 +34,7 @@ const MAX_CONVERSATIONS = 1024;
 const MAX_READERS = 16;
 const MAX_TOTAL_REPLAY_BYTES = 128 * 1024 * 1024;
 const IDLE_TTL_MS = 30_000;
+const tracer = trace.getTracer('@moltnet/runtime-session-service');
 const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -134,8 +136,26 @@ export function createConversationService(deps: {
         ? (await storage.document(entry.id, 'current', context))?.value
         : undefined;
     }
-    async function refresh(signal?: AbortSignal) {
+    // One span per refresh: cold vs incremental replay, and how its time splits
+    // between waiting on authorized object reads and applying commits.
+    function refresh(signal?: AbortSignal) {
+      return tracer.startActiveSpan(
+        'runtime.conversation.refresh',
+        async (span) => {
+          try {
+            return await replay(span, signal);
+          } catch (error) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+            throw error;
+          } finally {
+            span.end();
+          }
+        },
+      );
+    }
+    async function replay(span: Span, signal?: AbortSignal) {
       signal?.throwIfAborted();
+      span.setAttribute('moltnet.conversation.cold', seq === 0);
       if (closed) throw new Error('Conversation reader is closed');
       const attached = await deps.stores.findAttempt(input);
       if (!attached) {
@@ -168,6 +188,11 @@ export function createConversationService(deps: {
       });
       if (bounds.lastSeq < seq)
         throw createProblem('conflict', 'Conversation history changed');
+      const replayStart = performance.now();
+      const replayedFrom = seq;
+      const bytesBefore = bytes;
+      let applyMs = 0;
+      let pages = 1;
       while (seq < bounds.lastSeq) {
         const previous = seq;
         for await (const commit of page.items) {
@@ -192,6 +217,7 @@ export function createConversationService(deps: {
           }
           bytes += size;
           totalBytes += size;
+          const applyStart = performance.now();
           validateConversations(commit.writes);
           storage
             .prepareCommit(
@@ -203,6 +229,7 @@ export function createConversationService(deps: {
             if (write.type === 'conversation')
               created.set(Number(record(write.value).id), commit.seq);
           }
+          applyMs += performance.now() - applyStart;
           seq = commit.seq;
         }
         if (seq === previous)
@@ -210,7 +237,8 @@ export function createConversationService(deps: {
             'service-unavailable',
             'Incomplete conversation history',
           );
-        if (seq < bounds.lastSeq)
+        if (seq < bounds.lastSeq) {
+          pages++;
           page = await deps.stores.read({
             ...input,
             storeId,
@@ -219,7 +247,17 @@ export function createConversationService(deps: {
             throughSeq: bounds.lastSeq,
             limit: 100,
           });
+        }
       }
+      const loopMs = performance.now() - replayStart;
+      span.setAttributes({
+        'moltnet.conversation.commits_replayed': seq - replayedFrom,
+        'moltnet.conversation.replay_bytes': bytes - bytesBefore,
+        'moltnet.conversation.pages': pages,
+        // Object fetches plus later-page authorization vs. in-memory replay.
+        'moltnet.conversation.read_wait_ms': Math.round(loopMs - applyMs),
+        'moltnet.conversation.apply_ms': Math.round(applyMs),
+      });
       const store = await deps.repository.get(input.teamId, storeId);
       writerActive =
         !!store &&
