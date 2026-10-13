@@ -1,0 +1,5 @@
+{
+  "name": "custom-pi-triage-readonly",
+  "shellCommands": [],
+  "tools": ["github_issue_read", "classify"]
+}

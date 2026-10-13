@@ -46,12 +46,14 @@ it('decodes split UTF-8 per stream and waits for guest spill writes', async () =
     '/workspace',
   );
   const output: string[] = [];
+  const streams: string[] = [];
   const result = await env.exec(
     'test',
     {
       spill: { afterBytes: 2, afterLines: 1 },
-      onOutput: (text) => {
+      onOutput: (text, _context, info) => {
         output.push(text);
+        streams.push(info.stream);
       },
     },
     BACKGROUND_CONTEXT,
@@ -61,6 +63,7 @@ it('decodes split UTF-8 per stream and waits for guest spill writes', async () =
     value: { exitCode: 7, spillPath: '/tmp/spill' },
   });
   expect(output.join('')).toBe('warning\n€');
+  expect(streams).toEqual(['stdout', 'stderr', 'stdout']);
   expect(files.get('/tmp/spill')).toBe('warning\n€');
   expect(writing).toBe(false);
 });
@@ -277,4 +280,19 @@ describe('output spilling', () => {
       expect(result.error.spillPath).toBe('/tmp/spill');
     }
   });
+});
+
+it('reports unsupported guest handle and watch capabilities explicitly', async () => {
+  const env = new GondolinDurableEnv({} as VM, 'vm', '/workspace');
+  const results = await Promise.all([
+    env.openBinaryReader('file', undefined, BACKGROUND_CONTEXT),
+    env.openDirReader('.', BACKGROUND_CONTEXT),
+    env.watch([{ path: '.' }], () => {}, BACKGROUND_CONTEXT),
+  ]);
+  for (const result of results) {
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'not_supported' },
+    });
+  }
 });

@@ -26,8 +26,8 @@ implementation can be added beside it without going through Pi.
 
 ## What it deliberately does not own
 
-- **Provider authentication.** The coding-agent session and its model calls run
-  host-side (Pi's `createAgentSession` reads the host `~/.pi/agent` auth), so no
+- **Provider authentication.** Pi model calls run host-side, with
+  credentials resolved by the host runtime, so no
   provider auth is projected into the guest — the guest only executes tools via
   `vm.exec`.
 - Tool definitions, tool policy, task execution, workspace preparation —

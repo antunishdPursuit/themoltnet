@@ -12,6 +12,7 @@ export const PI_CLASSIFIER_APIS = [
   'typesafe-system-one',
   'cloudflare-workers-ai-system-one',
   'llama-cpp-classify',
+  'openai-decisions',
 ] as const;
 export type PiClassifierApi = (typeof PI_CLASSIFIER_APIS)[number];
 /** Default for existing declarations without a per-model API. */

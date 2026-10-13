@@ -142,10 +142,11 @@ In the daemon provider configuration, declare the classifier model with
 the provider's endpoint and credentials through the normal provider settings;
 classifier models use the same credential resolver as chat models. Supported
 classifier APIs are `typesafe-system-one` (the default),
-`cloudflare-workers-ai-system-one`, and `llama-cpp-classify`. The endpoint must
-implement the selected protocol; local Ollama v0.35+ uses `typesafe-system-one`
-at `/v1/systemone` without an API key. The provider name is arbitrary. An
-optional `contextWindow` overrides the default of 8192 tokens. See
+`cloudflare-workers-ai-system-one`, `llama-cpp-classify`, and (with Pi 1.2)
+`openai-decisions`. The endpoint must implement the selected protocol; local
+Ollama v0.35+ uses `typesafe-system-one` at `/v1/systemone` without an API key.
+The provider name is arbitrary. An optional `contextWindow` overrides the
+default of 8192 tokens. See
 [Classifier models](../operate/running-agents.md#classifier-models) for Desktop
 and CLI setup, endpoint compatibility, and model ID requirements.
 
@@ -173,11 +174,18 @@ Native Durable extensions are registered with
 Import `defineExtension` from `@earendil-works/pi-durable`. Tool calls are
 checked against the runtime policy, including recovery. Set
 `scope: 'parent_and_subagents'` to share an extension with child conversations.
-Extension names beginning `moltnet-` are reserved. Coding-agent session
-extensions, including `piCodemode()`, require migration to the native Durable
-API before use in the daemon. Runtime-profile sampling options use the shared
-provider payload policy, including omission of options unsupported by the
-selected model.
+Extension names beginning `moltnet-` are reserved. Add `piCodemode()` to the
+runtime's `extensions` to install Pi 1.2's native Durable JavaScript tool.
+Permit `codemode` and any tools it calls in the bound policy; nested calls pass
+through the same tool authorization hooks. Scripts can call
+`tools.classify(...)` to use the runtime profile's classifier. Pi's
+`models.classify(...)` is a separate lower-level API for selecting a registered
+classifier explicitly; its policy permission is `pi.codemode.models.classify`.
+Image generation uses `pi.codemode.models.generateImages`. Grant only the
+operations the task needs. The dedicated `classify` tool works without codemode.
+
+Runtime-profile sampling options use the shared provider payload policy,
+including omission of options unsupported by the selected model.
 
 The API stores each immutable commit payload in object storage and publishes its
 checksum, sequence, and receipt in Postgres. Conversation content is not copied

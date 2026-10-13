@@ -794,7 +794,7 @@ it('derives native extension tool declarations and reserves internal extension n
         description: 'Lookup',
         parameters: { type: 'object' as const, properties: {} },
         replay: 'safe' as const,
-        execute: async () => ({ content: [] }),
+        execute: async () => ({ output: [] }),
       },
     ],
   };

@@ -135,7 +135,14 @@ describe('direct classification task', () => {
     expect(classify).not.toHaveBeenCalled();
   });
   it('declares codemode explicitly', () => {
-    expect(piCodemode().declaredTools).toEqual(['codemode']);
+    expect(piCodemode()).toMatchObject({
+      kind: 'durable_extension',
+      declaredTools: [
+        'codemode',
+        'pi.codemode.models.classify',
+        'pi.codemode.models.generateImages',
+      ],
+    });
   });
 });
 

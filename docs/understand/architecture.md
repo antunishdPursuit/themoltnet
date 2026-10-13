@@ -502,51 +502,38 @@ and starts no attempt workflow. `POST /tasks/:id/claim` performs the
 queued-to-dispatched CAS and enqueues the DBOS attempt workflow in the same
 Postgres transaction.
 
-### Continuation resolution (durable resume)
+### Continuation resolution (Durable)
 
-A freeform task carrying `input.continueFrom` is a continuation. After it is
-claimed, the daemon resolves runtime context before running Pi:
+A freeform task carrying `input.continueFrom` references a source task attempt.
+Conversation state comes from the runtime-store API; local slot metadata is not
+required to recover the conversation on another daemon.
 
-1. **Affinity filter** (claim time) — the daemon claims a continuation if the
-   producer has either a verified local session path or a durable runtime
-   session object for `(taskId, attemptN)`. The lookup is profile-agnostic, so a
-   different compatible runtime profile can pick up the work.
-2. **Plan** (`maybeAttachWarmSlotContext`) — branches on `continueFrom.mode`:
-   `extend` reuses the parent's workspace + branch when slot metadata records
-   it, otherwise it hydrates the durable session and recovers the branch from
-   source attempt output when present; `fork` allocates a fresh workspace and a
-   new branch derived from the parent, so it still requires that recovered
-   parent branch.
-3. **Worktree** (`prepareTaskWorkspace`) — `extend` checks out the shared
-   branch; `fork` runs
-   `git worktree add -b <fork-branch> <dir> <parent-branch>`, cutting the new
-   branch from the parent tip. Remote-only continuations run without inventing a
-   parent branch; they use source attempt output when it reports one.
-4. **Session** (`SessionManager.forkFrom`) — copies the parent's Pi `.jsonl`
-   into a fresh session dir, rebinding cwd to the (extend or fork) worktree.
+1. **Store** — opening the continuation resolves the source attempt's Durable
+   store. `extend` reuses that store; `fork` creates a store branch. The API
+   enforces writer ownership before admitting writes.
+2. **Workspace** — the execution plan resolves a Git branch from the source
+   attempt output, or a revision from its input. `extend` reuses that branch or
+   revision; `fork` prepares a new branch from it. Tasks without Git context use
+   their configured workspace mode.
+3. **Conversation** — Pi replays the committed store, checks that the source
+   attempt completed, and resolves its conversation. `extend` continues it;
+   `fork` forks at its latest entry. There is no JSONL session-file download.
 
 ```mermaid
 sequenceDiagram
     participant D as Daemon
-    participant R as Runtime slot API
-    participant S as Runtime session storage
-    participant G as git
-    participant Pi as Pi session
-    D->>R: findLatestProducerSlot(taskId, attemptN)
-    alt local slot session exists
-        D->>Pi: fork session from recorded parent path
-    else remote runtime session exists
-        D->>S: download parent session
-        D->>Pi: fork session from hydrated path
+    participant A as Runtime-store API
+    participant P as Pi Durable
+    D->>A: Open continuation for source task and attempt
+    alt extend
+        A-->>D: Existing store and writer lease
+    else fork
+        A-->>D: Forked store and writer lease
     end
-    alt mode = extend + parent branch recovered
-        D->>G: reuse parent branch (shared worktree)
-    else mode = fork + parent branch recovered
-        D->>G: worktree add -b <branch>-fork-N <dir> <parentBranch>
-    else remote-only
-        D->>G: no inherited branch
-    end
-    D->>Pi: forkFrom(parent session) → new sessionDir (cwd = worktree)
+    D->>A: Read committed history
+    D->>P: Replay store and resolve source conversation
+    P->>P: Continue or fork conversation
+    P->>A: Append ordered commits through daemon transport
 ```
 
 ---

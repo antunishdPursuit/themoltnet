@@ -6,6 +6,7 @@ import {
   fauxToolCall,
   Type,
 } from '@earendil-works/pi-ai';
+import { createProvider } from '@earendil-works/pi-ai/models';
 import {
   defineExtension,
   defineTool,
@@ -27,6 +28,7 @@ import { remoteLog } from '../__tests__/durable-log.js';
 import { createDurableTaskExecutor } from './durable-executor.js';
 import { ApiDurableStorage } from './durable-storage.js';
 import { acquireDurableTransport } from './durable-transport.js';
+import { piCodemode } from './runtime-definition.js';
 
 function task(
   id = 'aaaaaaaa-0000-4000-8000-000000000001',
@@ -67,10 +69,14 @@ function setup(
   overrides: {
     maxBashTimeouts?: number;
     tools?: readonly ToolRegistration[];
+    extensions?: readonly Extension[];
   } = {},
 ) {
   const allowed = new Set([
     'subagent',
+    ...(overrides.extensions ?? []).flatMap((extension) =>
+      (extension.tools ?? []).map((tool) => tool.name),
+    ),
     ...(overrides.tools ?? []).map((tool) => tool.name),
   ]);
   const remote = remoteLog();
@@ -82,6 +88,7 @@ function setup(
       allowed.has(name) ? undefined : 'blocked',
     ),
     ...(overrides.tools ? { tools: overrides.tools } : {}),
+    extensions: overrides.extensions,
     ...(subagents ? { subagentTools: [] } : {}),
     subagentExtensions,
     close: vi.fn(),
@@ -108,7 +115,7 @@ function setup(
       prepare,
     }),
   });
-  return { ...remote, faux, execute, prepare };
+  return { ...remote, faux, models, execute, prepare };
 }
 /** A `bash` stand-in that fails the way the Durable bash tool does. */
 function failingBash(message: string) {
@@ -440,7 +447,7 @@ describe('Durable task integration', () => {
 
   it('installs child extensions and guards their tools', async () => {
     const executeChildTool = vi.fn(async () => ({
-      content: [{ type: 'text' as const, text: 'unreachable' }],
+      output: [{ type: 'text' as const, text: 'unreachable' }],
     }));
     const extension = defineExtension({
       name: 'child-probe',
@@ -617,7 +624,7 @@ it('installs native extension tools and checks their calls against the current p
   const models = createModels();
   models.setProvider(faux.provider);
   const allowed = vi.fn(async () => ({
-    content: [{ type: 'text' as const, text: 'native result' }],
+    output: [{ type: 'text' as const, text: 'native result' }],
   }));
   const blocked = vi.fn(allowed);
   const authorizeTool = vi.fn(async (name: string) =>
@@ -951,7 +958,7 @@ it('stops an in-flight tool on server timeout and drains the next task without r
                         once: true,
                       });
                   });
-                  return { content: [] };
+                  return { output: [] };
                 },
               }),
             ],
@@ -1007,4 +1014,111 @@ it('stops an in-flight tool on server timeout and drains the next task without r
   } finally {
     vi.useRealTimers();
   }
+});
+
+it.each([false, true])(
+  'runs native codemode with nested permission %s',
+  async (allowLookup) => {
+    const lookup = vi.fn(async () => ({
+      output: [{ type: 'text' as const, text: 'classified' }],
+    }));
+    const s = setup(false, 4, undefined, {
+      tools: [
+        defineTool({
+          name: 'lookup',
+          description: 'Lookup',
+          parameters: Type.Object({}),
+          execute: lookup,
+        }),
+      ],
+      extensions: [piCodemode().extension],
+    });
+    const prepare = s.prepare.getMockImplementation()!;
+    const authorize = vi.fn(async (name: string) =>
+      name === 'lookup' && !allowLookup ? 'blocked' : undefined,
+    );
+    s.prepare.mockImplementation(async () => ({
+      ...(await prepare()),
+      authorizeTool: authorize,
+    }));
+    let transcript = '';
+    s.faux.setResponses([
+      fauxAssistantMessage(
+        fauxToolCall('codemode', {
+          code: 'console.log(await tools.lookup({}));',
+        }),
+        { stopReason: 'toolUse' },
+      ),
+      (context) => {
+        transcript = JSON.stringify(context);
+        return submitted();
+      },
+    ]);
+    const result = await s.execute(task(), reporter());
+    expect(result.status).toBe('completed');
+    expect(authorize).toHaveBeenCalledWith('lookup', {}, expect.anything());
+    expect(lookup).toHaveBeenCalledTimes(allowLookup ? 1 : 0);
+    expect(transcript).toContain(allowLookup ? 'classified' : 'blocked');
+  },
+);
+
+it('executes models.classify inside native codemode using the registered provider', async () => {
+  const s = setup(false, 4, undefined, {
+    extensions: [piCodemode().extension],
+  });
+  const classifier = {
+    ...s.faux.models[0],
+    type: 'classifier' as const,
+    api: 'typesafe-system-one' as const,
+    provider: 'classifier-fixture',
+    id: 'decision',
+  };
+  const classify = vi.fn(async () => ({
+    provider: classifier.provider,
+    model: classifier.id,
+    api: classifier.api,
+    timestamp: 0,
+    stopReason: 'stop' as const,
+    answers: { actionable: { type: 'bool' as const, probability: 0.8 } },
+  }));
+  s.models.setProvider(
+    createProvider({
+      id: classifier.provider,
+      auth: s.faux.provider.auth,
+      models: [classifier],
+      classifiers: { 'typesafe-system-one': { classify } },
+    }),
+  );
+  let transcript = '';
+  s.faux.setResponses([
+    fauxAssistantMessage(
+      fauxToolCall('codemode', {
+        code: `
+      const model = await models.getModelOfType('classifier', 'classifier-fixture', 'decision');
+      const result = await models.classify(model, { state: { issue: 'reproducible' }, questions: {
+        actionable: { type: 'bool', instructions: 'Is it actionable?', criteria: { true: 'reproducible', false: 'unclear' } }
+      } });
+      console.log(result.answers.actionable.probability);
+    `,
+      }),
+      { stopReason: 'toolUse' },
+    ),
+    (context) => {
+      transcript = JSON.stringify(context);
+      return submitted();
+    },
+  ]);
+  expect((await s.execute(task(), reporter())).status).toBe('completed');
+  expect(classify).toHaveBeenCalledOnce();
+  expect(classify.mock.calls[0]).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        provider: 'classifier-fixture',
+        id: 'decision',
+        type: 'classifier',
+      }),
+      expect.objectContaining({ state: { issue: 'reproducible' } }),
+    ]),
+  );
+  expect(transcript).toContain('0.8');
 });
