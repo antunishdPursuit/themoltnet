@@ -15,11 +15,16 @@
   "defaultWorkspaceMode": "none",
   "description": "Experimental input-only GPT-OSS 120B runtime for the PDDL designer stages (types, predicates, actions, refine, problem).",
   "maxBashTimeouts": 1,
-  "maxOutputTokens": 8192,
   "maxTurns": 6,
-  "model": "gpt-oss:120b",
+  "models": {
+    "generation": {
+      "maxOutputTokens": 8192,
+      "model": "gpt-oss:120b",
+      "provider": "ollama-cloud",
+      "temperature": 0.1
+    }
+  },
   "name": "legreffier-pddl-designer-v1",
-  "provider": "ollama-cloud",
   "requiredEnv": [],
   "runtimeKind": "gondolin_pi",
   "sandbox": {
@@ -43,6 +48,5 @@
       "shadowMode": "deny"
     }
   },
-  "temperature": 0.1,
   "toolEnforcement": "enforce"
 }

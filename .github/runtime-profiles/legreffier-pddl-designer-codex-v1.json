@@ -16,9 +16,13 @@
   "description": "Experimental input-only OpenAI Codex (gpt-6-sol) runtime for the PDDL designer stages; same context and sandbox as legreffier-pddl-designer-v1.",
   "maxBashTimeouts": 1,
   "maxTurns": 6,
-  "model": "gpt-6-sol",
+  "models": {
+    "generation": {
+      "model": "gpt-6-sol",
+      "provider": "openai-codex"
+    }
+  },
   "name": "legreffier-pddl-designer-codex-v1",
-  "provider": "openai-codex",
   "requiredEnv": [],
   "runtimeKind": "gondolin_pi",
   "sandbox": {
