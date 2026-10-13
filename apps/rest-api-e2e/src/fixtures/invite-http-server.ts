@@ -63,6 +63,7 @@ export async function startInviteHttpServer(
         title: error.message,
         status,
         code: error.code,
+        ...(status === 409 ? { conflict: {} } : {}),
       });
     },
   );

@@ -22,11 +22,11 @@ catalogs:
       specifier: ^20.1.0
       version: 20.5.3
     '@dbos-inc/dbos-sdk':
-      specifier: 4.24.16
-      version: 4.24.16
+      specifier: 4.27.6
+      version: 4.27.6
     '@dbos-inc/drizzle-datasource':
-      specifier: 4.24.16
-      version: 4.24.16
+      specifier: 4.27.6
+      version: 4.27.6
     '@dotenvx/dotenvx':
       specifier: ^1.59.1
       version: 1.59.1
@@ -1486,10 +1486,10 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@dbos-inc/drizzle-datasource':
         specifier: 'catalog:'
-        version: 4.24.16(@dbos-inc/dbos-sdk@4.24.16)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
+        version: 4.27.6(@dbos-inc/dbos-sdk@4.27.6)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
       '@fastify/cors':
         specifier: 'catalog:'
         version: 11.2.0
@@ -2276,10 +2276,10 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@dbos-inc/drizzle-datasource':
         specifier: 'catalog:'
-        version: 4.24.16(@dbos-inc/dbos-sdk@4.24.16)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
+        version: 4.27.6(@dbos-inc/dbos-sdk@4.27.6)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))
       '@moltnet/models':
         specifier: workspace:*
         version: link:../models
@@ -3356,7 +3356,7 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@moltnet/crypto-service':
         specifier: workspace:*
         version: link:../crypto-service
@@ -3561,7 +3561,7 @@ importers:
     dependencies:
       '@dbos-inc/dbos-sdk':
         specifier: 'catalog:'
-        version: 4.24.16
+        version: 4.27.6
       '@moltnet/database':
         specifier: workspace:*
         version: link:../database
@@ -4958,13 +4958,13 @@ packages:
   '@dabh/diagnostics@2.0.8':
     resolution: {integrity: sha512-R4MSXTVnuMzGD7bzHdW2ZhhdPC/igELENcq5IjEverBvq5hn1SXCWcsi6eSsdWP0/Ur+SItRRjAktmdoX/8R/Q==}
 
-  '@dbos-inc/dbos-sdk@4.24.16':
-    resolution: {integrity: sha512-H6Kxd7QHluYR5sw0nVPsaOMW9/VlSgUZjfcpllmUY5D4O8tBuXXRqTFX3y41KrNjT3sTdETP9tyHwsZ8lqI54Q==}
+  '@dbos-inc/dbos-sdk@4.27.6':
+    resolution: {integrity: sha512-mr5CEllYovAHPh/TpQcvxTYM+4t4tgV7CjkZGe7hzNxw9Nzf6l7ggxJKDbewLFwgwx8NaWcWw21ESHXNE1UwrA==}
     engines: {node: '>=20'}
     hasBin: true
 
-  '@dbos-inc/drizzle-datasource@4.24.16':
-    resolution: {integrity: sha512-GHTkqzJJa4taKyHDB3Dahc74SLvGwPJAprEcQY+LVIVk0hY8ASrj4y6AJcyomtLevBC1ZVviVuRG0PI6/nsXvg==}
+  '@dbos-inc/drizzle-datasource@4.27.6':
+    resolution: {integrity: sha512-nAdXqyYb7FKgNKJXLMpTwIkD2Famgs4EO9vlWOYlUfUwUoRdrseZ8iVxerdgwXaOWgKYHFdyk6M0thWOPEnnpA==}
     peerDependencies:
       '@dbos-inc/dbos-sdk': '*'
       drizzle-orm: '*'
@@ -16763,7 +16763,7 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
-  '@dbos-inc/dbos-sdk@4.24.16':
+  '@dbos-inc/dbos-sdk@4.27.6':
     dependencies:
       commander: 12.0.0
       pg: 8.18.0
@@ -16776,9 +16776,9 @@ snapshots:
       - pg-native
       - utf-8-validate
 
-  '@dbos-inc/drizzle-datasource@4.24.16(@dbos-inc/dbos-sdk@4.24.16)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))':
+  '@dbos-inc/drizzle-datasource@4.27.6(@dbos-inc/dbos-sdk@4.27.6)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0))':
     dependencies:
-      '@dbos-inc/dbos-sdk': 4.24.16
+      '@dbos-inc/dbos-sdk': 4.27.6
       drizzle-orm: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(better-sqlite3@12.10.0)(pg@8.18.0)
       pg: 8.18.0
       superjson: 1.13.3
