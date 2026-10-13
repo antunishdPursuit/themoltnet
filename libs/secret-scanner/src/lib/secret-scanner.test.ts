@@ -36,8 +36,12 @@ describe('containsSecretInText', () => {
   );
 
   it('does not honor submitted suppression comments', async () => {
+    // Split so Secretlint does not read the fixture as a directive for this file.
     const content =
-      '<!-- secretlint-disable -->\nxoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx';
+      '<!-- secretlint-' +
+      'disable -->\n' +
+      // secretlint-disable-next-line @secretlint/secretlint-rule-slack -- fake secret exercising the runtime scanner
+      'xoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx';
     expect(await containsSecretInText(content)).toBe(true);
   });
 

@@ -119,7 +119,7 @@
     },
     "@nx-go/nx-go",
     {
-      "exclude": ["examples/**/*"],
+      "exclude": ["examples/custom-pi-runtime/**/*"],
       "options": {
         "workspaceTargetProjectRoot": "tools"
       },

@@ -233,6 +233,16 @@ describe('secretlint plugin', () => {
     expect(globs).toEqual(['*', '.github/**/*', 'infra/**/*', 'packages/**/*']);
   });
 
+  it('rejects an orphan directory containing glob syntax', () => {
+    // Arrange
+    touch('docs-[draft]/notes.md');
+
+    // Act / Assert
+    expect(() => orphanGlobs(['libs/a', 'tools'], workspaceRoot)).toThrow(
+      /"docs-\[draft\]" contains glob syntax/,
+    );
+  });
+
   it('computes orphan globs without a .gitignore', () => {
     // Arrange
     rmSync(join(workspaceRoot, '.gitignore'));

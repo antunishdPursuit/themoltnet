@@ -365,7 +365,25 @@ jobs:
             printf '%s\n' "$ignored"
             exit 1
           fi
+      # The Secretlint CLI honours .secretlintignore in any directory, so a
+      # committed one could hide files from every scan.
+      - name: No committed .secretlintignore
+        run: |
+          found="$(git ls-files -- '*.secretlintignore*')"
+          if [ -n "$found" ]; then
+            echo "::error::Remove .secretlintignore files; suppress findings inline instead."
+            printf '%s\n' "$found"
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
+      # Nx does not see .nxignore'd files, so no affected secretlint target
+      # covers them. Scan every tracked one on each run.
+      - name: Scan tracked files hidden from Nx
+        run: |
+          mapfile -t hidden < <(git ls-files --cached --ignored --exclude-from=.nxignore)
+          if [ "${#hidden[@]}" -gt 0 ]; then
+            pnpm exec secretlint --no-glob --secretlintrc .secretlintrc.json "${hidden[@]}"
+          fi
       - id: shas
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
         with:

@@ -18,8 +18,9 @@ the root one.
 
 The plugin computes the workspace target's globs from the project roots, so
 nothing has to be maintained by hand. Each target's inputs are its globs, its
-config and the Secretlint packages, so a cached result is replayed only when
-none of the scanned files changed.
+config, any local rule files the config names, every `.secretlintignore` in the
+workspace, and the Secretlint packages. A cached result is replayed only when
+none of them changed.
 
 A project that contains nested projects, such as `packages/cli`, also scans
 their files with its own config. The nested projects scan them again in their
@@ -27,14 +28,15 @@ own targets. A nested project's `.secretlintrc.json` therefore does not exempt a
 file from the parent's scan: repeat the override in the parent's config.
 
 Secretlint skips binary files, so it does not inspect keystores or other binary
-credential files.
+credential files. It also never scans `.secretlintrc*` and `.secretlintignore*`
+files, so keep secrets out of `allows` patterns.
 
 Every path matching `.gitignore` is skipped, including tracked files. CI fails
 when a tracked file matches `.gitignore`, so such a file cannot go unscanned.
 
-`infra/ory/project.json` is listed in `.nxignore`, so Nx does not hash it. The
-workspace target scans it, but a change to that file alone does not invalidate
-the cached result.
+Nx does not see files listed in `.nxignore`, such as `infra/ory/project.json`,
+so no affected target covers them. CI scans every tracked `.nxignore`d file on
+each run instead.
 
 ```bash
 pnpm exec nx run @moltnet/rest-api:secretlint                   # one project
@@ -78,6 +80,10 @@ Add an `allows` pattern to `.secretlintrc.json` only for a value that recurs
 across many files, such as a local development password.
 
 Do not add a `.secretlintignore` file. The CLI honours one in any directory, so
-it can hide files from every scan; suppress findings inline instead. Every
-target hashes all `.secretlintignore` files, so adding or removing one reruns
-the scans.
+it could hide files from every scan; CI fails when one is committed. Suppress
+findings inline instead.
+
+A fixture that must contain the text of a suppression directive, for example to
+test that a scanner ignores it, has to split the directive across string
+literals. Secretlint reads the directive anywhere in a file, not only in
+comments, and would otherwise apply it to the rest of the file.

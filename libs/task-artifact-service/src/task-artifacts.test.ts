@@ -206,7 +206,11 @@ describe('createTaskArtifactService', () => {
     ],
     [
       'suppression comment and Slack token',
-      'secretlint-disable\nxoxb-123456789012-123456789012-abcdefabcdefabcdefabcdef',
+      // Split so Secretlint does not read the fixture as a directive for this file.
+      'secretlint-' +
+        'disable\n' +
+        // secretlint-disable-next-line @secretlint/secretlint-rule-slack -- fake secret exercising the runtime scanner
+        'xoxb-123456789012-123456789012-abcdefabcdefabcdefabcdef',
     ],
   ])('rejects %s before staging an artifact', async (_case, content) => {
     await expect(

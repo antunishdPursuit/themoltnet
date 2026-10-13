@@ -7,7 +7,8 @@
  * running from a project directory would skip the root `.gitignore`.
  *
  * Config: `{projectRoot}/.secretlintrc.json` when present (it replaces the
- * root config), otherwise the workspace-root `.secretlintrc.json`.
+ * root config), otherwise the workspace-root `.secretlintrc.json`. The
+ * workspace target always uses the root config.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
