@@ -138,7 +138,9 @@ async function assertNoCredentialMaterial(
       throw new TaskArtifactServiceError(400, 'Invalid task artifact encoding');
     }
     logger.warn(
-      { errorName: err instanceof Error ? err.name : typeof err },
+      {
+        errorType: err instanceof Error ? err.constructor.name : typeof err,
+      },
       'task artifact secret scan failed',
     );
     throw new TaskArtifactServiceError(
