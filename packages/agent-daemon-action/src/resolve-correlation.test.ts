@@ -100,7 +100,12 @@ describe('resolveCorrelation', () => {
   });
 
   it('issue context generates a fresh UUID without consulting any anchor', async () => {
-    const deps = makeDeps();
+    const gh = {
+      getPrHeadRef: vi.fn().mockResolvedValue(null),
+      getPrCommitMessages: vi.fn().mockResolvedValue([]),
+      getPrBody: vi.fn().mockResolvedValue(null),
+    };
+    const deps = makeDeps({ gh });
     const id = await resolveCorrelation(
       {
         contextType: 'issue',
@@ -109,8 +114,8 @@ describe('resolveCorrelation', () => {
       deps,
     );
     expect(id).toBe(FRESH);
-    expect(deps.gh.getPrHeadRef).not.toHaveBeenCalled();
-    expect(deps.gh.getPrCommitMessages).not.toHaveBeenCalled();
-    expect(deps.gh.getPrBody).not.toHaveBeenCalled();
+    expect(gh.getPrHeadRef).not.toHaveBeenCalled();
+    expect(gh.getPrCommitMessages).not.toHaveBeenCalled();
+    expect(gh.getPrBody).not.toHaveBeenCalled();
   });
 });

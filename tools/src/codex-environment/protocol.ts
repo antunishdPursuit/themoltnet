@@ -149,7 +149,7 @@ export function spawnCodexAppServer(options: {
       stdio: ['pipe', 'pipe', 'pipe'],
     },
   );
-  child.stderr.on('data', (chunk) => {
+  child.stderr.on('data', (chunk: Buffer) => {
     if (process.env.MOLTNET_CODEX_PROBE_DEBUG === '1') {
       process.stderr.write(chunk);
     }

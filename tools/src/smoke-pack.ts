@@ -172,7 +172,7 @@ if (pack.status !== 0) {
 }
 let tarball: string | undefined;
 try {
-  tarball = JSON.parse(pack.stdout.trim()).filename as string;
+  tarball = (JSON.parse(pack.stdout.trim()) as { filename: string }).filename;
 } catch {
   tarball = pack.stdout.trim().split('\n').filter(Boolean).pop();
 }

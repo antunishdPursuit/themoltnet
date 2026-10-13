@@ -10,7 +10,9 @@ describe('JsonlRpcClient', () => {
     const responses = new PassThrough();
     const client = new JsonlRpcClient(requests, responses);
     const requestChunks: Buffer[] = [];
-    requests.on('data', (chunk) => requestChunks.push(Buffer.from(chunk)));
+    requests.on('data', (chunk: Buffer) =>
+      requestChunks.push(Buffer.from(chunk)),
+    );
 
     const result = client.request<{ status: string }>('environment/status', {
       environmentId: 'fixture',

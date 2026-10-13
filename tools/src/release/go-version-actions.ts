@@ -552,7 +552,7 @@ export async function readLatestVersionFromGoProxy(
   }
 
   if (lastError) {
-    throw lastError;
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 
   throw new Error(`Go proxy lookup failed for ${modulePath}: no response`);
@@ -598,7 +598,7 @@ export async function readVersionFromGoProxy(
   }
 
   if (lastError) {
-    throw lastError;
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 
   throw new Error(`Go proxy lookup failed for ${modulePath}: no response`);

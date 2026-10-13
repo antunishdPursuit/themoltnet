@@ -77,7 +77,7 @@ export function substituteTemplate(
 ): string {
   const applied = raw.replace(
     /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g,
-    (_, k) => (values.has(k) ? (values.get(k) as string) : `{{${k}}}`),
+    (_, k: string) => (values.has(k) ? (values.get(k) as string) : `{{${k}}}`),
   );
   const leftover = [
     ...applied.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g),

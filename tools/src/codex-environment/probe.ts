@@ -497,7 +497,7 @@ cleanupComplete = cleanupErrors.length === 0;
 
 if (runError) {
   await rm(probeRoot, { recursive: true, force: true });
-  throw runError;
+  throw runError instanceof Error ? runError : new Error(String(runError));
 }
 if (cleanupErrors.length > 0) {
   await rm(probeRoot, { recursive: true, force: true });
@@ -516,7 +516,7 @@ const capabilityProof = Object.fromEntries(
     .trim()
     .split('\n')
     .map((line) => line.split('=', 2)),
-);
+) as Record<string, string | undefined>;
 const environmentNames = (await readFile(envNamesPath, 'utf8'))
   .split('\n')
   .filter(Boolean);

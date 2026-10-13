@@ -6,9 +6,36 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+interface CommandTarget {
+  options: { command: string };
+  configurations: Record<string, { command: string }>;
+}
+interface PackageManifest {
+  nx: { targets: Record<string, CommandTarget | undefined> };
+}
+interface NxConfig {
+  release: { groups: Record<string, { projects: string[] }> };
+}
+interface ReleasePleaseConfig {
+  packages: Record<string, Record<string, unknown>>;
+}
+interface TauriLinuxConfig {
+  bundle: { linux: { deb: { depends: string[]; recommends: string[] } } };
+}
+
+const readJson = <T>(path: URL | string): T =>
+  JSON.parse(readFileSync(path, 'utf8')) as T;
+
+/** A target the test requires; failing here names it instead of a TypeError. */
+const targetOf = (manifest: PackageManifest, name: string): CommandTarget => {
+  const target = manifest.nx.targets[name];
+  if (!target) throw new Error(`missing ${name} target`);
+  return target;
+};
+
 const workspaceRoot = fileURLToPath(new URL('../../../', import.meta.url));
-const nxConfig = JSON.parse(
-  readFileSync(new URL('../../../nx.json', import.meta.url), 'utf8'),
+const nxConfig = readJson<NxConfig>(
+  new URL('../../../nx.json', import.meta.url),
 );
 const workflow = readFileSync(
   new URL('../../../.github/workflows/release.yml', import.meta.url),
@@ -42,17 +69,11 @@ const dockerCacheWorkflow = readFileSync(
   ),
   'utf8',
 );
-const releasePleaseConfig = JSON.parse(
-  readFileSync(
-    new URL('../../../release-please-config.json', import.meta.url),
-    'utf8',
-  ),
+const releasePleaseConfig = readJson<ReleasePleaseConfig>(
+  new URL('../../../release-please-config.json', import.meta.url),
 );
-const agentDesktopPackage = JSON.parse(
-  readFileSync(
-    new URL('../../../apps/agent-desktop/package.json', import.meta.url),
-    'utf8',
-  ),
+const agentDesktopPackage = readJson<PackageManifest>(
+  new URL('../../../apps/agent-desktop/package.json', import.meta.url),
 );
 const dockerProjects = [
   { name: '@moltnet/console', root: 'apps/console' },
@@ -167,13 +188,10 @@ describe('Nx release configuration', () => {
     for (const { name, root } of dockerProjects) {
       expect(releasePleaseConfig.packages[root]).toBeDefined();
 
-      const packageConfig = JSON.parse(
-        readFileSync(
-          new URL(`../../../${root}/package.json`, import.meta.url),
-          'utf8',
-        ),
+      const packageConfig = readJson<PackageManifest>(
+        new URL(`../../../${root}/package.json`, import.meta.url),
       );
-      const dockerBuildTarget = packageConfig.nx.targets['docker:build'];
+      const dockerBuildTarget = targetOf(packageConfig, 'docker:build');
       const configurations = dockerBuildTarget.configurations;
 
       expect(dockerBuildTarget.options.command).toContain(
@@ -242,7 +260,7 @@ describe('Nx release configuration', () => {
   it.each(['mac-os', 'linux'])(
     'uses matching %s release and package-check targets',
     (platform) => {
-      const target = agentDesktopPackage.nx.targets['tauri:bundle'];
+      const target = targetOf(agentDesktopPackage, 'tauri:bundle');
       expect(target.options.command).toContain('bundle.sh host');
       expect(desktopReleaseWorkflow).toContain(
         `tauri:bundle --configuration=${platform} -- release`,
@@ -257,14 +275,8 @@ describe('Nx release configuration', () => {
   );
 
   it('installs sandbox and secret-storage dependencies with the Ubuntu package', () => {
-    const config = JSON.parse(
-      readFileSync(
-        join(
-          workspaceRoot,
-          'apps/agent-desktop/src-tauri/tauri.linux.conf.json',
-        ),
-        'utf8',
-      ),
+    const config = readJson<TauriLinuxConfig>(
+      join(workspaceRoot, 'apps/agent-desktop/src-tauri/tauri.linux.conf.json'),
     );
     expect(config.bundle.linux.deb.depends).toEqual(
       expect.arrayContaining([
@@ -444,11 +456,8 @@ describe('Nx release configuration', () => {
 
   it('refreshes only the heavy Node image caches outside gated CI', () => {
     const cacheProjects = dockerProjects.filter(({ root }) => {
-      const packageConfig = JSON.parse(
-        readFileSync(
-          new URL(`../../../${root}/package.json`, import.meta.url),
-          'utf8',
-        ),
+      const packageConfig = readJson<PackageManifest>(
+        new URL(`../../../${root}/package.json`, import.meta.url),
       );
       return packageConfig.nx.targets['docker:cache'];
     });
@@ -457,21 +466,17 @@ describe('Nx release configuration', () => {
       ['@moltnet/database', '@moltnet/mcp-server', '@moltnet/rest-api'].sort(),
     );
     for (const { root } of cacheProjects) {
-      const packageConfig = JSON.parse(
-        readFileSync(
-          new URL(`../../../${root}/package.json`, import.meta.url),
-          'utf8',
-        ),
+      const packageConfig = readJson<PackageManifest>(
+        new URL(`../../../${root}/package.json`, import.meta.url),
       );
-      expect(packageConfig.nx.targets['docker:cache']).toMatchObject({
+      const cacheTarget = packageConfig.nx.targets['docker:cache'];
+      expect(cacheTarget).toMatchObject({
         cache: false,
         inputs: ['dockerNodePackaging'],
-        options: {
-          command: expect.stringContaining(
-            '--cache-only --platform linux/amd64',
-          ),
-        },
       });
+      expect(cacheTarget?.options.command).toContain(
+        '--cache-only --platform linux/amd64',
+      );
     }
 
     expect(ciWorkflow).not.toContain('docker:cache');
