@@ -30,10 +30,17 @@ describe('secretlint plugin', () => {
     writeFileSync(join(workspaceRoot, path), content);
   };
 
-  /** Every project entry the plugin emits, keeping duplicates visible. */
-  const run = async (files: string[], options = {}) => {
+  /**
+   * Every project entry the plugin emits, keeping duplicates visible. The root
+   * package.json is included unless a test is about its absence.
+   */
+  const run = async (files: string[], options = {}, withRoot = true) => {
     const [, createNodes] = createNodesV2;
-    const results = await createNodes(files, options, context);
+    const manifests =
+      withRoot && !files.includes('package.json')
+        ? ['package.json', ...files]
+        : files;
+    const results = await createNodes(manifests, options, context);
     return results.flatMap(([, result]) =>
       Object.entries(result.projects ?? {}),
     ) as Array<[string, Partial<ProjectConfiguration>]>;
@@ -47,7 +54,7 @@ describe('secretlint plugin', () => {
     context = { workspaceRoot, nxJsonConfiguration: {} };
     touch('.secretlintrc.json', ROOT_CONFIG);
     touch('.gitignore', 'node_modules\ndist\n*.local\n');
-    touch('package.json');
+    touch('package.json', JSON.stringify({ name: 'moltnet' }));
     touch('README.md');
     touch('.github/workflows/ci.yml');
     touch('node_modules/x/index.js');
@@ -76,7 +83,11 @@ describe('secretlint plugin', () => {
     ]);
 
     // Assert
-    expect(entries.map(([root]) => root).sort()).toEqual(['libs/a', 'tools']);
+    expect(entries.map(([root]) => root).sort()).toEqual([
+      '.',
+      'libs/a',
+      'tools',
+    ]);
     const target = byRoot(entries)['libs/a'].targets?.secretlint;
     expect(target?.command).toBe(
       "secretlint 'libs/a/**/*' --secretlintrc '.secretlintrc.json'",
@@ -133,10 +144,7 @@ describe('secretlint plugin', () => {
     ).rejects.toThrow(/"libs\/\[id\]" contains glob syntax/);
   });
 
-  it('wires the workspace target to the orphan globs and the root config', async () => {
-    // Arrange: the host's own config must not leak into the workspace scan.
-    touch('tools/.secretlintrc.json', '{ "rules": [] }');
-
+  it('gives the root project a target over the orphan globs and the root config', async () => {
     // Act
     const entries = await run(
       [
@@ -152,11 +160,10 @@ describe('secretlint plugin', () => {
     // Assert
     const projects = byRoot(entries);
     expect(Object.keys(projects['libs/a'].targets ?? {})).toEqual(['scan']);
-    expect(Object.keys(projects.tools.targets ?? {}).sort()).toEqual([
-      'scan',
-      'scan:workspace',
-    ]);
-    const target = projects.tools.targets?.['scan:workspace'];
+    expect(Object.keys(projects.tools.targets ?? {})).toEqual(['scan']);
+    expect(projects['.'].name).toBe('moltnet');
+    expect(Object.keys(projects['.'].targets ?? {})).toEqual(['scan']);
+    const target = projects['.'].targets?.scan;
     expect(target?.command).toBe(
       "secretlint '*' '.github/**/*' 'infra/*' 'infra/ory/**/*' --secretlintrc '.secretlintrc.json'",
     );
@@ -171,19 +178,6 @@ describe('secretlint plugin', () => {
     ]);
   });
 
-  it('hosts the workspace target on the configured project', async () => {
-    // Act
-    const entries = await run(['libs/a/package.json'], {
-      workspaceTargetProjectRoot: 'libs/a',
-      workspaceTargetName: 'orphans',
-    });
-
-    // Assert
-    expect(Object.keys(byRoot(entries)['libs/a'].targets ?? {}).sort()).toEqual(
-      ['orphans', 'secretlint'],
-    );
-  });
-
   it.each([
     [['libs/a/package.json', 'libs/a/project.json']],
     [['libs/a/project.json', 'libs/a/package.json']],
@@ -195,10 +189,10 @@ describe('secretlint plugin', () => {
     expect(entries.filter(([root]) => root === 'libs/a')).toHaveLength(1);
   });
 
-  it('fails when the workspace target host is not a project', async () => {
+  it('fails without a root package.json to host the root project', async () => {
     // Act / Assert
-    await expect(run(['libs/a/package.json'])).rejects.toThrow(
-      /host "tools" is not a project root; set workspaceTargetProjectRoot/,
+    await expect(run(['libs/a/package.json'], {}, false)).rejects.toThrow(
+      /no root package.json/,
     );
   });
 

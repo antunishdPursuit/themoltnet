@@ -6,7 +6,7 @@
 
 assignment-rules:
   # Lint, secretlint and typecheck are CPU-light; pack them densely.
-  - targets: [lint, secretlint, 'secretlint:workspace', typecheck]
+  - targets: [lint, secretlint, typecheck]
     run-on:
       - agent: linux-medium
         parallelism: 3

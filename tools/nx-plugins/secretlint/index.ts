@@ -1,14 +1,14 @@
 /**
- * Local Nx plugin: infers a cached `secretlint` target for every project, and
- * a workspace target that scans files outside every project.
+ * Local Nx plugin: infers a cached `secretlint` target for every project,
+ * including a root project that owns the files outside every other project.
  *
- * Both run the Secretlint CLI from the workspace root and select files with
- * a glob. Secretlint applies `.gitignore` files from its cwd downwards, so
- * running from a project directory would skip the root `.gitignore`.
+ * Every target runs the Secretlint CLI from the workspace root and selects
+ * files with a glob. Secretlint applies `.gitignore` files from its cwd
+ * downwards, so running from a project directory would skip the root
+ * `.gitignore`.
  *
  * Config: `{projectRoot}/.secretlintrc.json` when present (it replaces the
- * root config), otherwise the workspace-root `.secretlintrc.json`. The
- * workspace target always uses the root config.
+ * root config), otherwise the workspace-root `.secretlintrc.json`.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
@@ -23,10 +23,6 @@ import JSON5 from 'json5';
 
 export interface SecretlintPluginOptions {
   targetName?: string;
-  /** Target scanning files that belong to no project. */
-  workspaceTargetName?: string;
-  /** Root of the project that hosts the workspace target. */
-  workspaceTargetProjectRoot?: string;
 }
 
 const CONFIG_FILE = '.secretlintrc.json';
@@ -166,11 +162,15 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
   '**/{project.json,package.json}',
   async (configFiles, options, context) => {
     const targetName = options?.targetName ?? 'secretlint';
-    const workspaceTargetName =
-      options?.workspaceTargetName ?? `${targetName}:workspace`;
-    const hostRoot = options?.workspaceTargetProjectRoot ?? 'tools';
+    const rootManifest = 'package.json';
+    if (!configFiles.includes(rootManifest)) {
+      // Without it there is no root project, and files outside every project
+      // would go unscanned without a word.
+      throw new Error(
+        'secretlint plugin: the workspace has no root package.json to host the root project',
+      );
+    }
 
-    // The workspace root has no project of its own: its files are orphans.
     const projectRoots = [
       ...new Set(
         configFiles
@@ -179,13 +179,6 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
           .map(assertLiteralPath),
       ),
     ];
-    if (!projectRoots.includes(hostRoot)) {
-      // Without a host, the workspace target would disappear silently.
-      throw new Error(
-        `secretlint plugin: workspace target host "${hostRoot}" is not a project root; ` +
-          'set workspaceTargetProjectRoot in the plugin options in nx.json',
-      );
-    }
 
     // Each config is parsed once per graph build, not once per project.
     const dependenciesByConfig = new Map<
@@ -209,36 +202,53 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
     const firstFileByRoot = new Map<string, string>();
     for (const file of configFiles) {
       const root = dirname(file);
-      if (root !== WORKSPACE_ROOT && !firstFileByRoot.has(root)) {
-        firstFileByRoot.set(root, file);
-      }
+      if (!firstFileByRoot.has(root)) firstFileByRoot.set(root, file);
     }
 
     return createNodesFromFiles(
       (file) => {
         const root = dirname(file);
         if (firstFileByRoot.get(root) !== file) return {};
+        if (root === WORKSPACE_ROOT) {
+          // The root project owns the files outside every other project,
+          // which is also how Nx attributes them when computing affected.
+          const { name } = JSON.parse(
+            readFileSync(join(context.workspaceRoot, rootManifest), 'utf8'),
+          ) as { name?: string };
+          return {
+            projects: {
+              [WORKSPACE_ROOT]: {
+                name,
+                targets: {
+                  [targetName]: buildTarget(
+                    orphanGlobs(projectRoots, context.workspaceRoot),
+                    CONFIG_FILE,
+                    dependenciesFor(CONFIG_FILE),
+                    'Scan files outside every project for committed secrets',
+                  ),
+                },
+              },
+            },
+          };
+        }
         const ownConfig = `${root}/${CONFIG_FILE}`;
         const config = existsSync(join(context.workspaceRoot, ownConfig))
           ? ownConfig
           : CONFIG_FILE;
-        const targets: Record<string, TargetConfiguration> = {
-          [targetName]: buildTarget(
-            [`${root}/**/*`],
-            config,
-            dependenciesFor(config),
-            'Scan project files for committed secrets',
-          ),
+        return {
+          projects: {
+            [root]: {
+              targets: {
+                [targetName]: buildTarget(
+                  [`${root}/**/*`],
+                  config,
+                  dependenciesFor(config),
+                  'Scan project files for committed secrets',
+                ),
+              },
+            },
+          },
         };
-        if (root === hostRoot) {
-          targets[workspaceTargetName] = buildTarget(
-            orphanGlobs(projectRoots, context.workspaceRoot),
-            CONFIG_FILE,
-            dependenciesFor(CONFIG_FILE),
-            'Scan files outside every project for committed secrets',
-          );
-        }
-        return { projects: { [root]: { targets } } };
       },
       configFiles,
       options,

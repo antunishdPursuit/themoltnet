@@ -120,9 +120,6 @@
     "@nx-go/nx-go",
     {
       "exclude": ["examples/custom-pi-runtime/**/*"],
-      "options": {
-        "workspaceTargetProjectRoot": "tools"
-      },
       "plugin": "./tools/nx-plugins/secretlint/index.ts"
     }
   ],

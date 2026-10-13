@@ -69,7 +69,7 @@
     "test:e2e": "NX_LOAD_DOT_ENV_FILES=false nx run-many -t e2e --projects=tag:type:e2e",
     "bootstrap": "pnpm --filter @moltnet/tools bootstrap",
     "prepare": "node tools/prepare.mjs",
-    "secretlint": "nx run-many -t secretlint secretlint:workspace"
+    "secretlint": "nx run-many -t secretlint"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",

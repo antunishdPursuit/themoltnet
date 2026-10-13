@@ -1,24 +1,23 @@
 # Secret Scanning
 
-Every Nx project except the workspace root has a cached `secretlint` target that
-scans the project's files with
-[Secretlint](https://github.com/secretlint/secretlint). CI runs it through
+Every Nx project has a cached `secretlint` target that scans the project's files
+with [Secretlint](https://github.com/secretlint/secretlint). CI runs it through
 `nx affected`, so a pull request scans only the projects it changes.
 
 ## Targets
 
-The local plugin `tools/nx-plugins/secretlint` infers the targets. Both run the
+The local plugin `tools/nx-plugins/secretlint` infers the targets. All run the
 Secretlint CLI from the workspace root, so every `.gitignore` applies, including
 the root one.
 
-| Target                                | Runs                                                                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `<project>:secretlint`                | `secretlint '<projectRoot>/**/*' --secretlintrc <config>`                                                                |
-| `@moltnet/tools:secretlint:workspace` | `secretlint` over every directory and file outside all projects, such as `.github/**/*`, `infra/ory/**/*` and root files |
+| Target                              | Runs                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `<project>:secretlint`              | `secretlint '<projectRoot>/**/*' --secretlintrc <config>`                                                                      |
+| `moltnet:secretlint` (root project) | `secretlint` over every directory and file outside all other projects, such as `.github/**/*`, `infra/ory/**/*` and root files |
 
-The plugin computes the workspace target's globs from the project roots, so
-nothing has to be maintained by hand. Each target's inputs are its globs, its
-config, any local rule files the config names, every `.secretlintignore` in the
+The plugin computes the root project's globs from the project roots, so nothing
+has to be maintained by hand. Each target's inputs are its globs, its config,
+any local rule files the config names, every `.secretlintignore` in the
 workspace, and the Secretlint packages. A cached result is replayed only when
 none of them changed.
 
@@ -40,9 +39,9 @@ each run instead.
 
 ```bash
 pnpm exec nx run @moltnet/rest-api:secretlint                   # one project
-pnpm exec nx affected -t secretlint secretlint:workspace        # what CI runs
+pnpm exec nx affected -t secretlint                             # what CI runs
 pnpm run secretlint                                             # everything
-pnpm exec nx run-many -t secretlint secretlint:workspace --skip-nx-cache   # full rescan
+pnpm exec nx run-many -t secretlint --skip-nx-cache            # full rescan
 ```
 
 Findings are masked in the output, so CI logs never print the matched value.
@@ -50,7 +49,7 @@ Findings are masked in the output, so CI logs never print the matched value.
 ## Configuration
 
 The root `.secretlintrc.json` applies to every project that has no config of its
-own, and to the workspace target. Read it for the enabled rules and `allows`
+own, and to the root project. Read it for the enabled rules and `allows`
 patterns.
 
 A change to the root config marks every project as affected, so CI rescans those
