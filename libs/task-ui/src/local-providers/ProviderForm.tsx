@@ -32,6 +32,21 @@ const PRESETS: Array<{
   { id: 'custom', label: 'Custom (OpenAI-compatible)', baseUrl: '' },
 ];
 
+const CLASSIFIER_APIS = {
+  'typesafe-system-one': {
+    label: 'System One (Typesafe / Ollama)',
+    hint: 'Local Ollama v0.35+ supports System One with decision models such as nimble and tev1. Clef models require v0.35.1+. Use a /v1 base URL; local Ollama needs no API key.',
+  },
+  'cloudflare-workers-ai-system-one': {
+    label: 'Cloudflare Workers AI System One',
+    hint: 'Use your Cloudflare Workers AI account endpoint and API token.',
+  },
+  'llama-cpp-classify': {
+    label: 'llama.cpp',
+    hint: 'Use llama-server with token probabilities and its native tokenize, apply-template, and completion endpoints.',
+  },
+} as const;
+
 /** Discovery uses the server's stored key; full model capabilities survive selection. */
 export function ProviderForm({
   providers,
@@ -71,6 +86,16 @@ export function ProviderForm({
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [discovered, setDiscovered] = useState(false);
+  const [classifierId, setClassifierId] = useState('');
+  const [classifierApi, setClassifierApi] = useState<
+    keyof typeof CLASSIFIER_APIS
+  >('typesafe-system-one');
+  const [classifierContext, setClassifierContext] = useState('8192');
+  const contextWindow = Number(classifierContext);
+  const validContext = Number.isSafeInteger(contextWindow) && contextWindow > 0;
+  const duplicateModel = models.some(
+    (model) => model.id === classifierId.trim(),
+  );
   const providerId = id.trim();
   const providerLabel =
     PRESETS.find((entry) => entry.id === providerId)?.label ?? providerId;
@@ -81,27 +106,45 @@ export function ProviderForm({
     model.id.toLowerCase().includes(filter.toLowerCase()),
   );
 
+  const saveConnection = async () => {
+    const provider =
+      saved && !editingKey
+        ? saved
+        : await actions.putProvider(providerId, {
+            api: existing?.api ?? 'openai-completions',
+            baseUrl: baseUrl.trim(),
+            envName:
+              existing?.envName ??
+              `MOLTNET_PROVIDER_${providerId.replaceAll('-', '_').toUpperCase()}_API_KEY`,
+            models: saved?.models ?? [],
+            supportsDeveloperRole,
+            ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+          });
+    setSaved(provider);
+    setApiKey('');
+    setEditingKey(false);
+    onChanged();
+    return provider;
+  };
+
+  const saveConnectionOnly = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await saveConnection();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setApiKey('');
+      setBusy(false);
+    }
+  };
+
   const discover = async () => {
     setBusy(true);
     setError(null);
     try {
-      const provider =
-        saved && !editingKey
-          ? saved
-          : await actions.putProvider(providerId, {
-              api: existing?.api ?? 'openai-completions',
-              baseUrl: baseUrl.trim(),
-              envName:
-                existing?.envName ??
-                `MOLTNET_PROVIDER_${providerId.replaceAll('-', '_').toUpperCase()}_API_KEY`,
-              models: saved?.models ?? [],
-              supportsDeveloperRole,
-              ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
-            });
-      setSaved(provider);
-      setApiKey('');
-      setEditingKey(false);
-      onChanged();
+      const provider = await saveConnection();
       const found = await actions.discoverModels(providerId);
       // Keep configured models (including their metadata) even if a provider's
       // discovery endpoint no longer lists them.
@@ -121,6 +164,18 @@ export function ProviderForm({
       setApiKey('');
       setBusy(false);
     }
+  };
+
+  const addClassifier = () => {
+    const id = classifierId.trim();
+    if (!id || duplicateModel || !validContext || busy || editingKey) return;
+    setModels((current) => [
+      ...current,
+      { id, type: 'classifier', api: classifierApi, contextWindow },
+    ]);
+    setSelected((current) => new Set([...current, id]));
+    setClassifierId('');
+    setClassifierContext('8192');
   };
 
   const saveModels = async () => {
@@ -272,6 +327,20 @@ export function ProviderForm({
         </InlineNotice>
       ) : null}
       <Stack direction="row" gap={2} wrap>
+        {!saved || editingKey ? (
+          <Button
+            variant="secondary"
+            disabled={
+              !valid ||
+              duplicate ||
+              ((needsKey || editingKey) && !apiKey.trim()) ||
+              busy
+            }
+            onClick={() => void saveConnectionOnly()}
+          >
+            {editingKey ? 'Save key' : 'Save connection'}
+          </Button>
+        ) : null}
         <Button
           variant="secondary"
           disabled={
@@ -338,9 +407,83 @@ export function ProviderForm({
       ) : null}
       {!saved ? (
         <Text variant="caption" color="muted">
-          This saves the connection first, then asks the provider for its
-          models.
+          Save the connection to add a classifier manually, or discover
+          generation models from the provider.
         </Text>
+      ) : null}
+      {saved ? (
+        <Stack gap={3}>
+          <Text as="h3" variant="body" weight="semibold">
+            Add a classifier model
+          </Text>
+          <Text variant="caption" color="secondary">
+            Classifiers share this provider's endpoint and credentials. The
+            endpoint must support the selected classifier API. Local Ollama
+            supports System One; Ollama Cloud currently does not. Model
+            discovery is optional.
+          </Text>
+          <Select
+            label="Classifier API"
+            value={classifierApi}
+            disabled={busy || editingKey}
+            onChange={(event) => {
+              const api = event.target.value;
+              if (Object.hasOwn(CLASSIFIER_APIS, api))
+                setClassifierApi(api as keyof typeof CLASSIFIER_APIS);
+            }}
+          >
+            {Object.entries(CLASSIFIER_APIS).map(([api, { label }]) => (
+              <option key={api} value={api}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <Text variant="caption" color="secondary">
+            {CLASSIFIER_APIS[classifierApi].hint}
+          </Text>
+          <Input
+            label="Classifier model ID"
+            value={classifierId}
+            disabled={busy || editingKey}
+            error={
+              duplicateModel
+                ? 'This model ID is already configured. Choose a different ID.'
+                : undefined
+            }
+            onChange={(event) => setClassifierId(event.target.value)}
+          />
+          <Input
+            label="Classifier context window"
+            type="number"
+            min={1}
+            step={1}
+            value={classifierContext}
+            disabled={busy || editingKey}
+            hint="Maximum number of input tokens. Defaults to 8192."
+            error={
+              !validContext
+                ? 'Enter a positive whole number of tokens.'
+                : undefined
+            }
+            onChange={(event) => setClassifierContext(event.target.value)}
+          />
+          <Button
+            variant="secondary"
+            disabled={
+              !classifierId.trim() ||
+              duplicateModel ||
+              !validContext ||
+              busy ||
+              editingKey
+            }
+            onClick={addClassifier}
+          >
+            Add classifier
+          </Button>
+          <Text variant="caption" color="secondary">
+            Save models below to apply your additions and selections.
+          </Text>
+        </Stack>
       ) : null}
       {discovered && models.length === 0 ? (
         <div role="status">
@@ -429,6 +572,7 @@ export function ProviderForm({
                     }
                   />{' '}
                   {model.id}
+                  {model.type === 'classifier' ? ' (classifier)' : ''}
                 </label>
               ))}
             </Stack>

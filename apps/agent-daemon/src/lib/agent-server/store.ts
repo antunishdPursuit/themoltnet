@@ -28,7 +28,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
 import {
-  PI_CLASSIFIER_API,
+  isPiClassifierApi,
   type PiModelModality,
 } from '@themoltnet/pi-runtime/pi-config';
 import {
@@ -662,7 +662,7 @@ export class AgentServerStore {
             (typeof model.api !== 'string' || !model.api)) ||
           (model.type === 'classifier' &&
             model.api !== undefined &&
-            model.api !== PI_CLASSIFIER_API) ||
+            !isPiClassifierApi(model.api)) ||
           (model.type === 'classifier' &&
             (model.reasoning !== undefined ||
               model.thinkingLevelMap !== undefined ||
