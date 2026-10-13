@@ -1,6 +1,8 @@
 import type {
   AbortTaskAttemptData,
   AcceptTransferResponses,
+  AddGroupMemberData,
+  AddGroupMemberResponse,
   AgentKeyList,
   AgentKeyWithSecret,
   AgentProfile,
@@ -30,6 +32,8 @@ import type {
   CreateDiaryGrantData,
   CreateDiaryGrantResponse,
   CreateEntryRelationData,
+  CreateGroupData,
+  CreateGroupResponse,
   CreateRuntimePolicyData,
   CreateRuntimeProfileData,
   CreateSigningRequestData,
@@ -43,6 +47,7 @@ import type {
   CryptoIdentity,
   CryptoVerifyResult,
   CustomPackResult,
+  DeleteGroupResponse,
   DeleteTeamInviteResponse,
   DeleteTeamResponse,
   DiaryCatalog,
@@ -65,6 +70,7 @@ import type {
   GetContextPackByIdData,
   GetContextPackProvenanceByCidData,
   GetContextPackProvenanceByIdData,
+  GetGroupResponse,
   GetLatestRenderedPackData,
   GetLegreffierOnboardingStatusData,
   GetLegreffierOnboardingStatusResponse,
@@ -88,6 +94,8 @@ import type {
   ListDiaryRenderedPacksData,
   ListDiaryTagsData,
   ListEntryRelationsData,
+  ListGroupMembersResponse,
+  ListGroupsResponse,
   ListPendingTransfersResponses,
   ListProblemTypesResponse,
   ListRuntimeSlotsData,
@@ -119,6 +127,7 @@ import type {
   RegisterExecutorManifestData,
   RegisterExecutorManifestResponse,
   RejectTransferResponses,
+  RemoveGroupMemberResponse,
   RemoveTeamMemberResponse,
   RenderContextPackData,
   RenderedPackList,
@@ -203,6 +212,7 @@ import { createDiariesNamespace } from './namespaces/diaries.js';
 import { createDiaryGrantsNamespace } from './namespaces/diary-grants.js';
 import { createDiaryTransfersNamespace } from './namespaces/diary-transfers.js';
 import { createEntriesNamespace } from './namespaces/entries.js';
+import { createGroupsNamespace } from './namespaces/groups.js';
 import { createLegreffierNamespace } from './namespaces/legreffier.js';
 import { createPacksNamespace } from './namespaces/packs.js';
 import { createProblemsNamespace } from './namespaces/problems.js';
@@ -675,6 +685,25 @@ export interface TeamsNamespace {
     list(teamId: string): Promise<ListTeamInvitesResponse>;
     delete(teamId: string, inviteId: string): Promise<DeleteTeamInviteResponse>;
   };
+}
+
+export interface GroupsNamespace {
+  create(
+    teamId: string,
+    body: CreateGroupData['body'],
+  ): Promise<CreateGroupResponse>;
+  list(teamId: string): Promise<ListGroupsResponse>;
+  get(groupId: string): Promise<GetGroupResponse>;
+  delete(groupId: string): Promise<DeleteGroupResponse>;
+  addMember(
+    groupId: string,
+    body: AddGroupMemberData['body'],
+  ): Promise<AddGroupMemberResponse>;
+  listMembers(groupId: string): Promise<ListGroupMembersResponse>;
+  removeMember(
+    groupId: string,
+    subjectId: string,
+  ): Promise<RemoveGroupMemberResponse>;
 }
 
 export type TeamJoinOptions =
@@ -1185,6 +1214,7 @@ export interface Agent {
   legreffier: LegreffierNamespace;
   problems: ProblemsNamespace;
   teams: TeamsNamespace;
+  groups: GroupsNamespace;
   projects: ProjectsNamespace;
   runtimeProfiles: RuntimeProfilesNamespace;
   runtimePolicies: RuntimePoliciesNamespace;
@@ -1244,6 +1274,7 @@ export function createAgent(options: CreateAgentOptions): Agent {
   const legreffierNs = createLegreffierNamespace(context);
   const problemsNs = createProblemsNamespace(context);
   const teams = createTeamsNamespace(context);
+  const groups = createGroupsNamespace(context);
   const runtimeProfiles = createRuntimeProfilesNamespace(context);
   const runtimePolicies = createRuntimePoliciesNamespace(context);
   const tasks = createTasksNamespace(context);
@@ -1267,6 +1298,7 @@ export function createAgent(options: CreateAgentOptions): Agent {
     legreffier: legreffierNs,
     problems: problemsNs,
     teams,
+    groups,
     projects: createProjectsNamespace(context),
     runtimeProfiles,
     runtimePolicies,
