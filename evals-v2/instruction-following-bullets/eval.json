@@ -1,1 +1,1 @@
-{ "mode": "vitro", "workspace": "none" }
+{ "blocking": false, "mode": "vitro", "workspace": "none" }

@@ -15,6 +15,7 @@ import type { Scenario } from '../src/scenario.js';
 
 const scenario: Scenario = {
   scoring: 'judge',
+  blocking: true,
   slug: 'submit-output-compliance',
   taskType: 'run_eval',
   prompt: 'Call the submit tool exactly once with a short summary.',
