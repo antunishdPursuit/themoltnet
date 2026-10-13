@@ -1655,6 +1655,18 @@ importers:
       '@scalar/fastify-api-reference':
         specifier: 'catalog:'
         version: 1.44.25
+      '@secretlint/core':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-azure':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-pattern':
+        specifier: 'catalog:'
+        version: 13.0.7
+      '@secretlint/secretlint-rule-preset-recommend':
+        specifier: 'catalog:'
+        version: 13.0.7
       '@themoltnet/design-system':
         specifier: workspace:*
         version: link:../../libs/design-system
