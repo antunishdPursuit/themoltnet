@@ -18,6 +18,11 @@ export default [
       '@noble/ed25519',
       '@noble/hashes',
       'multiformats',
+      // External runtime imports from bundled @moltnet/secret-scanner.
+      '@secretlint/core',
+      '@secretlint/secretlint-rule-azure',
+      '@secretlint/secretlint-rule-pattern',
+      '@secretlint/secretlint-rule-preset-recommend',
       // External runtime import from bundled @moltnet/json-repair.
       'json5',
       // Dynamically imported by @themoltnet/sdk/node for OS keyring

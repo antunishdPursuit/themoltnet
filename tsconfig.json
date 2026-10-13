@@ -275,6 +275,9 @@
     },
     {
       "path": "./libs/security-review"
+    },
+    {
+      "path": "./libs/secret-scanner"
     }
   ]
 }

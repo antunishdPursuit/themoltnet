@@ -229,7 +229,9 @@ export function createClassifierTool(classifier: Classifier) {
       signal?.throwIfAborted();
       if (result.stopReason !== 'stop')
         throw new Error(
-          sanitizeProviderDiagnostic(result.errorMessage ?? result.stopReason),
+          await sanitizeProviderDiagnostic(
+            result.errorMessage ?? result.stopReason,
+          ),
         );
       return {
         content: [
@@ -320,7 +322,7 @@ export function createClassificationTaskExecutor(options: {
           durationMs: Date.now() - started,
           error: {
             code: failure?.code ?? 'classification_failed',
-            message: sanitizeProviderDiagnostic(
+            message: await sanitizeProviderDiagnostic(
               result.errorMessage ?? result.stopReason,
             ),
             retryable: failure?.retryable ?? false,
@@ -350,7 +352,7 @@ export function createClassificationTaskExecutor(options: {
         durationMs: Date.now() - started,
         error: {
           code: providerFailure?.code ?? 'classification_failed',
-          message: sanitizeProviderDiagnostic(
+          message: await sanitizeProviderDiagnostic(
             error instanceof Error ? error.message : 'Classification failed',
           ),
           retryable: providerFailure?.retryable ?? false,
