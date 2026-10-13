@@ -142,6 +142,34 @@ it('routes each classifier protocol with shared credentials while preserving gen
   }
 });
 
+it('preserves builtin ambient credentials when adding a llama.cpp classifier', async () => {
+  const piDir = mkdtempSync(join(tmpdir(), 'classifier-ambient-'));
+  dirs.push(piDir);
+  vi.stubEnv('CLOUDFLARE_API_KEY', 'ambient-test-key');
+  vi.stubEnv('CLOUDFLARE_ACCOUNT_ID', 'test-account');
+  writePiConfig({
+    piDir,
+    providers: {
+      'cloudflare-workers-ai': {
+        api: 'openai-completions',
+        baseUrl: 'https://classifier.example/v1',
+        models: [
+          {
+            id: 'local-decisions',
+            type: 'classifier',
+            api: 'llama-cpp-classify',
+          },
+        ],
+      },
+    },
+  });
+  const models = await createRuntimeModels(piDir);
+  await models.refresh({ allowNetwork: false });
+  expect(await models.getAuth('cloudflare-workers-ai')).toMatchObject({
+    auth: { apiKey: 'ambient-test-key' },
+  });
+});
+
 it('dispatches a standalone classifier through Durable without a coding VM', async () => {
   const piDir = mkdtempSync(join(tmpdir(), 'classifier-task-'));
   dirs.push(piDir);

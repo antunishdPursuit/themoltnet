@@ -113,6 +113,7 @@ export async function createRuntimeModels(
       // explicit empty key emits no Authorization; stored credentials still win.
       // Never mask a configured key/reference or enable anonymous System One.
       ...(config.apiKey === undefined &&
+      !models.hasConfiguredAuth(provider) &&
       classifiers.every((model) => model.api === 'llama-cpp-classify')
         ? { apiKey: '' }
         : {}),
