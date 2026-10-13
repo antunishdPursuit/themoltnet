@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/getlarge/themoltnet/compare/legreffier-plugin-v0.10.0...legreffier-plugin-v0.11.0) (2026-10-13)
+
+
+### Features
+
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+
 ## [0.10.0](https://github.com/getlarge/themoltnet/compare/legreffier-plugin-v0.9.0...legreffier-plugin-v0.10.0) (2026-10-01)
 
 

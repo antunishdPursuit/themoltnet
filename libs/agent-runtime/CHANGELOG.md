@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.14.0](https://github.com/getlarge/themoltnet/compare/agent-runtime-v1.13.0...agent-runtime-v1.14.0) (2026-10-13)
+
+
+### Bug Fixes
+
+* route agent credentials correctly and reconcile terminal attempts ([769a0b7](https://github.com/getlarge/themoltnet/commit/769a0b7d57e1ca3e98e607197b482816ae0f2c59))
+* **runtime:** reconcile terminal attempts after Durable interruption ([3fdcb35](https://github.com/getlarge/themoltnet/commit/3fdcb35d9b0528af676d21cda39050806ee5de75))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [1.13.0](https://github.com/getlarge/themoltnet/compare/agent-runtime-v1.12.0...agent-runtime-v1.13.0) (2026-10-12)
 
 

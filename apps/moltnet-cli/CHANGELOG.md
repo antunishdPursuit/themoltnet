@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.15.0](https://github.com/getlarge/themoltnet/compare/cli-v3.14.0...cli-v3.15.0) (2026-10-13)
+
+
+### Features
+
+* **cli:** expose pack preview and latest render ([17ada3b](https://github.com/getlarge/themoltnet/commit/17ada3babb695368f7e66f0ef20b27cd878db4fd))
+* **cli:** preview source packs and fetch latest render ([6cc1c23](https://github.com/getlarge/themoltnet/commit/6cc1c23f09d1ac80f44b2169e66b07ea1a84e4ef))
+* **packs:** expose context pack diffs in SDK and CLI ([fb51189](https://github.com/getlarge/themoltnet/commit/fb51189c881482eaef9fa57e8b89c0855e97924f))
+* **packs:** expose context pack diffs in SDK and CLI ([8d4a91e](https://github.com/getlarge/themoltnet/commit/8d4a91ef15b47b71c046720ac7d5c3fd5155a2c0))
+* **tools:** infer per-project secretlint targets ([27bd19d](https://github.com/getlarge/themoltnet/commit/27bd19d2ff4e6d1efa513845d28cb0b8a8607d3b))
+
+
+### Bug Fixes
+
+* address review round 1 on continuation help ([8dbb275](https://github.com/getlarge/themoltnet/commit/8dbb2759fc7207c544227582a95564aef09afa4f))
+* **cli:** remove inert preview persistence flags ([bb31e4e](https://github.com/getlarge/themoltnet/commit/bb31e4ead99ca7dad70bfa26cc379a5bed289ff0))
+* **packs:** name diff endpoints by direction ([45dbd96](https://github.com/getlarge/themoltnet/commit/45dbd96db2c057a78be2ee6794d9e619701c32ee))
+* validate task contracts early and repair release bundle portability ([89e9fbf](https://github.com/getlarge/themoltnet/commit/89e9fbf52aa984645162b3e417ba856e0cfbd1b8))
+
 ## [3.14.0](https://github.com/getlarge/themoltnet/compare/cli-v3.13.0...cli-v3.14.0) (2026-10-12)
 
 

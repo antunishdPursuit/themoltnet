@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.71.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-v0.70.0...agent-daemon-v0.71.0) (2026-10-13)
+
+
+### Features
+
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+* **tools:** check bundled externals against declared dependencies ([9f7d6ba](https://github.com/getlarge/themoltnet/commit/9f7d6ba6b4d9c42e481da4ef84aa2390996c0149))
+* **tools:** infer per-project secretlint targets ([27bd19d](https://github.com/getlarge/themoltnet/commit/27bd19d2ff4e6d1efa513845d28cb0b8a8607d3b))
+
+
+### Bug Fixes
+
+* address review round 1 on classifier protocols ([d9f90ad](https://github.com/getlarge/themoltnet/commit/d9f90ad154dd47f1b259602707fa4c65aaf9ab8f))
+* **runtime:** support classifier providers across agent configuration ([86f44e0](https://github.com/getlarge/themoltnet/commit/86f44e0aa4d6d92a3f0d02fa82152272c2bfebad))
+* **runtime:** support shared Ollama System One providers ([a160ac0](https://github.com/getlarge/themoltnet/commit/a160ac0c8d5ede04c60cecdf72f47f49dac06419))
+* **secret-scanner:** await daemon redaction and cover token forms ([06a9798](https://github.com/getlarge/themoltnet/commit/06a9798eb46424b12a4b44947e38ccbb0f687789))
+* **security:** scan task artifacts and redact runtime diagnostics ([1a6bd9b](https://github.com/getlarge/themoltnet/commit/1a6bd9b34c898339d8efc7db9bb900ad11f902c4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/agent-runtime bumped to 1.14.0
+    * @themoltnet/os-keyring bumped to 0.5.0
+    * @themoltnet/pi-runtime bumped to 0.24.0
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [0.70.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-v0.69.2...agent-daemon-v0.70.0) (2026-10-12)
 
 

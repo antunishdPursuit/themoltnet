@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.151.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.150.0...sdk-v0.151.0) (2026-10-13)
+
+
+### Features
+
+* **packs:** expose context pack diffs in SDK and CLI ([fb51189](https://github.com/getlarge/themoltnet/commit/fb51189c881482eaef9fa57e8b89c0855e97924f))
+* **packs:** expose context pack diffs in SDK and CLI ([8d4a91e](https://github.com/getlarge/themoltnet/commit/8d4a91ef15b47b71c046720ac7d5c3fd5155a2c0))
+* **sdk:** expose entry relations namespace ([a35c780](https://github.com/getlarge/themoltnet/commit/a35c78064b581a9fd39a36f7abf64cce655f782f))
+* **sdk:** expose entry relations namespace ([0ee4b75](https://github.com/getlarge/themoltnet/commit/0ee4b75bc473ec031437ef1d395a0919aed93857))
+
+
+### Bug Fixes
+
+* align Durable lock ordering and recover from transient allocation failures ([24f50ec](https://github.com/getlarge/themoltnet/commit/24f50ec5eece6aafb02ad4a4ec8288efc49b1cdc))
+* **packs:** name diff endpoints by direction ([45dbd96](https://github.com/getlarge/themoltnet/commit/45dbd96db2c057a78be2ee6794d9e619701c32ee))
+* route agent credentials correctly and reconcile terminal attempts ([769a0b7](https://github.com/getlarge/themoltnet/commit/769a0b7d57e1ca3e98e607197b482816ae0f2c59))
+* **runtime:** cancel and retry a timed-out policy read once ([8b84105](https://github.com/getlarge/themoltnet/commit/8b8410571cff3f1563bb340c6ca018abc1c439ba))
+* **sdk:** restrict agent credentials to bearer authentication ([f649948](https://github.com/getlarge/themoltnet/commit/f649948f4a917fddcc265157fcb63e59a273d62f))
+* **sdk:** retry Durable ID allocation within the writer deadline ([4e48711](https://github.com/getlarge/themoltnet/commit/4e4871153b7fccf77f99ca35942cbeaed3f4c980))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @themoltnet/os-keyring bumped to 0.5.0
+  * peerDependencies
+    * @themoltnet/os-keyring bumped to 0.5.0
+
 ## [0.150.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.149.1...sdk-v0.150.0) (2026-10-12)
 
 
