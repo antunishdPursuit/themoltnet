@@ -58,6 +58,13 @@ const rules = [
             '/\\beyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\b/',
           ],
         },
+        {
+          name: 'provider and GitHub tokens',
+          patterns: [
+            '/\\bsk-[A-Za-z0-9]{20,}\\b/',
+            '/\\bgh[pousr]_[A-Za-z0-9]{20,}\\b/',
+          ],
+        },
       ],
     },
   },

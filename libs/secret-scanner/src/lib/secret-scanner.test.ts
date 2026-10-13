@@ -14,6 +14,8 @@ describe('containsSecretInText', () => {
   it.each([
     ['AWS access key ID', 'AWS_ACCESS_KEY_ID=AKIAABCDEFGHIJKL1234'],
     ['Slack token', 'xoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx'],
+    ['provider token', 'sk-abcdef0123456789abcdef'],
+    ['GitHub token', 'ghp_abcdefghijklmnopqrstuvwxyz'],
   ])('detects %s', async (_name, content) => {
     expect(await containsSecretInText(content)).toBe(true);
   });
