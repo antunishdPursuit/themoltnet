@@ -1,7 +1,7 @@
 {
   "name": "@moltnet/secret-scanner",
   "version": "0.1.0",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "exports": {
@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@secretlint/core": "catalog:",
-    "@secretlint/secretlint-rule-preset-recommend": "catalog:"
+    "@secretlint/secretlint-rule-preset-recommend": "catalog:",
+    "@secretlint/secretlint-rule-pattern": "catalog:",
+    "@secretlint/secretlint-rule-azure": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

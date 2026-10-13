@@ -818,7 +818,10 @@ export function createDurableTaskExecutor(options: {
           : {
               code: providerVerdict.code,
               retryable: providerVerdict.retryable,
-              message: redactRetryTriageSecrets(providerMessage).slice(0, 4000),
+              message: (await redactRetryTriageSecrets(providerMessage)).slice(
+                0,
+                4000,
+              ),
             };
       const result: TaskOutput =
         output && !errors.length
