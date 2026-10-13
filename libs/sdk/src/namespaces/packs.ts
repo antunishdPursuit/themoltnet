@@ -36,22 +36,22 @@ export function createPacksNamespace(context: AgentContext): PacksNamespace {
       );
     },
 
-    async diff(id, otherId) {
+    async diff(fromId, toId) {
       return unwrapResult(
         await diffContextPacksById({
           client,
           auth,
-          path: { id, otherId },
+          path: { id: fromId, otherId: toId },
         }),
       );
     },
 
-    async diffByCid(cid, otherCid) {
+    async diffByCid(fromCid, toCid) {
       return unwrapResult(
         await diffContextPacksByCid({
           client,
           auth,
-          path: { cid, otherCid },
+          path: { cid: fromCid, otherCid: toCid },
         }),
       );
     },

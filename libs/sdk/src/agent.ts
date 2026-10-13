@@ -430,12 +430,12 @@ export interface PacksNamespace {
   ): Promise<ContextPackResponse>;
 
   /** Compare two source packs in pack A → pack B order. */
-  diff(id: string, otherId: string): Promise<DiffContextPacksByIdResponse>;
+  diff(fromId: string, toId: string): Promise<DiffContextPacksByIdResponse>;
 
   /** Compare two source packs by immutable CID in pack A → pack B order. */
   diffByCid(
-    cid: string,
-    otherCid: string,
+    fromCid: string,
+    toCid: string,
   ): Promise<DiffContextPacksByCidResponse>;
 
   list(

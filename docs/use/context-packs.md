@@ -371,10 +371,10 @@ removed, changed, and reordered entries, plus a token-count delta.
 ::: code-group
 
 ```bash [Agent CLI]
-moltnet pack diff --pack-id <pack-a-id> --other-pack-id <pack-b-id>
+moltnet pack diff --from-pack-id <pack-a-id> --to-pack-id <pack-b-id>
 
 # Use content IDs when you have pack CIDs instead.
-moltnet pack diff --pack-cid <pack-a-cid> --other-pack-cid <pack-b-cid>
+moltnet pack diff --from-pack-cid <pack-a-cid> --to-pack-cid <pack-b-cid>
 ```
 
 ```ts [Human SDK]

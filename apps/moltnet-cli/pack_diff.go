@@ -10,40 +10,40 @@ import (
 )
 
 type packDiffSelector struct {
-	id       uuid.UUID
-	otherID  uuid.UUID
-	cid      string
-	otherCID string
+	fromID  uuid.UUID
+	toID    uuid.UUID
+	fromCID string
+	toCID   string
 }
 
-func parsePackDiffSelector(packID, otherPackID, packCID, otherPackCID string) (packDiffSelector, error) {
-	byID := packID != "" || otherPackID != ""
-	byCID := packCID != "" || otherPackCID != ""
+func parsePackDiffSelector(fromPackID, toPackID, fromPackCID, toPackCID string) (packDiffSelector, error) {
+	byID := fromPackID != "" || toPackID != ""
+	byCID := fromPackCID != "" || toPackCID != ""
 	if byID == byCID {
-		return packDiffSelector{}, fmt.Errorf("provide either --pack-id and --other-pack-id, or --pack-cid and --other-pack-cid")
+		return packDiffSelector{}, fmt.Errorf("provide either --from-pack-id and --to-pack-id, or --from-pack-cid and --to-pack-cid")
 	}
 	if byCID {
-		if packCID == "" || otherPackCID == "" {
-			return packDiffSelector{}, fmt.Errorf("provide both --pack-cid and --other-pack-cid")
+		if fromPackCID == "" || toPackCID == "" {
+			return packDiffSelector{}, fmt.Errorf("provide both --from-pack-cid and --to-pack-cid")
 		}
-		return packDiffSelector{cid: packCID, otherCID: otherPackCID}, nil
+		return packDiffSelector{fromCID: fromPackCID, toCID: toPackCID}, nil
 	}
-	if packID == "" || otherPackID == "" {
-		return packDiffSelector{}, fmt.Errorf("provide both --pack-id and --other-pack-id")
+	if fromPackID == "" || toPackID == "" {
+		return packDiffSelector{}, fmt.Errorf("provide both --from-pack-id and --to-pack-id")
 	}
-	id, err := uuid.Parse(packID)
+	fromID, err := uuid.Parse(fromPackID)
 	if err != nil {
-		return packDiffSelector{}, fmt.Errorf("invalid --pack-id %q: %w", packID, err)
+		return packDiffSelector{}, fmt.Errorf("invalid --from-pack-id %q: %w", fromPackID, err)
 	}
-	otherID, err := uuid.Parse(otherPackID)
+	toID, err := uuid.Parse(toPackID)
 	if err != nil {
-		return packDiffSelector{}, fmt.Errorf("invalid --other-pack-id %q: %w", otherPackID, err)
+		return packDiffSelector{}, fmt.Errorf("invalid --to-pack-id %q: %w", toPackID, err)
 	}
-	return packDiffSelector{id: id, otherID: otherID}, nil
+	return packDiffSelector{fromID: fromID, toID: toID}, nil
 }
 
-func runPackDiffCmd(stdout io.Writer, apiURL, credPath, packID, otherPackID, packCID, otherPackCID string) error {
-	selector, err := parsePackDiffSelector(packID, otherPackID, packCID, otherPackCID)
+func runPackDiffCmd(stdout io.Writer, apiURL, credPath, fromPackID, toPackID, fromPackCID, toPackCID string) error {
+	selector, err := parsePackDiffSelector(fromPackID, toPackID, fromPackCID, toPackCID)
 	if err != nil {
 		return err
 	}
@@ -55,9 +55,9 @@ func runPackDiffCmd(stdout io.Writer, apiURL, credPath, packID, otherPackID, pac
 }
 
 func executePackDiff(stdout io.Writer, client *moltnetapi.Client, selector packDiffSelector) error {
-	if selector.cid != "" {
+	if selector.fromCID != "" {
 		res, err := client.DiffContextPacksByCid(context.Background(), moltnetapi.DiffContextPacksByCidParams{
-			Cid: selector.cid, OtherCid: selector.otherCID,
+			Cid: selector.fromCID, OtherCid: selector.toCID,
 		})
 		if err != nil {
 			return fmt.Errorf("pack diff: %w", formatTransportError(err))
@@ -69,7 +69,7 @@ func executePackDiff(stdout io.Writer, client *moltnetapi.Client, selector packD
 	}
 
 	res, err := client.DiffContextPacksById(context.Background(), moltnetapi.DiffContextPacksByIdParams{
-		ID: selector.id, OtherId: selector.otherID,
+		ID: selector.fromID, OtherId: selector.toID,
 	})
 	if err != nil {
 		return fmt.Errorf("pack diff: %w", formatTransportError(err))

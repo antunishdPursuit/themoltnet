@@ -18,25 +18,40 @@ const (
 	packDiffJSON = `{"added":[],"changed":[],"removed":[],"reordered":[],"stats":{"addedCount":0,"changedCount":0,"removedCount":0,"reorderedCount":0,"tokenDelta":3,"packA":{"createdAt":"2026-01-01T00:00:00Z","id":"` + packAID + `","packCid":"bafy-a","packType":"custom","totalTokens":10},"packB":{"createdAt":"2026-01-02T00:00:00Z","id":"` + packBID + `","packCid":"bafy-b","packType":"custom","totalTokens":13}}}`
 )
 
+func TestPackDiffCommandHelp(t *testing.T) {
+	stdout, _, err := executeCommand(newPackDiffCmd(), "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{"--from-pack-id", "--to-pack-id", "--from-pack-cid", "--to-pack-cid"} {
+		if !strings.Contains(stdout, flag) {
+			t.Errorf("help missing %s", flag)
+		}
+	}
+	if strings.Contains(stdout, "--other-pack-") {
+		t.Error("help still lists other-pack flags")
+	}
+}
+
 func TestParsePackDiffSelector(t *testing.T) {
 	tests := []struct {
-		name     string
-		packID   string
-		otherID  string
-		packCID  string
-		otherCID string
-		wantErr  string
+		name    string
+		fromID  string
+		toID    string
+		fromCID string
+		toCID   string
+		wantErr string
 	}{
 		{name: "neither pair", wantErr: "provide either"},
-		{name: "both pairs", packID: packAID, otherID: packBID, packCID: "bafy-a", otherCID: "bafy-b", wantErr: "provide either"},
-		{name: "incomplete ID pair", packID: packAID, wantErr: "provide both --pack-id"},
-		{name: "incomplete CID pair", packCID: "bafy-a", wantErr: "provide both --pack-cid"},
-		{name: "invalid first ID", packID: "bad", otherID: packBID, wantErr: "invalid --pack-id"},
-		{name: "invalid second ID", packID: packAID, otherID: "bad", wantErr: "invalid --other-pack-id"},
+		{name: "both pairs", fromID: packAID, toID: packBID, fromCID: "bafy-a", toCID: "bafy-b", wantErr: "provide either"},
+		{name: "incomplete ID pair", fromID: packAID, wantErr: "provide both --from-pack-id"},
+		{name: "incomplete CID pair", fromCID: "bafy-a", wantErr: "provide both --from-pack-cid"},
+		{name: "invalid first ID", fromID: "bad", toID: packBID, wantErr: "invalid --from-pack-id"},
+		{name: "invalid second ID", fromID: packAID, toID: "bad", wantErr: "invalid --to-pack-id"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parsePackDiffSelector(tt.packID, tt.otherID, tt.packCID, tt.otherCID)
+			_, err := parsePackDiffSelector(tt.fromID, tt.toID, tt.fromCID, tt.toCID)
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("parsePackDiffSelector() error = %v, want containing %q", err, tt.wantErr)
 			}
@@ -47,14 +62,14 @@ func TestParsePackDiffSelector(t *testing.T) {
 func TestExecutePackDiff(t *testing.T) {
 	tests := []struct {
 		name     string
-		packID   string
-		otherID  string
-		packCID  string
-		otherCID string
+		fromID   string
+		toID     string
+		fromCID  string
+		toCID    string
 		wantPath string
 	}{
-		{name: "IDs", packID: packAID, otherID: packBID, wantPath: "/packs/" + packAID + "/diff/" + packBID},
-		{name: "CIDs", packCID: "bafy-a", otherCID: "bafy-b", wantPath: "/packs/by-cid/bafy-a/diff/by-cid/bafy-b"},
+		{name: "IDs", fromID: packAID, toID: packBID, wantPath: "/packs/" + packAID + "/diff/" + packBID},
+		{name: "CIDs", fromCID: "bafy-a", toCID: "bafy-b", wantPath: "/packs/by-cid/bafy-a/diff/by-cid/bafy-b"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -71,7 +86,7 @@ func TestExecutePackDiff(t *testing.T) {
 			defer server.Close()
 
 			client := newPackDiffTestClient(t, server)
-			selector, err := parsePackDiffSelector(tt.packID, tt.otherID, tt.packCID, tt.otherCID)
+			selector, err := parsePackDiffSelector(tt.fromID, tt.toID, tt.fromCID, tt.toCID)
 			if err != nil {
 				t.Fatal(err)
 			}
