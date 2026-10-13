@@ -391,32 +391,9 @@ func renderPackMarkdown(id string, pack *moltnetapi.ContextPackResponse) string 
 
 // runPackCreateCmd is the flag-free business logic for pack create.
 func runPackCreateCmd(stdout io.Writer, apiURL, credPath, diaryID, entriesJSON string, tokenBudget int, pinned *bool, force bool, supersedes string) error {
-	diaryUUID, err := uuid.Parse(diaryID)
+	diaryUUID, entries, err := parseCustomPackSelection(diaryID, entriesJSON)
 	if err != nil {
-		return fmt.Errorf("invalid diary ID %q: %w", diaryID, err)
-	}
-
-	var items []struct {
-		EntryID string `json:"entryId"`
-		Rank    int    `json:"rank"`
-	}
-	if err := json.Unmarshal([]byte(entriesJSON), &items); err != nil {
-		return fmt.Errorf("invalid --entries JSON: %w", err)
-	}
-	if len(items) == 0 {
-		return fmt.Errorf("--entries must contain at least one entry")
-	}
-
-	entries := make([]moltnetapi.CreateDiaryCustomPackReqEntriesItem, len(items))
-	for i, item := range items {
-		entryUUID, err := uuid.Parse(item.EntryID)
-		if err != nil {
-			return fmt.Errorf("invalid entryId %q at index %d: %w", item.EntryID, i, err)
-		}
-		entries[i] = moltnetapi.CreateDiaryCustomPackReqEntriesItem{
-			EntryId: entryUUID,
-			Rank:    item.Rank,
-		}
+		return err
 	}
 
 	client, err := newAuthenticatedClient(apiURL, credPath)

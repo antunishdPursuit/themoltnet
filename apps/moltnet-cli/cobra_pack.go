@@ -14,12 +14,39 @@ func newPackCmd() *cobra.Command {
 
 	packCmd.AddCommand(newPackListCmd())
 	packCmd.AddCommand(newPackGetCmd())
+	packCmd.AddCommand(newPackDiffCmd())
 	packCmd.AddCommand(newPackRenderCmd())
 	packCmd.AddCommand(newPackProvenanceCmd())
 	packCmd.AddCommand(newPackCreateCmd())
+	packCmd.AddCommand(newPackPreviewCmd())
 	packCmd.AddCommand(newPackUpdateCmd())
 
 	return packCmd
+}
+
+func newPackDiffCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "diff",
+		Short: "Compare two context packs by ID or CID",
+		Long:  "Compare pack A to pack B. Added and removed entries, changes, order, and token delta are reported from A to B.",
+		Example: `  moltnet pack diff --from-pack-id <uuid-a> --to-pack-id <uuid-b>
+  moltnet pack diff --from-pack-cid <cid-a> --to-pack-cid <cid-b>`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath, _ := cmd.Flags().GetString("credentials")
+			apiURL := resolveAPIURL(cmd, credPath)
+			fromPackID, _ := cmd.Flags().GetString("from-pack-id")
+			toPackID, _ := cmd.Flags().GetString("to-pack-id")
+			fromPackCID, _ := cmd.Flags().GetString("from-pack-cid")
+			toPackCID, _ := cmd.Flags().GetString("to-pack-cid")
+			return runPackDiffCmd(cmd.OutOrStdout(), apiURL, credPath, fromPackID, toPackID, fromPackCID, toPackCID)
+		},
+	}
+	cmd.Flags().String("from-pack-id", "", "Source pack UUID")
+	cmd.Flags().String("to-pack-id", "", "Target pack UUID")
+	cmd.Flags().String("from-pack-cid", "", "Source pack CID")
+	cmd.Flags().String("to-pack-cid", "", "Target pack CID")
+	return cmd
 }
 
 func newPackListCmd() *cobra.Command {
@@ -181,6 +208,31 @@ pack anyway.`,
 	cmd.Flags().Bool("pinned", false, "Pin the pack")
 	cmd.Flags().Bool("force", false, "Override the prompt-injection guard and create the pack even if entries are flagged")
 	cmd.Flags().String("supersedes", "", "UUID of the pack this one replaces (same diary, must be readable)")
+	_ = cmd.MarkFlagRequired("diary-id")
+	_ = cmd.MarkFlagRequired("entries")
+	return cmd
+}
+
+func newPackPreviewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "preview",
+		Short: "Preview a custom context pack without saving it",
+		Example: `  moltnet pack preview --diary-id <uuid> --entries '[{"entryId":"<uuid>","rank":1}]'
+  moltnet pack preview --diary-id <uuid> --entries '[{"entryId":"<uuid>","rank":1}]' --token-budget 3000`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath, _ := cmd.Flags().GetString("credentials")
+			apiURL := resolveAPIURL(cmd, credPath)
+			diaryID, _ := cmd.Flags().GetString("diary-id")
+			entries, _ := cmd.Flags().GetString("entries")
+			tokenBudget, _ := cmd.Flags().GetInt("token-budget")
+			force, _ := cmd.Flags().GetBool("force")
+			return runPackPreviewCmd(cmd.OutOrStdout(), apiURL, credPath, diaryID, entries, tokenBudget, force)
+		},
+	}
+	cmd.Flags().String("diary-id", "", "Diary UUID (required)")
+	cmd.Flags().String("entries", "", `JSON array of entries: [{"entryId":"<uuid>","rank":1}]`)
+	cmd.Flags().Int("token-budget", 0, "Token budget for the pack")
+	cmd.Flags().Bool("force", false, "Override the prompt-injection guard for flagged entries")
 	_ = cmd.MarkFlagRequired("diary-id")
 	_ = cmd.MarkFlagRequired("entries")
 	return cmd

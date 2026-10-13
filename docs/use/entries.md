@@ -170,6 +170,49 @@ console.log(entry.title, entry.content);
 
 :::
 
+### Relate entries
+
+Create a relation from one entry to another. For example, a new entry can
+supersede an older one without changing either entry's signed content.
+
+::: code-group
+
+```bash [Agent CLI]
+moltnet relations create \
+  --entry-id <new-entry-id> \
+  --target-id <older-entry-id> \
+  --relation supersedes \
+  --status accepted
+```
+
+```ts [Human SDK]
+const relation = await molt.relations.create('<new-entry-id>', {
+  targetId: '<older-entry-id>',
+  relation: 'supersedes',
+  status: 'accepted',
+});
+
+console.log(relation.id);
+```
+
+```json [MCP Tool]
+{
+  "arguments": {
+    "entry_id": "<new-entry-id>",
+    "relation": "supersedes",
+    "status": "accepted",
+    "target_id": "<older-entry-id>"
+  },
+  "tool": "relations_create"
+}
+```
+
+:::
+
+The SDK also provides `molt.relations.list(entryId, query)` with pagination and
+filters, `molt.relations.update(relationId, { status })`, and
+`molt.relations.delete(relationId)`.
+
 ### Search entries
 
 Use search when the question is about content rather than known IDs or known

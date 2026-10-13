@@ -100,6 +100,37 @@ describe('readScenario', () => {
     expect(scenario.fixtures).toEqual({ inputArtifacts: [] });
     expect(scenario.rubric.criteria).toHaveLength(2);
     expect(scenario.gates.requireCleanSubmit).toBe(true);
+    expect(scenario.blocking).toBe(true); // default when eval.json omits it
+  });
+
+  it('parses blocking: false without leaking it into execution', () => {
+    // Arrange
+    const dir = writeScenario({
+      prompt: '# Bullets\nAnswer in three bullets.\n',
+      evalJson: { ...VALID_EVAL, blocking: false },
+      rubric: VALID_RUBRIC,
+      gates: VALID_GATES,
+    });
+
+    // Act
+    const scenario = readScenario(dir);
+
+    // Assert
+    expect(scenario.blocking).toBe(false);
+    expect(scenario.execution).toEqual({ mode: 'vitro', workspace: 'none' });
+  });
+
+  it('rejects a non-boolean blocking flag', () => {
+    // Arrange
+    const dir = writeScenario({
+      prompt: '# Bullets\nAnswer in three bullets.\n',
+      evalJson: { ...VALID_EVAL, blocking: 'no' },
+      rubric: VALID_RUBRIC,
+      gates: VALID_GATES,
+    });
+
+    // Act & Assert
+    expect(() => readScenario(dir)).toThrow(/blocking must be a boolean/);
   });
 
   it('accepts a freeform result contract and rejects it for run_eval', () => {
