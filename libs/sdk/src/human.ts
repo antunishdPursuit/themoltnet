@@ -7,6 +7,7 @@ import type {
   DiariesNamespace,
   DiaryGrantsNamespace,
   EntriesNamespace,
+  GroupsNamespace,
   LegreffierNamespace,
   PacksNamespace,
   ProblemsNamespace,
@@ -23,6 +24,7 @@ import { createCryptoNamespace } from './namespaces/crypto.js';
 import { createDiariesNamespace } from './namespaces/diaries.js';
 import { createDiaryGrantsNamespace } from './namespaces/diary-grants.js';
 import { createEntriesNamespace } from './namespaces/entries.js';
+import { createGroupsNamespace } from './namespaces/groups.js';
 import { createLegreffierNamespace } from './namespaces/legreffier.js';
 import { createPacksNamespace } from './namespaces/packs.js';
 import { createProblemsNamespace } from './namespaces/problems.js';
@@ -81,6 +83,7 @@ export interface HumanClient {
   legreffier: LegreffierNamespace;
   problems: ProblemsNamespace;
   teams: TeamsNamespace;
+  groups: GroupsNamespace;
   projects: ProjectsNamespace;
   tasks: TasksNamespace;
   crypto: CryptoNamespace;
@@ -159,6 +162,7 @@ export function connectHuman(options: ConnectHumanOptions = {}): HumanClient {
     legreffier: createLegreffierNamespace(context),
     problems: createProblemsNamespace(context),
     teams: createTeamsNamespace(context),
+    groups: createGroupsNamespace(context),
     projects: createProjectsNamespace(context),
     tasks: createTasksNamespace(context),
     whoami: createWhoami(context),

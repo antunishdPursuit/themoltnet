@@ -8,6 +8,7 @@ export type {
   DiariesNamespace,
   DiaryGrantsNamespace,
   EntriesNamespace,
+  GroupsNamespace,
   LegreffierNamespace,
   PacksNamespace,
   ProblemsNamespace,
