@@ -59,6 +59,8 @@
     "@nx/devkit": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "ignore": "catalog:",
+    "json5": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

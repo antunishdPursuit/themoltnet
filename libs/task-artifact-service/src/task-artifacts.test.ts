@@ -201,11 +201,16 @@ describe('createTaskArtifactService', () => {
   it.each([
     [
       'AWS secret assignment',
+      // secretlint-disable-next-line @secretlint/secretlint-rule-aws -- fake secret exercising the runtime scanner
       'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
     ],
     [
       'suppression comment and Slack token',
-      'secretlint-disable\nxoxb-123456789012-123456789012-abcdefabcdefabcdefabcdef',
+      // Split so Secretlint does not read the fixture as a directive for this file.
+      'secretlint-' +
+        'disable\n' +
+        // secretlint-disable-next-line @secretlint/secretlint-rule-slack -- fake secret exercising the runtime scanner
+        'xoxb-123456789012-123456789012-abcdefabcdefabcdefabcdef',
     ],
   ])('rejects %s before staging an artifact', async (_case, content) => {
     await expect(
@@ -226,6 +231,7 @@ describe('createTaskArtifactService', () => {
         body: Readable.from([
           gzipSync(
             Buffer.from(
+              // secretlint-disable-next-line @secretlint/secretlint-rule-aws -- fake secret exercising the runtime scanner
               'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
             ),
           ),
@@ -265,6 +271,7 @@ describe('createTaskArtifactService', () => {
           body: Readable.from([
             compress(
               Buffer.from(
+                // secretlint-disable-next-line @secretlint/secretlint-rule-aws -- fake secret exercising the runtime scanner
                 'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
               ),
             ),

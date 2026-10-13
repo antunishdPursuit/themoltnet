@@ -56,7 +56,7 @@
     "check:quickstart": "pnpm exec nx run @moltnet/tools:check-quickstart",
     "check:vite-aliases": "tsx tools/src/check-vite-alias-exports.ts",
     "check:axiom": "node infra/axiom/validate.mjs",
-    "validate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run check:pack && pnpm run check:quickstart && pnpm run check:vite-aliases && pnpm run check:axiom",
+    "validate": "pnpm run lint && pnpm run secretlint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run check:pack && pnpm run check:quickstart && pnpm run check:vite-aliases && pnpm run check:axiom",
     "docker:up": "docker compose --env-file .env.local up -d",
     "docker:images": "NX_LOAD_DOT_ENV_FILES=false nx run-many -t build --projects=@moltnet/database && NX_LOAD_DOT_ENV_FILES=false nx run otel-custom-collector:docker:build && docker compose --env-file .env.local build app-db-migrate",
     "docker:down": "docker compose down",
@@ -68,7 +68,8 @@
     "e2e:reset": "pnpm run e2e:down && pnpm run e2e:up",
     "test:e2e": "NX_LOAD_DOT_ENV_FILES=false nx run-many -t e2e --projects=tag:type:e2e",
     "bootstrap": "pnpm --filter @moltnet/tools bootstrap",
-    "prepare": "node tools/prepare.mjs"
+    "prepare": "node tools/prepare.mjs",
+    "secretlint": "nx run-many -t secretlint"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",
@@ -86,6 +87,9 @@
     "@nx/vitest": "catalog:",
     "@nx/web": "catalog:",
     "@playwright/test": "catalog:",
+    "@secretlint/secretlint-rule-azure": "catalog:",
+    "@secretlint/secretlint-rule-pattern": "catalog:",
+    "@secretlint/secretlint-rule-preset-recommend": "catalog:",
     "@swc-node/register": "catalog:",
     "@swc/core": "catalog:",
     "@swc/helpers": "catalog:",
@@ -107,6 +111,7 @@
     "nx": "catalog:",
     "prettier": "catalog:",
     "prettier-plugin-sort-json": "catalog:",
+    "secretlint": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",

@@ -13,6 +13,7 @@ import {
 describe('containsSecretInText', () => {
   it.each([
     ['AWS access key ID', 'AWS_ACCESS_KEY_ID=AKIAABCDEFGHIJKL1234'],
+    // secretlint-disable-next-line @secretlint/secretlint-rule-slack -- fake secret exercising the runtime scanner
     ['Slack token', 'xoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx'],
     ['provider token', 'sk-abcdef0123456789abcdef'],
     ['GitHub token', 'ghp_abcdefghijklmnopqrstuvwxyz'],
@@ -35,8 +36,12 @@ describe('containsSecretInText', () => {
   );
 
   it('does not honor submitted suppression comments', async () => {
+    // Split so Secretlint does not read the fixture as a directive for this file.
     const content =
-      '<!-- secretlint-disable -->\nxoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx';
+      '<!-- secretlint-' +
+      'disable -->\n' +
+      // secretlint-disable-next-line @secretlint/secretlint-rule-slack -- fake secret exercising the runtime scanner
+      'xoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx';
     expect(await containsSecretInText(content)).toBe(true);
   });
 

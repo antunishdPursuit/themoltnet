@@ -170,6 +170,7 @@ const contributeItems = [
     text: 'Nx Release Workflow',
     link: '/contribute/nx-release-workflow',
   },
+  { text: 'Secret Scanning', link: '/contribute/secret-scanning' },
 ];
 
 export default defineConfig({
