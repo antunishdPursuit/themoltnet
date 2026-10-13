@@ -13,23 +13,35 @@ function deferred<T>() {
 }
 
 describe('ReadAheadBudget', () => {
-  it('refuses to be released beyond what was reserved', () => {
-    const budget = new ReadAheadBudget(10);
-    expect(budget.tryAcquire(4)).toBe(true);
-    budget.release(4);
-    expect(() => budget.release(1)).toThrow('released more than it reserved');
-    expect(() => budget.release(Number.NaN)).toThrow(
-      'released more than it reserved',
-    );
+  it('detects a reservation released twice', () => {
+    const budget = new ReadAheadBudget(10, 2);
+    const reservation = budget.tryAcquire(4)!;
+    expect(budget.availableBytes).toBe(6);
+    expect(budget.availableRequests).toBe(1);
+    budget.release(reservation);
+    expect(() => budget.release(reservation)).toThrow('released twice');
+    expect(() => budget.release({ bytes: 1 })).toThrow('released twice');
     expect(budget.availableBytes).toBe(10);
+    expect(budget.availableRequests).toBe(2);
   });
 
   it('rejects invalid costs instead of granting them', () => {
     const budget = new ReadAheadBudget(10);
     expect(() => budget.tryAcquire(-1)).toThrow(RangeError);
     expect(() => budget.tryAcquire(Number.NaN)).toThrow(RangeError);
-    expect(budget.tryAcquire(11)).toBe(false);
+    expect(budget.tryAcquire(11)).toBeUndefined();
     expect(budget.availableBytes).toBe(10);
+  });
+
+  it('refuses a reservation when request slots run out', () => {
+    const budget = new ReadAheadBudget(100, 1);
+    expect(budget.tryAcquire(1)).toBeDefined();
+    expect(budget.tryAcquire(1)).toBeUndefined();
+  });
+
+  it('rejects an invalid request limit', () => {
+    expect(() => new ReadAheadBudget(10, -1)).toThrow(RangeError);
+    expect(() => new ReadAheadBudget(10, 1.5)).toThrow(RangeError);
   });
 });
 
@@ -69,6 +81,28 @@ describe('prefetchInOrder ordering', () => {
     fetches[0].resolve(0);
     expect(await collected).toEqual([0, 1, 2]);
   });
+});
+
+describe('prefetchInOrder failures', () => {
+  it.each([undefined, 0, ''])(
+    'rethrows a falsy rejection unchanged: %j',
+    async (thrown) => {
+      const items = prefetchInOrder(
+        [0, 1],
+        { concurrency: 2, budget: new ReadAheadBudget(10), cost: () => 1 },
+        (index, signal) =>
+          index === 0
+            ? // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+              Promise.reject(thrown)
+            : new Promise<number>((_resolve, reject) => {
+                signal.addEventListener('abort', () => {
+                  reject(new Error('aborted', { cause: signal.reason }));
+                });
+              }),
+      );
+      await expect(items.next()).rejects.toBe(thrown);
+    },
+  );
 });
 
 describe('prefetchInOrder reservations', () => {

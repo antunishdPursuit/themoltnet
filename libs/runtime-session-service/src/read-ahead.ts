@@ -7,37 +7,60 @@
  */
 export const READ_EXPANSION = 4;
 
+/** Proof of one granted read-ahead: its bytes and one request slot. */
+export interface Reservation {
+  readonly bytes: number;
+}
+
 /**
- * A byte budget shared by every read of one store service. First come, first
- * served: a read that keeps refilling can hold other reads to sequential
- * fetching (slower, never stalled), since each read's next item is free.
+ * A budget shared by every read of one store service, in bytes held and in
+ * requests in flight. First come, first served: a read that keeps refilling
+ * can hold other reads to sequential fetching (slower, never stalled), since
+ * each read's next item is outside the budget.
  */
 export class ReadAheadBudget {
-  #available: number;
-  constructor(readonly limitBytes: number) {
+  #bytes: number;
+  #requests: number;
+  readonly #outstanding = new Set<Reservation>();
+  constructor(
+    readonly limitBytes: number,
+    readonly limitRequests: number = Number.POSITIVE_INFINITY,
+  ) {
     if (!Number.isSafeInteger(limitBytes) || limitBytes < 0)
       throw new RangeError('Read-ahead budget must be a non-negative integer');
-    this.#available = limitBytes;
+    if (
+      limitRequests !== Number.POSITIVE_INFINITY &&
+      (!Number.isSafeInteger(limitRequests) || limitRequests < 0)
+    )
+      throw new RangeError(
+        'Read-ahead request limit must be a non-negative integer',
+      );
+    this.#bytes = limitBytes;
+    this.#requests = limitRequests;
   }
   get availableBytes() {
-    return this.#available;
+    return this.#bytes;
   }
-  tryAcquire(bytes: number) {
+  get availableRequests() {
+    return this.#requests;
+  }
+  tryAcquire(bytes: number): Reservation | undefined {
     if (!Number.isSafeInteger(bytes) || bytes < 0)
       throw new RangeError('Read-ahead cost must be a non-negative integer');
-    if (bytes > this.#available) return false;
-    this.#available -= bytes;
-    return true;
+    if (bytes > this.#bytes || this.#requests < 1) return undefined;
+    this.#bytes -= bytes;
+    this.#requests -= 1;
+    const reservation: Reservation = Object.freeze({ bytes });
+    this.#outstanding.add(reservation);
+    return reservation;
   }
-  release(bytes: number) {
-    // Over-release (or NaN) would silently lift the cap; fail loudly instead.
-    if (
-      !Number.isSafeInteger(bytes) ||
-      bytes < 0 ||
-      this.#available + bytes > this.limitBytes
-    )
-      throw new Error('Read-ahead budget released more than it reserved');
-    this.#available += bytes;
+  release(reservation: Reservation | undefined) {
+    if (!reservation) return;
+    // A second or foreign release would silently lift the cap.
+    if (!this.#outstanding.delete(reservation))
+      throw new Error('Read-ahead reservation released twice or unknown');
+    this.#bytes += reservation.bytes;
+    this.#requests += 1;
   }
 }
 
@@ -45,9 +68,10 @@ export class ReadAheadBudget {
  * Runs `fetch` over `items` and yields results strictly in input order,
  * refilling only when the consumer asks for the next result.
  *
- * Memory is bounded by bytes, not by item count: the next item in order is
- * always fetched (a plain sequential read), and every fetch beyond it must
- * first reserve `cost(item)` from the shared `budget`. When the budget is
+ * Memory and requests are bounded across reads, not per read: the next item
+ * in order is always fetched (a plain sequential read), and every fetch
+ * beyond it must first reserve `cost(item)` bytes and one request slot from
+ * the shared `budget`. When the budget is
  * exhausted, reads degrade to sequential instead of buffering more. A
  * reservation is released once the consumer takes the result, or when the
  * generator finishes, throws or is `return()`ed. A consumer that stops calling
@@ -73,7 +97,7 @@ export async function* prefetchInOrder<T, R>(
   const signal = callerSignal
     ? AbortSignal.any([callerSignal, stop.signal])
     : stop.signal;
-  const pending: { result: Promise<R>; reserved: number }[] = [];
+  const pending: { result: Promise<R>; reserved?: Reservation }[] = [];
   // Boxed: a thrown value may itself be falsy.
   let failure: { error: unknown } | undefined;
   let next = 0;
@@ -83,12 +107,11 @@ export async function* prefetchInOrder<T, R>(
       next < items.length &&
       pending.length < options.concurrency
     ) {
-      let reserved = 0;
+      let reserved: Reservation | undefined;
       if (pending.length > 0) {
-        // Read-ahead: only within the shared byte budget.
-        const cost = options.cost(items[next]);
-        if (!options.budget.tryAcquire(cost)) return;
-        reserved = cost;
+        // Read-ahead: only within the shared budget.
+        reserved = options.budget.tryAcquire(options.cost(items[next]));
+        if (!reserved) return;
       }
       const item = items[next++];
       // A synchronous throw becomes a rejection, so the entry (and its

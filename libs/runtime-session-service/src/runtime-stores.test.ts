@@ -18,7 +18,12 @@ const authority = {
   executorFingerprint: 'fingerprint',
 };
 function setup(
-  options: { readConcurrency?: number; readAheadBytes?: number } = {},
+  options: {
+    readConcurrency?: number;
+    readAheadBytes?: number;
+    readAheadRequests?: number;
+    objectReadTimeoutMs?: number;
+  } = {},
 ) {
   let now = Date.now();
   const objects = new Map<string, Buffer>();
@@ -616,7 +621,11 @@ describe('concurrent ordered object reads', () => {
       });
       const page = await f.service.read({ ...authority, storeId: 'store' });
       // The head object is still pending; the failure must not wait for it.
-      await expect(collect(page.items)).rejects.toBe(missing);
+      await expect(collect(page.items)).rejects.toMatchObject({
+        statusCode: 503,
+        message: 'Reading runtime commit 3 failed',
+        cause: missing,
+      });
       for (const [, signal] of f.storage.getObject.mock.calls)
         expect((signal as AbortSignal).aborted).toBe(true);
       expect(f.storage.getObject).toHaveBeenCalledTimes(3);
@@ -727,7 +736,7 @@ describe('concurrent ordered object reads', () => {
   });
 
   it.each([undefined, 0, ''])(
-    'rethrows a falsy rejection unchanged: %j',
+    'reports a falsy storage rejection as a failed commit read: %j',
     async (thrown) => {
       const f = setup({ readConcurrency: 2 });
       await seed(f, 2);
@@ -736,7 +745,50 @@ describe('concurrent ordered object reads', () => {
         Promise.reject(thrown),
       );
       const page = await f.service.read({ ...authority, storeId: 'store' });
-      await expect(collect(page.items)).rejects.toBe(thrown);
+      const error: unknown = await collect(page.items).catch((e: unknown) => e);
+      expect(error).toMatchObject({
+        statusCode: 503,
+        message: 'Reading runtime commit 1 failed',
+      });
+      expect((error as Error).cause).toBe(thrown);
+    },
+  );
+
+  it('times out a stalled object read with a problem naming the commit', async () => {
+    const f = setup({ readConcurrency: 2, objectReadTimeoutMs: 20 });
+    await seed(f, 2);
+    const stalled = new Readable({ read() {} });
+    f.storage.getObject.mockResolvedValueOnce({ body: stalled });
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    await expect(collect(page.items)).rejects.toMatchObject({
+      statusCode: 503,
+      message: 'Reading runtime commit 1 timed out after 20 ms',
+    });
+    expect(stalled.destroyed).toBe(true);
+  });
+
+  it('keeps caller aborts as aborts rather than failed reads', async () => {
+    const f = setup({ readConcurrency: 2 });
+    await seed(f, 2);
+    const controller = new AbortController();
+    f.storage.getObject.mockImplementationOnce(async () => {
+      controller.abort();
+      throw new Error('socket hang up');
+    });
+    const page = await f.service.read({
+      ...authority,
+      storeId: 'store',
+      signal: controller.signal,
+    });
+    await expect(collect(page.items)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
+
+  it.each([0, 1.5, -1])(
+    'rejects an invalid object read timeout: %s',
+    (objectReadTimeoutMs) => {
+      expect(() => setup({ objectReadTimeoutMs })).toThrow(RangeError);
     },
   );
 
@@ -870,7 +922,7 @@ describe('shared read-ahead byte budget', () => {
     });
     const page = await f.service.read({ ...authority, storeId: 'store' });
     await expect(collect(page.items)).rejects.toThrow(
-      'object store unavailable',
+      'Reading runtime commit 2 failed',
     );
     // The head plus both read-aheads started; nothing after the failure.
     expect(f.storage.getObject).toHaveBeenCalledTimes(3);
@@ -917,6 +969,15 @@ describe('shared read-ahead byte budget', () => {
     gate.release(keys[3]);
     await bThird;
     await b.items.return(undefined);
+  });
+
+  it('caps read-ahead requests even when commits are tiny', async () => {
+    const f = setup({ readConcurrency: 8, readAheadRequests: 2 });
+    const keys = await seed(f, 6);
+    const gate = gatedStorage(f);
+    expect(await drain(f, gate, keys)).toHaveLength(6);
+    // The free next commit plus two read-ahead request slots.
+    expect(gate.maxInflight).toBe(3);
   });
 
   it('rejects an invalid read-ahead budget', () => {
