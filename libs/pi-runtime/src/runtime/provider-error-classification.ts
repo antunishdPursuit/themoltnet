@@ -377,11 +377,11 @@ export function appendProviderFailureDiagnostics<
   };
 }
 
-export function sanitizeProviderDiagnostic(
+export async function sanitizeProviderDiagnostic(
   value: string | null | undefined,
-): string {
+): Promise<string> {
   const raw = value ?? 'Pi turn ended with stopReason=error';
-  const redacted = redactRetryTriageSecrets(raw);
+  const redacted = await redactRetryTriageSecrets(raw);
   return redacted.length <= 500
     ? redacted
     : `${redacted.slice(0, 240)}…${redacted.slice(-259)}`;

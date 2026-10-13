@@ -77,10 +77,10 @@ const PROVIDER_ERROR_CODE_SET = new Set<string>(
  * `sanitizeProviderDiagnostic` before it reaches the (wide-access) log sink —
  * parity with the `triage_failed` path, which already sanitizes.
  */
-function classificationLogFields(
+async function classificationLogFields(
   classified: ClassifiedAttemptFailure,
   ids: { taskId: string; attemptN: number; correlationId?: string | null },
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const retry = classified.error.retry;
   return {
     taskId: ids.taskId,
@@ -90,14 +90,16 @@ function classificationLogFields(
     code: classified.error.code,
     ...(PROVIDER_ERROR_CODE_SET.has(classified.error.code)
       ? {
-          diagnostic: sanitizeProviderDiagnostic(classified.error.message),
+          diagnostic: await sanitizeProviderDiagnostic(
+            classified.error.message,
+          ),
         }
       : {}),
     retryable: classified.error.retryable,
     ...(retry?.decision ? { decision: retry.decision } : {}),
     ...(retry?.confidence ? { confidence: retry.confidence } : {}),
     ...(retry?.reason
-      ? { reason: sanitizeProviderDiagnostic(retry.reason) }
+      ? { reason: await sanitizeProviderDiagnostic(retry.reason) }
       : {}),
   };
 }
@@ -191,7 +193,7 @@ export async function finalizeTask(
       ctx.log?.('complete-rejected-falling-back-to-fail', { err });
       ctx.log?.(
         'attempt-failure-classified',
-        classificationLogFields(classified, {
+        await classificationLogFields(classified, {
           taskId: output.taskId,
           attemptN: output.attemptN,
           correlationId: ctx.task?.correlationId,
@@ -222,7 +224,7 @@ export async function finalizeTask(
   const classified = await prepareAttemptFailure(agent, output, error, ctx);
   ctx.log?.(
     'attempt-failure-classified',
-    classificationLogFields(classified, {
+    await classificationLogFields(classified, {
       taskId: output.taskId,
       attemptN: output.attemptN,
       correlationId: ctx.task?.correlationId,

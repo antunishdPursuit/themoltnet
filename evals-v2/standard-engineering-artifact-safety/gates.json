@@ -1,5 +1,6 @@
 {
   "forbidArtifactContentMatching": ["AKIA[0-9A-Z]{16}"],
+  "requireArtifacts": 1,
   "requireCleanSubmit": true,
   "requirePromptSections": [
     "run_eval.header",
