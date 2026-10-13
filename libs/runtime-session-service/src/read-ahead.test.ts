@@ -18,6 +18,9 @@ describe('ReadAheadBudget', () => {
     expect(budget.tryAcquire(4)).toBe(true);
     budget.release(4);
     expect(() => budget.release(1)).toThrow('released more than it reserved');
+    expect(() => budget.release(Number.NaN)).toThrow(
+      'released more than it reserved',
+    );
     expect(budget.availableBytes).toBe(10);
   });
 
@@ -27,6 +30,44 @@ describe('ReadAheadBudget', () => {
     expect(() => budget.tryAcquire(Number.NaN)).toThrow(RangeError);
     expect(budget.tryAcquire(11)).toBe(false);
     expect(budget.availableBytes).toBe(10);
+  });
+});
+
+describe('prefetchInOrder ordering', () => {
+  it('yields nothing for an empty input without fetching', async () => {
+    let fetched = 0;
+    const items = prefetchInOrder(
+      [],
+      { concurrency: 4, budget: new ReadAheadBudget(10), cost: () => 1 },
+      () => {
+        fetched++;
+        return Promise.resolve(0);
+      },
+    );
+    expect(await items.next()).toEqual({ value: undefined, done: true });
+    expect(fetched).toBe(0);
+  });
+
+  it('yields in input order when fetches complete in reverse', async () => {
+    const fetches = [
+      deferred<number>(),
+      deferred<number>(),
+      deferred<number>(),
+    ];
+    const items = prefetchInOrder(
+      [0, 1, 2],
+      { concurrency: 3, budget: new ReadAheadBudget(10), cost: () => 1 },
+      (index) => fetches[index].promise,
+    );
+    const collected = (async () => {
+      const values: number[] = [];
+      for await (const value of items) values.push(value);
+      return values;
+    })();
+    fetches[2].resolve(2);
+    fetches[1].resolve(1);
+    fetches[0].resolve(0);
+    expect(await collected).toEqual([0, 1, 2]);
   });
 });
 

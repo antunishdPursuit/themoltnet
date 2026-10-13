@@ -218,6 +218,13 @@ export function createConversationService(deps: {
         input.attemptN,
       );
       firstSeq = bounds.firstSeq;
+      span.setAttributes({
+        'moltnet.conversation.from_seq': seq,
+        'moltnet.conversation.target_seq': bounds.lastSeq,
+        'moltnet.conversation.first_seq': bounds.firstSeq,
+      });
+      // Timed from the first page read, so every page counts the same way.
+      const replayStart = performance.now();
       // Every refresh reauthorizes *all* attempts sharing the store, even if its head did not move.
       let page = await deps.stores.read({
         ...input,
@@ -229,7 +236,6 @@ export function createConversationService(deps: {
       });
       if (bounds.lastSeq < seq)
         throw createProblem('conflict', 'Conversation history changed');
-      const replayStart = performance.now();
       const replayedFrom = seq;
       const bytesBefore = bytes;
       let applyMs = 0;

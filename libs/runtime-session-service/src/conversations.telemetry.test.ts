@@ -144,6 +144,9 @@ describe('conversation refresh telemetry', () => {
         'moltnet.conversation.cold': true,
         'moltnet.conversation.commits_replayed': 2,
         'moltnet.conversation.pages': 1,
+        'moltnet.conversation.from_seq': 0,
+        'moltnet.conversation.target_seq': 2,
+        'moltnet.conversation.first_seq': 1,
         'moltnet.conversation.read_wait_ms': expect.any(Number) as unknown,
         'moltnet.conversation.apply_ms': expect.any(Number) as unknown,
       },
@@ -154,6 +157,8 @@ describe('conversation refresh telemetry', () => {
     expect(spans[1].attributes).toMatchObject({
       'moltnet.conversation.cold': false,
       'moltnet.conversation.commits_replayed': 1,
+      'moltnet.conversation.from_seq': 2,
+      'moltnet.conversation.target_seq': 3,
       'moltnet.conversation.pages': 1,
     });
   });
@@ -218,6 +223,8 @@ describe('conversation refresh telemetry', () => {
       attributes: {
         'moltnet.conversation.commits_replayed': 2,
         'moltnet.conversation.pages': 1,
+        // A failed cold read shows how far it got against its target.
+        'moltnet.conversation.target_seq': 4,
       },
     });
   });

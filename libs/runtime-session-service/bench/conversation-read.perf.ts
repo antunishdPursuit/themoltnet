@@ -14,7 +14,8 @@
  *
  *   pnpm exec nx run @moltnet/runtime-session-service:bench:conversation-read
  *
- * Tunables (env): BENCH_TURNS, BENCH_S3_MS, BENCH_KETO_MS, BENCH_DB_MS.
+ * Tunables (env): BENCH_TURNS, BENCH_S3_MS, BENCH_KETO_MS, BENCH_DB_MS,
+ * BENCH_TOOL_KB (pads tool results; ~900 approaches the 1 MiB commit limit).
  */
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';

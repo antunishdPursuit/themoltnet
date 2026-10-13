@@ -179,6 +179,11 @@ describe('task conversation routes', () => {
     const listed = await app.inject({ method: 'GET', url: path, headers });
 
     expect(listed.statusCode).toBe(200);
+    expect(listed.json()).toEqual({
+      items: [
+        { conversationId: '1', parentConversationId: null, kind: 'main' },
+      ],
+    });
     expect(mocks.runtimeSessionStorage.getObject).toHaveBeenCalledTimes(4);
     expect(maxInflight).toBe(4);
   });

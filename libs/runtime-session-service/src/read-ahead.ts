@@ -16,7 +16,7 @@ export class ReadAheadBudget {
   #available: number;
   constructor(readonly limitBytes: number) {
     if (!Number.isSafeInteger(limitBytes) || limitBytes < 0)
-      throw new RangeError('readAheadBytes must be a non-negative integer');
+      throw new RangeError('Read-ahead budget must be a non-negative integer');
     this.#available = limitBytes;
   }
   get availableBytes() {
@@ -30,8 +30,12 @@ export class ReadAheadBudget {
     return true;
   }
   release(bytes: number) {
-    // Over-release would silently lift the cap; fail loudly instead.
-    if (bytes < 0 || this.#available + bytes > this.limitBytes)
+    // Over-release (or NaN) would silently lift the cap; fail loudly instead.
+    if (
+      !Number.isSafeInteger(bytes) ||
+      bytes < 0 ||
+      this.#available + bytes > this.limitBytes
+    )
       throw new Error('Read-ahead budget released more than it reserved');
     this.#available += bytes;
   }
@@ -46,7 +50,9 @@ export class ReadAheadBudget {
  * first reserve `cost(item)` from the shared `budget`. When the budget is
  * exhausted, reads degrade to sequential instead of buffering more. A
  * reservation is released once the consumer takes the result, or when the
- * fetch is abandoned.
+ * generator finishes, throws or is `return()`ed. A consumer that stops calling
+ * `next()` without `return()` keeps its reservations; `for await` always
+ * returns.
  *
  * The first real failure aborts the other fetches and is thrown in place of
  * the abort errors it causes. Early return, failure or caller abort aborts
@@ -57,7 +63,7 @@ export async function* prefetchInOrder<T, R>(
   items: readonly T[],
   options: {
     concurrency: number;
-    budget?: ReadAheadBudget;
+    budget: ReadAheadBudget;
     cost: (item: T) => number;
   },
   fetch: (item: T, signal: AbortSignal) => Promise<R>,
@@ -81,7 +87,7 @@ export async function* prefetchInOrder<T, R>(
       if (pending.length > 0) {
         // Read-ahead: only within the shared byte budget.
         const cost = options.cost(items[next]);
-        if (!options.budget?.tryAcquire(cost)) return;
+        if (!options.budget.tryAcquire(cost)) return;
         reserved = cost;
       }
       const item = items[next++];
@@ -114,7 +120,7 @@ export async function* prefetchInOrder<T, R>(
       try {
         yield value;
       } finally {
-        options.budget?.release(head.reserved);
+        options.budget.release(head.reserved);
       }
       // Refill only when the consumer asks for more, so concurrency 1 is
       // strictly sequential and a stalled consumer stops further fetches.
@@ -126,6 +132,6 @@ export async function* prefetchInOrder<T, R>(
   } finally {
     stop.abort();
     await Promise.allSettled(pending.map((entry) => entry.result));
-    for (const entry of pending) options.budget?.release(entry.reserved);
+    for (const entry of pending) options.budget.release(entry.reserved);
   }
 }

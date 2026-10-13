@@ -43,8 +43,12 @@ export function createRuntimeStoreService(deps: {
    */
   readConcurrency?: number;
   /**
-   * Bytes all reads of this service may hold in read-ahead at once (default
-   * 16 MiB). Only fetches beyond each read's next commit count against it.
+   * Bytes all reads of this service instance may hold in read-ahead at once
+   * (default 16 MiB). Only fetches beyond each read's next commit count
+   * against it; that next commit is outside the budget, so the floor is one
+   * commit (up to maxBytes, expanded) per concurrent read. Each instance has
+   * its own budget: the process bound is the sum over instances that opt in
+   * to concurrency (today only the conversation routes).
    */
   readAheadBytes?: number;
   now?: () => number;
@@ -56,6 +60,9 @@ export function createRuntimeStoreService(deps: {
   const readAhead = new ReadAheadBudget(
     deps.readAheadBytes ?? 16 * 1024 * 1024,
   );
+  // Memory a read-ahead commit is expected to occupy, from its recorded size.
+  const readCost = (row: CommitRow) =>
+    Math.min(row.sizeBytes, deps.maxBytes) * READ_EXPANSION;
   const now = deps.now ?? Date.now;
   // Cache provenance, never authorization. Commit history is append-only, so a
   // captured head identifies its contributors even if another writer advances.
@@ -402,18 +409,22 @@ export function createRuntimeStoreService(deps: {
       await team(input);
       const store = await repo.get(input.teamId, input.storeId);
       if (!store) throw createProblem('not-found');
+      const headSeq = Math.min(
+        store.headSeq,
+        input.throughSeq ?? store.headSeq,
+      );
       const rows = await repo.listCommits(
         store.id,
         input.afterSeq ?? 0,
         Math.min(input.limit ?? 50, 100),
-        Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
+        headSeq,
       );
       await reader(input, input.storeId, [
         ...(await commitTaskIds(store)),
         ...rows.map((row) => row.taskId),
       ]);
       return {
-        headSeq: Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
+        headSeq,
         count: rows.length,
         // Lazy: no object is fetched until the caller iterates, which can only
         // happen after the authorization above has passed.
@@ -422,11 +433,7 @@ export function createRuntimeStoreService(deps: {
           {
             concurrency: readConcurrency,
             budget: readAhead,
-            // Rows record their stored size; assume the maximum if absent.
-            cost: (row: CommitRow) =>
-              (Number.isSafeInteger(row.sizeBytes)
-                ? Math.min(row.sizeBytes!, deps.maxBytes)
-                : deps.maxBytes) * READ_EXPANSION,
+            cost: readCost,
           },
           (row, signal) => readCommit(deps.storage, deps.maxBytes, row, signal),
           input.signal,
@@ -436,13 +443,9 @@ export function createRuntimeStoreService(deps: {
   };
 }
 
-type CommitRow = {
-  seq: number;
-  commitId: string;
-  sha256: string;
-  objectKey: string;
-  sizeBytes?: number;
-};
+type CommitRow = Awaited<
+  ReturnType<RuntimeStoreRepository['listCommits']>
+>[number];
 
 async function readCommit(
   storage: RuntimeSessionStorage,

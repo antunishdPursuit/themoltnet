@@ -814,17 +814,6 @@ describe('shared read-ahead byte budget', () => {
     expect(gate.maxInflight).toBe(1);
   });
 
-  it('falls back to sequential reads when a row has no recorded size', async () => {
-    const f = setup({ readConcurrency: 8, readAheadBytes: 1000 });
-    const keys = await seed(f, 3);
-    f.repository.listCommits.mockImplementation(async () =>
-      f.commits.map(({ sizeBytes: _size, ...row }) => row),
-    );
-    const gate = gatedStorage(f);
-    expect(await drain(f, gate, keys)).toHaveLength(3);
-    expect(gate.maxInflight).toBe(1);
-  });
-
   async function budgetFixture() {
     const probe = setup();
     await seed(probe, 1);
