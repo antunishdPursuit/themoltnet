@@ -16,6 +16,11 @@ import type {
 } from '@moltnet/runtime-profiles';
 
 import { createProblem } from './problems.js';
+import {
+  prefetchInOrder,
+  READ_EXPANSION,
+  ReadAheadBudget,
+} from './read-ahead.js';
 import type { RuntimeSessionStorage } from './runtime-session-storage.js';
 import type { RuntimeSessionSubject } from './runtime-sessions.js';
 
@@ -439,33 +444,6 @@ type CommitRow = {
   sizeBytes?: number;
 };
 
-/**
- * Bytes a commit occupies while it is read and parsed: the body chunks, the
- * decoded string and the parsed writes. Conservative, so the budget errs low.
- */
-const READ_EXPANSION = 4;
-
-/** A byte budget shared by every read of one store service. */
-export class ReadAheadBudget {
-  #available: number;
-  constructor(readonly limitBytes: number) {
-    if (!Number.isSafeInteger(limitBytes) || limitBytes < 0)
-      throw new RangeError('readAheadBytes must be a non-negative integer');
-    this.#available = limitBytes;
-  }
-  get availableBytes() {
-    return this.#available;
-  }
-  tryAcquire(bytes: number) {
-    if (bytes > this.#available) return false;
-    this.#available -= bytes;
-    return true;
-  }
-  release(bytes: number) {
-    this.#available = Math.min(this.limitBytes, this.#available + bytes);
-  }
-}
-
 async function readCommit(
   storage: RuntimeSessionStorage,
   maxBytes: number,
@@ -511,92 +489,4 @@ async function readCommit(
     sha256: row.sha256,
     writes: payload.writes,
   };
-}
-
-/**
- * Runs `fetch` over `items` and yields results strictly in input order,
- * refilling only when the consumer asks for the next result.
- *
- * Memory is bounded by bytes, not by item count: the next item in order is
- * always fetched (a plain sequential read), and every fetch beyond it must
- * first reserve `cost(item)` from the shared `budget`. When the budget is
- * exhausted, reads degrade to sequential instead of buffering more. A
- * reservation is released once the consumer takes the result, or when the
- * fetch is abandoned.
- *
- * The first real failure aborts the other fetches and is thrown in place of
- * the abort errors it causes. Early return, failure or caller abort aborts
- * every in-flight fetch and waits for it to settle, so `fetch` must honour its
- * signal or closing will wait for it.
- */
-async function* prefetchInOrder<T, R>(
-  items: readonly T[],
-  options: {
-    concurrency: number;
-    budget?: ReadAheadBudget;
-    cost: (item: T) => number;
-  },
-  fetch: (item: T, signal: AbortSignal) => Promise<R>,
-  callerSignal?: AbortSignal,
-): AsyncGenerator<R> {
-  const stop = new AbortController();
-  const signal = callerSignal
-    ? AbortSignal.any([callerSignal, stop.signal])
-    : stop.signal;
-  const pending: { result: Promise<R>; reserved: number }[] = [];
-  // Boxed: a thrown value may itself be falsy.
-  let failure: { error: unknown } | undefined;
-  let next = 0;
-  const fill = () => {
-    while (
-      !signal.aborted &&
-      next < items.length &&
-      pending.length < options.concurrency
-    ) {
-      let reserved = 0;
-      if (pending.length > 0) {
-        // Read-ahead: only within the shared byte budget.
-        const cost = options.cost(items[next]);
-        if (!options.budget?.tryAcquire(cost)) return;
-        reserved = cost;
-      }
-      const result = fetch(items[next++], signal);
-      result.catch((error: unknown) => {
-        if (signal.aborted) return;
-        failure = { error };
-        stop.abort(error);
-      });
-      pending.push({ result, reserved });
-    }
-  };
-  try {
-    callerSignal?.throwIfAborted();
-    fill();
-    while (pending.length) {
-      const head = pending[0];
-      let value: R;
-      try {
-        value = await head.result;
-      } catch (error) {
-        callerSignal?.throwIfAborted();
-        throw failure ? failure.error : error;
-      }
-      pending.shift();
-      try {
-        yield value;
-      } finally {
-        options.budget?.release(head.reserved);
-      }
-      // Refill only when the consumer asks for more, so concurrency 1 is
-      // strictly sequential and a stalled consumer stops further fetches.
-      callerSignal?.throwIfAborted();
-      fill();
-    }
-    // An abort must never surface as a normal, short page.
-    callerSignal?.throwIfAborted();
-  } finally {
-    stop.abort();
-    await Promise.allSettled(pending.map((entry) => entry.result));
-    for (const entry of pending) options.budget?.release(entry.reserved);
-  }
 }

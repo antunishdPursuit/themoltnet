@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import { KetoNamespace } from '@moltnet/auth';
 import { describe, expect, it, vi } from 'vitest';
 
+import { READ_EXPANSION } from './read-ahead.js';
 import { createRuntimeStoreService } from './runtime-stores.js';
 
 type Dependencies = Parameters<typeof createRuntimeStoreService>[0];
@@ -775,13 +776,18 @@ describe('shared read-ahead byte budget', () => {
     return result;
   }
   const readAheadCost = (f: ReturnType<typeof setup>) =>
-    Number(f.commits[0].sizeBytes) * 4;
+    Number(f.commits[0].sizeBytes) * READ_EXPANSION;
+  // Room for exactly two read-aheads; +1 absorbs commits a byte longer.
+  const twoReadAheads = (cost: number) => cost * 2 + 1;
 
   it('bounds read-ahead across concurrent reads by bytes, not commit count', async () => {
     const probe = setup();
     await seed(probe, 1);
     const cost = readAheadCost(probe);
-    const f = setup({ readConcurrency: 8, readAheadBytes: cost * 2 + 1 });
+    const f = setup({
+      readConcurrency: 8,
+      readAheadBytes: twoReadAheads(cost),
+    });
     const keys = await seed(f, 6);
     const gate = gatedStorage(f);
     const first = await f.service.read({ ...authority, storeId: 'store' });
@@ -819,12 +825,12 @@ describe('shared read-ahead byte budget', () => {
     expect(gate.maxInflight).toBe(1);
   });
 
-  it('returns reservations after early return, abort and failure', async () => {
+  async function budgetFixture() {
     const probe = setup();
     await seed(probe, 1);
     const f = setup({
       readConcurrency: 8,
-      readAheadBytes: readAheadCost(probe) * 2 + 1,
+      readAheadBytes: twoReadAheads(readAheadCost(probe)),
     });
     const keys = await seed(f, 4);
     const fullReadAhead = async () => {
@@ -833,21 +839,26 @@ describe('shared read-ahead byte budget', () => {
       return gate.maxInflight;
     };
     expect(await fullReadAhead()).toBe(3);
+    return { f, keys, fullReadAhead };
+  }
 
-    // Early return while two read-aheads are held.
-    let gate = gatedStorage(f);
-    let page = await f.service.read({ ...authority, storeId: 'store' });
+  it('returns reservations after an early return', async () => {
+    const { f, keys, fullReadAhead } = await budgetFixture();
+    const gate = gatedStorage(f);
+    const page = await f.service.read({ ...authority, storeId: 'store' });
     const head = page.items.next();
     await vi.waitFor(() => expect(gate.started(keys[2])).toBe(true));
     gate.release(keys[0]);
     await head;
     await page.items.return(undefined);
     expect(await fullReadAhead()).toBe(3);
+  });
 
-    // Caller abort mid-page.
-    gate = gatedStorage(f);
+  it('returns reservations after a caller abort', async () => {
+    const { f, keys, fullReadAhead } = await budgetFixture();
+    const gate = gatedStorage(f);
     const controller = new AbortController();
-    page = await f.service.read({
+    const page = await f.service.read({
       ...authority,
       storeId: 'store',
       signal: controller.signal,
@@ -857,19 +868,66 @@ describe('shared read-ahead byte budget', () => {
     controller.abort();
     await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
     expect(await fullReadAhead()).toBe(3);
+  });
 
-    // A failed read-ahead object.
+  it('returns reservations after a failed read-ahead object', async () => {
+    const { f, keys, fullReadAhead } = await budgetFixture();
     gatedStorage(f);
     const gated = f.storage.getObject.getMockImplementation()!;
+    f.storage.getObject.mockClear();
     f.storage.getObject.mockImplementation(async (key: string, signal) => {
       if (key === keys[1]) throw new Error('object store unavailable');
       return gated(key, signal);
     });
-    page = await f.service.read({ ...authority, storeId: 'store' });
+    const page = await f.service.read({ ...authority, storeId: 'store' });
     await expect(collect(page.items)).rejects.toThrow(
       'object store unavailable',
     );
+    // The head plus both read-aheads started; nothing after the failure.
+    expect(f.storage.getObject).toHaveBeenCalledTimes(3);
     expect(await fullReadAhead()).toBe(3);
+  });
+
+  it('lets another read reuse budget a finished read released', async () => {
+    const probe = setup();
+    await seed(probe, 1);
+    const f = setup({
+      readConcurrency: 8,
+      readAheadBytes: twoReadAheads(readAheadCost(probe)),
+    });
+    const keys = await seed(f, 4);
+    const gate = gatedStorage(f);
+    const a = await f.service.read({ ...authority, storeId: 'store' });
+    const b = await f.service.read({ ...authority, storeId: 'store' });
+    const aFirst = a.items.next();
+    const bFirst = b.items.next();
+    // A holds both read-ahead slots; B only has its free next commit.
+    await vi.waitFor(() =>
+      expect(f.storage.getObject).toHaveBeenCalledTimes(4),
+    );
+    gate.release(keys[0]);
+    await aFirst;
+    await bFirst;
+    const bSecond = b.items.next();
+    await vi.waitFor(() =>
+      expect(f.storage.getObject).toHaveBeenCalledTimes(5),
+    );
+    // A finishes early and returns its two reservations.
+    await a.items.return(undefined);
+    gate.release(keys[1]);
+    await bSecond;
+    const bThird = b.items.next();
+    // B's next commit is free; the read-ahead behind it uses A's budget.
+    await vi.waitFor(() =>
+      expect(f.storage.getObject).toHaveBeenCalledTimes(7),
+    );
+    expect(f.storage.getObject.mock.calls.slice(5).map(([key]) => key)).toEqual(
+      [keys[2], keys[3]],
+    );
+    gate.release(keys[2]);
+    gate.release(keys[3]);
+    await bThird;
+    await b.items.return(undefined);
   });
 
   it('rejects an invalid read-ahead budget', () => {
