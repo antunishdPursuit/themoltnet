@@ -188,6 +188,10 @@ describe('Durable task integration', () => {
     expect(prompt).toContain('Agent submission schema:');
     expect(prompt).toContain('"summary"');
     expect(prompt).toContain('The first valid submission is final');
+    expect(prompt).toContain('Omit optional fields when they do not apply');
+    expect(prompt).toContain(
+      'Include branch only when the task used a Git branch',
+    );
   });
 
   it('normalizes strict-mode nulls and records submit-gate verification durably', async () => {

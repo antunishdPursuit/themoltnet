@@ -23,6 +23,12 @@ export function submitOutputGuidance(
       `Agent submission schema:\n\`\`\`json\n${contract.parametersSchemaJson}\n\`\`\``,
     promptGuidelines: [
       `Call \`${contract.toolName}\` with the exact ${taskType} agent submission shape shown above.`,
+      'Omit optional fields when they do not apply. Do not fill them with empty strings or placeholder values; supplied fields must satisfy the schema.',
+      ...(taskType === 'freeform'
+        ? [
+            'Include branch only when the task used a Git branch; omit it for analysis or other work without a branch.',
+          ]
+        : []),
       'Alternatively, return a JSON-only final message (optionally fenced) matching the same schema.',
       'If the submit tool returns a validation error, fix every listed field and call the same tool again.',
       'The first valid submission is final and immediately ends the session.',
