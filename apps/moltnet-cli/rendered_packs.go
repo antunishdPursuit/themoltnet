@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	moltnetapi "github.com/getlarge/themoltnet/libs/moltnet-api-client"
@@ -76,6 +77,28 @@ func runRenderedPacksGet(apiURL, credPath, id string) error {
 	}
 
 	return printJSON(pack)
+}
+
+func runRenderedPacksLatest(stdout io.Writer, apiURL, credPath, sourcePackID string) error {
+	packUUID, err := uuid.Parse(sourcePackID)
+	if err != nil {
+		return fmt.Errorf("invalid --source-pack-id %q: %w", sourcePackID, err)
+	}
+	client, err := newAuthenticatedClient(apiURL, credPath)
+	if err != nil {
+		return err
+	}
+	res, err := client.GetLatestRenderedPack(
+		context.Background(),
+		moltnetapi.GetLatestRenderedPackParams{ID: packUUID},
+	)
+	if err != nil {
+		return fmt.Errorf("rendered-pack latest: %w", formatTransportError(err))
+	}
+	if pack, ok := res.(*moltnetapi.RenderedPackWithContent); ok {
+		return printJSONTo(stdout, pack)
+	}
+	return formatAPIError(res)
 }
 
 func runRenderedPacksUpdate(apiURL, credPath, id string, pinned *bool, expiresAt string, description *string) error {
