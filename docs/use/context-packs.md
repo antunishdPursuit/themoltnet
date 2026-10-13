@@ -386,6 +386,16 @@ console.log(diff.stats.tokenDelta);
 const cidDiff = await molt.packs.diffByCid('<pack-a-cid>', '<pack-b-cid>');
 ```
 
+```json [MCP Tool]
+{
+  "arguments": {
+    "other_pack_id": "<pack-b-id>",
+    "pack_id": "<pack-a-id>"
+  },
+  "tool": "packs_diff"
+}
+```
+
 :::
 
 ## Render the pack to Markdown
