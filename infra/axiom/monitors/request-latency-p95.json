@@ -1,6 +1,6 @@
 {
   "alertOnNoData": false,
-  "description": "REST API latency regression signal over moltnet-metrics. The source metric is milliseconds. Inspect moltnet-traces by route, then correlate the time window with moltnet-logs. MCP is monitored separately because long-lived GET /mcp SSE connections make completed-request histograms unsuitable for a combined service percentile.",
+  "description": "REST API latency regression signal over moltnet-metrics. The source metric is milliseconds. Its histogram boundaries put the 3000 ms threshold on a bucket edge (libs/observability HTTP_REQUEST_DURATION_BOUNDARIES_MS), so an interpolated p95 reaches it only when at least one request exceeded 3000 ms; with sparse traffic a single such request still alerts. Each process exports its own series (service.instance.id), so cumulative-to-delta conversion never mixes replicas. Inspect moltnet-traces by route, then correlate the time window with moltnet-logs. MCP is monitored separately because long-lived GET /mcp SSE connections make completed-request histograms unsuitable for a combined service percentile.",
   "intervalMinutes": 5,
   "mplQuery": "`moltnet-metrics`:`http.server.request.duration`\n| where `service.name` == \"moltnet-rest-api\"\n| bucket by `http.route` to 5m using interpolate_cumulative_histogram(rate, 0.95)",
   "name": "MoltNet REST API request latency p95 by route",

@@ -23,6 +23,7 @@ const path = `/tasks/${taskId}/attempts/1/conversations`;
 describe('task conversation routes', () => {
   let app: FastifyInstance;
   let mocks: ReturnType<typeof createMockServices>;
+  let saved: Buffer;
   afterEach(async () => app.close());
   beforeEach(async () => {
     mocks = createMockServices();
@@ -106,6 +107,7 @@ describe('task conversation routes', () => {
     mocks.runtimeSessionStorage.getObject.mockImplementation(async () => ({
       body: Readable.from([bytes]),
     }));
+    saved = bytes;
     app = await createTestApp(mocks, VALID_AUTH_CONTEXT);
   });
   it('returns assembled saved content without acquiring a writer or executing a task', async () => {
@@ -134,6 +136,56 @@ describe('task conversation routes', () => {
     ).not.toHaveBeenCalled();
     expect(mocks.taskRepository.appendMessages).not.toHaveBeenCalled();
     expect(mocks.runtimeSessionStorage.getObject).toHaveBeenCalledTimes(1);
+  });
+  it('fetches cold history objects concurrently on the conversation route', async () => {
+    const repo = mocks.runtimeSessionRepository.durable;
+    const empty = Buffer.from(
+      JSON.stringify({ format: 'pi-durable.v1', writes: [] }),
+    );
+    const objects = new Map<string, Buffer>([
+      ['object', saved],
+      ['empty-2', empty],
+      ['empty-3', empty],
+      ['empty-4', empty],
+    ]);
+    repo.get.mockResolvedValue({
+      ...(await repo.get(teamId, storeId)),
+      headSeq: 4,
+    });
+    repo.attemptBounds.mockResolvedValue({ firstSeq: 1, lastSeq: 4 });
+    repo.listCommits.mockImplementation(async (_store, after: number) =>
+      [...objects].slice(after).map(([objectKey, bytes], index) => ({
+        seq: after + index + 1,
+        commitId: objectKey,
+        objectKey,
+        sizeBytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      })),
+    );
+    let inflight = 0;
+    let maxInflight = 0;
+    mocks.runtimeSessionStorage.getObject.mockImplementation(
+      async (key: string) => {
+        inflight++;
+        maxInflight = Math.max(maxInflight, inflight);
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        inflight--;
+        return { body: Readable.from([objects.get(key)!]) };
+      },
+    );
+
+    const listed = await app.inject({ method: 'GET', url: path, headers });
+
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json()).toEqual({
+      items: [
+        { conversationId: '1', parentConversationId: null, kind: 'main' },
+      ],
+    });
+    expect(mocks.runtimeSessionStorage.getObject).toHaveBeenCalledTimes(4);
+    expect(maxInflight).toBe(4);
   });
   it('denies inaccessible shared-store tasks before reading any blobs', async () => {
     mocks.permissionChecker.canViewTasks.mockImplementation(

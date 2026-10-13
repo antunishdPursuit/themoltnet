@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { metrics as metricsApi } from '@opentelemetry/api';
 import {
   type Resource,
@@ -10,6 +12,26 @@ import {
 } from '@opentelemetry/semantic-conventions';
 
 import type { RequestMetrics } from './types.js';
+
+/**
+ * Identifies this process in exported metrics. Metrics are cumulative, and
+ * Axiom converts each tag-distinct series to deltas before aggregating. Without
+ * a per-process id, replicas interleave in one series and every interleaving
+ * reads as a counter reset (phantom traffic). Per process, not per machine, so
+ * a restart starts a new series instead of resetting the old one.
+ */
+export const SERVICE_INSTANCE_ID = randomUUID();
+
+/**
+ * `http.server.request.duration` bucket boundaries in milliseconds. The OTel
+ * defaults jump from 2500 to 5000, so one 2.6 s request interpolates to a
+ * 4875 ms p95. Keep the latency alert threshold (3000 ms) on a boundary: an
+ * interpolated quantile then reaches it only if a request exceeded it.
+ */
+export const HTTP_REQUEST_DURATION_BOUNDARIES_MS = [
+  0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000,
+  5000, 7500, 10000, 15000, 30000,
+];
 
 export type MetricAttributes = Record<string, boolean | number | string>;
 
@@ -52,6 +74,7 @@ export function createMeterProvider(
 
   const resourceAttributes: Record<string, string> = {
     [ATTR_SERVICE_NAME]: serviceName,
+    'service.instance.id': SERVICE_INSTANCE_ID,
   };
 
   if (serviceVersion) {
@@ -92,6 +115,7 @@ export function createRequestMetrics(serviceName: string): RequestMetrics {
   const duration = meter.createHistogram('http.server.request.duration', {
     description: 'Duration of inbound HTTP requests in milliseconds',
     unit: 'ms',
+    advice: { explicitBucketBoundaries: HTTP_REQUEST_DURATION_BOUNDARIES_MS },
   });
 
   const total = meter.createCounter('http.server.request.total', {

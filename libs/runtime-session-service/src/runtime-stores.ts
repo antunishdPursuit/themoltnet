@@ -16,6 +16,11 @@ import type {
 } from '@moltnet/runtime-profiles';
 
 import { createProblem } from './problems.js';
+import {
+  prefetchInOrder,
+  READ_EXPANSION,
+  ReadAheadBudget,
+} from './read-ahead.js';
 import type { RuntimeSessionStorage } from './runtime-session-storage.js';
 import type { RuntimeSessionSubject } from './runtime-sessions.js';
 
@@ -31,9 +36,33 @@ export function createRuntimeStoreService(deps: {
   storage: RuntimeSessionStorage;
   permissionChecker: PermissionChecker;
   maxBytes: number;
+  /**
+   * Object fetches in flight per read page; a positive integer (default 1:
+   * sequential, no read-ahead). Fetches beyond each read's next commit are
+   * also limited by `readAheadBytes`.
+   */
+  readConcurrency?: number;
+  /**
+   * Bytes all reads of this service instance may hold in read-ahead at once
+   * (default 16 MiB). Only fetches beyond each read's next commit count
+   * against it; that next commit is outside the budget, so the floor is one
+   * commit (up to maxBytes, expanded) per concurrent read. Each instance has
+   * its own budget: the process bound is the sum over instances that opt in
+   * to concurrency (today only the conversation routes).
+   */
+  readAheadBytes?: number;
   now?: () => number;
 }) {
   const repo = deps.repository;
+  const readConcurrency = deps.readConcurrency ?? 1;
+  if (!Number.isSafeInteger(readConcurrency) || readConcurrency < 1)
+    throw new RangeError('readConcurrency must be a positive integer');
+  const readAhead = new ReadAheadBudget(
+    deps.readAheadBytes ?? 16 * 1024 * 1024,
+  );
+  // Memory a read-ahead commit is expected to occupy, from its recorded size.
+  const readCost = (row: CommitRow) =>
+    Math.min(row.sizeBytes, deps.maxBytes) * READ_EXPANSION;
   const now = deps.now ?? Date.now;
   // Cache provenance, never authorization. Commit history is append-only, so a
   // captured head identifies its contributors even if another writer advances.
@@ -380,63 +409,87 @@ export function createRuntimeStoreService(deps: {
       await team(input);
       const store = await repo.get(input.teamId, input.storeId);
       if (!store) throw createProblem('not-found');
+      const headSeq = Math.min(
+        store.headSeq,
+        input.throughSeq ?? store.headSeq,
+      );
       const rows = await repo.listCommits(
         store.id,
         input.afterSeq ?? 0,
         Math.min(input.limit ?? 50, 100),
-        Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
+        headSeq,
       );
       await reader(input, input.storeId, [
         ...(await commitTaskIds(store)),
         ...rows.map((row) => row.taskId),
       ]);
-      async function* items(): AsyncGenerator<RuntimeStoreCommit> {
-        for (const row of rows) {
-          input.signal?.throwIfAborted();
-          const object = await deps.storage.getObject(
-            row.objectKey,
-            input.signal,
-          );
-          if (input.signal) addAbortSignal(input.signal, object.body);
-          const chunks: Buffer[] = [];
-          let size = 0;
-          for await (const chunk of object.body) {
-            const bytes = Buffer.from(chunk as Uint8Array);
-            size += bytes.length;
-            if (size > deps.maxBytes) {
-              object.body.destroy();
-              throw createProblem(
-                'service-unavailable',
-                'Stored runtime commit exceeds size limit',
-              );
-            }
-            chunks.push(bytes);
-          }
-          const bytes = Buffer.concat(chunks);
-          if (createHash('sha256').update(bytes).digest('hex') !== row.sha256)
-            throw createProblem(
-              'service-unavailable',
-              'Runtime commit checksum mismatch',
-            );
-          const payload = JSON.parse(bytes.toString()) as {
-            format: string;
-            writes: RuntimeStoreCommit['writes'];
-          };
-          if (payload.format !== FORMAT)
-            throw createProblem('conflict', 'Unsupported runtime store format');
-          yield {
-            seq: row.seq,
-            commitId: row.commitId,
-            sha256: row.sha256,
-            writes: payload.writes,
-          };
-        }
-      }
       return {
-        headSeq: Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
+        headSeq,
         count: rows.length,
-        items: items(),
+        // Lazy: no object is fetched until the caller iterates, which can only
+        // happen after the authorization above has passed.
+        items: prefetchInOrder(
+          rows,
+          {
+            concurrency: readConcurrency,
+            budget: readAhead,
+            cost: readCost,
+          },
+          (row, signal) => readCommit(deps.storage, deps.maxBytes, row, signal),
+          input.signal,
+        ),
       };
     },
+  };
+}
+
+type CommitRow = Awaited<
+  ReturnType<RuntimeStoreRepository['listCommits']>
+>[number];
+
+async function readCommit(
+  storage: RuntimeSessionStorage,
+  maxBytes: number,
+  row: CommitRow,
+  signal: AbortSignal,
+): Promise<RuntimeStoreCommit> {
+  const object = await storage.getObject(row.objectKey, signal);
+  addAbortSignal(signal, object.body);
+  // Hash while streaming; the chunks are the only copy until the final decode.
+  const hash = createHash('sha256');
+  const chunks: Buffer[] = [];
+  let size = 0;
+  // Leaving the loop early (limit, abort) destroys the body stream.
+  for await (const chunk of object.body) {
+    const bytes = Buffer.from(chunk as Uint8Array);
+    size += bytes.length;
+    if (size > maxBytes)
+      throw createProblem(
+        'service-unavailable',
+        `Stored runtime commit ${row.seq} exceeds size limit`,
+      );
+    hash.update(bytes);
+    chunks.push(bytes);
+  }
+  // Nothing is decoded, let alone applied, before the checksum matches.
+  if (hash.digest('hex') !== row.sha256)
+    throw createProblem(
+      'service-unavailable',
+      `Runtime commit ${row.seq} checksum mismatch`,
+    );
+  const payload = JSON.parse(Buffer.concat(chunks, size).toString()) as {
+    format: string;
+    writes: RuntimeStoreCommit['writes'];
+  };
+  if (payload.format !== FORMAT)
+    throw createProblem(
+      'conflict',
+      `Unsupported runtime store format in commit ${row.seq}`,
+    );
+  return {
+    seq: row.seq,
+    commitId: row.commitId,
+    sha256: row.sha256,
+    writes: payload.writes,
   };
 }
