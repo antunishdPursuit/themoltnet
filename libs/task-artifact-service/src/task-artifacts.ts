@@ -124,6 +124,7 @@ async function assertNoCredentialMaterial(
   filePath: string,
   contentEncoding: string | null | undefined,
   maxBytes: number,
+  logger: TaskArtifactLogger,
 ): Promise<void> {
   let containsSecret: boolean;
   try {
@@ -136,6 +137,10 @@ async function assertNoCredentialMaterial(
     if (err instanceof InvalidArtifactEncodingError) {
       throw new TaskArtifactServiceError(400, 'Invalid task artifact encoding');
     }
+    logger.warn(
+      { errorName: err instanceof Error ? err.name : typeof err },
+      'task artifact secret scan failed',
+    );
     throw new TaskArtifactServiceError(
       503,
       'Task artifact validation is unavailable; retry later',
@@ -212,6 +217,7 @@ export function createTaskArtifactService(deps: TaskArtifactServiceDeps) {
           staged.path,
           input.contentEncoding,
           deps.taskArtifactMaxBytes,
+          deps.logger,
         );
         // Recheck after staging bytes so a status change during upload cannot
         // create artifact metadata for a no-longer-eligible attempt.
@@ -328,6 +334,7 @@ export function createTaskArtifactService(deps: TaskArtifactServiceDeps) {
           staged.path,
           input.contentEncoding,
           deps.taskArtifactMaxBytes,
+          deps.logger,
         );
         const existingObject = await deps.objectStorage.headObject(objectKey);
         if (!existingObject) {
