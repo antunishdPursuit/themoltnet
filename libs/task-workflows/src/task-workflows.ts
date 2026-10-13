@@ -373,19 +373,6 @@ export function initTaskWorkflows(): void {
           const { taskNow, isTerminal } = await checkExternalTerminal();
           await getDeps().transactionRunner.runInTransaction(
             async () => {
-              await getDeps().updateAttempt(taskId, attemptN, {
-                status:
-                  firstEvent?.kind === 'cancelled' ? 'cancelled' : 'timed_out',
-                completedAt: new Date(),
-                error:
-                  firstEvent?.kind === 'cancelled'
-                    ? (firstEvent.error ?? null)
-                    : ({
-                        code: 'dispatch_expired',
-                        message:
-                          'Dispatch timed out before the worker started processing the attempt.',
-                      } as unknown),
-              });
               if (firstEvent?.kind === 'cancelled') {
                 // Idempotent: cancel handler already committed 'cancelled'.
                 // The plain update is fine here — we're writing the same
@@ -411,6 +398,19 @@ export function initTaskWorkflows(): void {
                   claimExpiresAt: null,
                 });
               }
+              await getDeps().updateAttempt(taskId, attemptN, {
+                status:
+                  firstEvent?.kind === 'cancelled' ? 'cancelled' : 'timed_out',
+                completedAt: new Date(),
+                error:
+                  firstEvent?.kind === 'cancelled'
+                    ? (firstEvent.error ?? null)
+                    : ({
+                        code: 'dispatch_expired',
+                        message:
+                          'Dispatch timed out before the worker started processing the attempt.',
+                      } as unknown),
+              });
             },
             { name: 'task.tx.markDispatchTerminal' },
           );
@@ -459,16 +459,12 @@ export function initTaskWorkflows(): void {
             ? (firstEvent.leaseTtlSec ?? leaseTtlSec)
             : leaseTtlSec;
 
-        // Atomic: mark attempt running + extend lease on task together.
+        // Atomic: update task before attempt, matching Durable authority locks.
         const leaseExpiresAt = new Date(
           startedAtMs + currentLeaseTtlSec * 1000,
         );
         await getDeps().transactionRunner.runInTransaction(
           async () => {
-            await getDeps().updateAttempt(taskId, attemptN, {
-              status: 'running',
-              startedAt: new Date(startedAtMs),
-            });
             // Atomic guard: never clobber a terminal status (esp. `cancelled`)
             // back to `running`. The previous read-then-write pattern was
             // racy under READ COMMITTED — a cancel committing between the
@@ -480,6 +476,10 @@ export function initTaskWorkflows(): void {
               ['cancelled', 'completed', 'failed', 'expired'],
               { claimExpiresAt: leaseExpiresAt },
             );
+            await getDeps().updateAttempt(taskId, attemptN, {
+              status: 'running',
+              startedAt: new Date(startedAtMs),
+            });
           },
           { name: 'task.tx.markRunning' },
         );
@@ -515,32 +515,6 @@ export function initTaskWorkflows(): void {
             evt.kind === 'completed' ? (evt.contentSignature ?? null) : null;
           await getDeps().transactionRunner.runInTransaction(
             async () => {
-              await getDeps().updateAttempt(taskId, attemptN, {
-                status: evt.kind,
-                completedAt: now,
-                output: evt.kind === 'completed' ? (evt.output ?? null) : null,
-                outputCid:
-                  evt.kind === 'completed' ? (evt.outputCid ?? null) : null,
-                completedExecutorFingerprint:
-                  evt.kind === 'completed'
-                    ? (evt.completedExecutorFingerprint ?? null)
-                    : null,
-                error:
-                  evt.kind === 'failed' ||
-                  evt.kind === 'aborted' ||
-                  evt.kind === 'cancelled'
-                    ? (evt.error ?? null)
-                    : null,
-                usage: evt.kind === 'completed' ? (evt.usage ?? null) : null,
-                contentSignature,
-                signedAt: contentSignature ? now : null,
-                // Stamp daemonState only on the completed branch (#1287).
-                // failed/cancelled attempts are not resumable by design.
-                daemonState:
-                  evt.kind === 'completed'
-                    ? ((evt.daemonState ?? null) as TaskAttempt['daemonState'])
-                    : null,
-              });
               if (evt.kind === 'completed') {
                 // Don't clobber a cancel that raced with this completion
                 // (#949). If the row is already terminal, skip the write —
@@ -572,7 +546,7 @@ export function initTaskWorkflows(): void {
                 //
                 // `aborted` has no task-level status of its own: an
                 // exhausted abort settles the task as `failed` (#1382).
-                // The attempt row still records `aborted` (set above), so
+                // The attempt row still records `aborted` (set below), so
                 // the shutdown-vs-error distinction is preserved per-attempt.
                 const exhaustedStatus =
                   evt.kind === 'aborted' ? 'failed' : evt.kind;
@@ -583,6 +557,32 @@ export function initTaskWorkflows(): void {
                   { claimAgentId: null, claimExpiresAt: null },
                 );
               }
+              await getDeps().updateAttempt(taskId, attemptN, {
+                status: evt.kind,
+                completedAt: now,
+                output: evt.kind === 'completed' ? (evt.output ?? null) : null,
+                outputCid:
+                  evt.kind === 'completed' ? (evt.outputCid ?? null) : null,
+                completedExecutorFingerprint:
+                  evt.kind === 'completed'
+                    ? (evt.completedExecutorFingerprint ?? null)
+                    : null,
+                error:
+                  evt.kind === 'failed' ||
+                  evt.kind === 'aborted' ||
+                  evt.kind === 'cancelled'
+                    ? (evt.error ?? null)
+                    : null,
+                usage: evt.kind === 'completed' ? (evt.usage ?? null) : null,
+                contentSignature,
+                signedAt: contentSignature ? now : null,
+                // Stamp daemonState only on the completed branch (#1287).
+                // failed/cancelled attempts are not resumable by design.
+                daemonState:
+                  evt.kind === 'completed'
+                    ? ((evt.daemonState ?? null) as TaskAttempt['daemonState'])
+                    : null,
+              });
             },
             { name: 'task.tx.persistResult' },
           );
@@ -601,11 +601,6 @@ export function initTaskWorkflows(): void {
           const { taskNow, isTerminal } = await checkExternalTerminal();
           await getDeps().transactionRunner.runInTransaction(
             async () => {
-              await getDeps().updateAttempt(taskId, attemptN, {
-                status: 'timed_out',
-                completedAt: new Date(),
-                error: { code: reason, message: reason } as unknown,
-              });
               if (!isTerminal) {
                 // Atomic guard: a cancel may have committed between the
                 // checkExternalTerminal read and this write (#949).
@@ -621,6 +616,11 @@ export function initTaskWorkflows(): void {
                   claimExpiresAt: null,
                 });
               }
+              await getDeps().updateAttempt(taskId, attemptN, {
+                status: 'timed_out',
+                completedAt: new Date(),
+                error: { code: reason, message: reason } as unknown,
+              });
             },
             { name: 'task.tx.markRunningTimedOut' },
           );

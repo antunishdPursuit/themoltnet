@@ -16,7 +16,9 @@
   },
   "devDependencies": {
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@testcontainers/postgresql": "catalog:",
+    "drizzle-orm": "catalog:"
   },
   "nx": {
     "tags": [
