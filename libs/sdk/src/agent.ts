@@ -204,35 +204,17 @@ import type {
 
 import type { AgentContext } from './agent-context.js';
 import { MoltNetError } from './errors.js';
-import { createAgentKeysNamespace } from './namespaces/agent-keys.js';
 import { createAgentsNamespace } from './namespaces/agents.js';
 import { createAuthNamespace } from './namespaces/auth.js';
-import { createCryptoNamespace } from './namespaces/crypto.js';
-import { createDiariesNamespace } from './namespaces/diaries.js';
-import { createDiaryGrantsNamespace } from './namespaces/diary-grants.js';
 import { createDiaryTransfersNamespace } from './namespaces/diary-transfers.js';
-import { createEntriesNamespace } from './namespaces/entries.js';
-import { createGroupsNamespace } from './namespaces/groups.js';
-import { createLegreffierNamespace } from './namespaces/legreffier.js';
-import { createPacksNamespace } from './namespaces/packs.js';
-import { createProblemsNamespace } from './namespaces/problems.js';
-import {
-  createProjectsNamespace,
-  type ProjectsNamespace,
-} from './namespaces/projects.js';
-import { createPublicNamespace } from './namespaces/public.js';
 import { createRecoveryNamespace } from './namespaces/recovery.js';
-import { createRelationsNamespace } from './namespaces/relations.js';
 import { createRuntimePoliciesNamespace } from './namespaces/runtime-policies.js';
-import { createRuntimeProfilesNamespace } from './namespaces/runtime-profiles.js';
 import { createRuntimeSessionsNamespace } from './namespaces/runtime-sessions.js';
 import { createRuntimeSlotsNamespace } from './namespaces/runtime-slots.js';
-import { createSigningCredentialsNamespace } from './namespaces/signing-credentials.js';
-import { createSigningRequestsNamespace } from './namespaces/signing-requests.js';
 import { createTaskGrantsNamespace } from './namespaces/task-grants.js';
-import { createTasksNamespace } from './namespaces/tasks.js';
 import type { RequiredTeamRequestOptions } from './namespaces/team-headers.js';
-import { createTeamsNamespace } from './namespaces/teams.js';
+import type { SharedNamespaces } from './shared-namespaces.js';
+import { createSharedNamespaces } from './shared-namespaces.js';
 import type {
   BuildRubricSuccessCriteriaOptions,
   BuiltTask,
@@ -1198,27 +1180,12 @@ export type RuntimeSessionDownloadStream = AsyncIterable<Uint8Array>;
 // Agent facade type
 // ---------------------------------------------------------------------------
 
-export interface Agent {
-  agentKeys: AgentKeysNamespace;
-  diaries: DiariesNamespace;
-  diaryGrants: DiaryGrantsNamespace;
+export interface Agent extends SharedNamespaces {
   diaryTransfers: DiaryTransfersNamespace;
-  packs: PacksNamespace;
-  entries: EntriesNamespace;
-  relations: RelationsNamespace;
   agents: AgentsNamespace;
-  crypto: CryptoNamespace;
   auth: AuthNamespace;
   recovery: RecoveryNamespace;
-  public: PublicNamespace;
-  legreffier: LegreffierNamespace;
-  problems: ProblemsNamespace;
-  teams: TeamsNamespace;
-  groups: GroupsNamespace;
-  projects: ProjectsNamespace;
-  runtimeProfiles: RuntimeProfilesNamespace;
   runtimePolicies: RuntimePoliciesNamespace;
-  tasks: TasksNamespace;
   taskGrants: TaskGrantsNamespace;
   runtimeSlots: RuntimeSlotsNamespace;
   runtimeSessions: RuntimeSessionsNamespace;
@@ -1253,56 +1220,23 @@ export function createAgent(options: CreateAgentOptions): Agent {
       : undefined,
   };
 
-  const diaries = createDiariesNamespace(context);
-  const agentKeys = createAgentKeysNamespace(context);
-  const diaryGrants = createDiaryGrantsNamespace(context);
+  const shared = createSharedNamespaces(context);
   const diaryTransfers = createDiaryTransfersNamespace(context);
-  const packs = createPacksNamespace(context);
-  const entries = createEntriesNamespace(context);
-  const relations = createRelationsNamespace(context);
   const agents = createAgentsNamespace(context);
-  const signingRequests = createSigningRequestsNamespace(context);
-  const signingCredentials = createSigningCredentialsNamespace(context);
-  const crypto = createCryptoNamespace(
-    context,
-    signingRequests,
-    signingCredentials,
-  );
   const authNs = createAuthNamespace(context);
   const recovery = createRecoveryNamespace(context);
-  const publicNs = createPublicNamespace(context);
-  const legreffierNs = createLegreffierNamespace(context);
-  const problemsNs = createProblemsNamespace(context);
-  const teams = createTeamsNamespace(context);
-  const groups = createGroupsNamespace(context);
-  const runtimeProfiles = createRuntimeProfilesNamespace(context);
   const runtimePolicies = createRuntimePoliciesNamespace(context);
-  const tasks = createTasksNamespace(context);
   const taskGrants = createTaskGrantsNamespace(context);
   const runtimeSlots = createRuntimeSlotsNamespace(context);
   const runtimeSessions = createRuntimeSessionsNamespace(context);
 
   return {
-    agentKeys,
-    diaries,
-    diaryGrants,
+    ...shared,
     diaryTransfers,
-    packs,
-    entries,
-    relations,
     agents,
-    crypto,
     auth: authNs,
     recovery,
-    public: publicNs,
-    legreffier: legreffierNs,
-    problems: problemsNs,
-    teams,
-    groups,
-    projects: createProjectsNamespace(context),
-    runtimeProfiles,
     runtimePolicies,
-    tasks,
     taskGrants,
     runtimeSlots,
     runtimeSessions,
