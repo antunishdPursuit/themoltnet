@@ -54,6 +54,10 @@ patterns.
 A change to the root config marks every project as affected, so CI rescans those
 projects with the new rules.
 
+The runtime scanner in `libs/secret-scanner` checks untrusted agent output with
+its own rules and ignores suppression comments; this repository scan honours
+them.
+
 To use different rules in one project, add `{projectRoot}/.secretlintrc.json`.
 It replaces the root config for that project; it does not extend it.
 

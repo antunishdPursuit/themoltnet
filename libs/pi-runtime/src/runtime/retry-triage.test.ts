@@ -35,6 +35,7 @@ describe('pi retry triage prompt', () => {
       error: {
         code: 'executor_unexpected_error',
         message:
+          // secretlint-disable-next-line @secretlint/secretlint-rule-github -- fake secret exercising the runtime scanner
           'failed with token ghp_abcdefghijklmnopqrstuvwxyz0123456789 and AWS key AKIAABCDEFGHIJKL1234',
       },
       recentMessages: [
@@ -51,6 +52,7 @@ describe('pi retry triage prompt', () => {
     expect(prompt).toContain('"password": "[redacted]"');
     expect(prompt).not.toContain('sk-secret-value');
     expect(prompt).not.toContain('super-secret');
+    // secretlint-disable-next-line @secretlint/secretlint-rule-github -- fake secret exercising the runtime scanner
     expect(prompt).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789');
     expect(prompt).not.toContain('AKIAABCDEFGHIJKL1234');
   });

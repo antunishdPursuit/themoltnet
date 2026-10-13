@@ -201,6 +201,7 @@ describe('createTaskArtifactService', () => {
   it.each([
     [
       'AWS secret assignment',
+      // secretlint-disable-next-line @secretlint/secretlint-rule-aws -- fake secret exercising the runtime scanner
       'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
     ],
     [
@@ -226,6 +227,7 @@ describe('createTaskArtifactService', () => {
         body: Readable.from([
           gzipSync(
             Buffer.from(
+              // secretlint-disable-next-line @secretlint/secretlint-rule-aws -- fake secret exercising the runtime scanner
               'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
             ),
           ),
@@ -265,6 +267,7 @@ describe('createTaskArtifactService', () => {
           body: Readable.from([
             compress(
               Buffer.from(
+                // secretlint-disable-next-line @secretlint/secretlint-rule-aws -- fake secret exercising the runtime scanner
                 'AWS_SECRET_ACCESS_KEY=1234567890123456789012345678901234567890',
               ),
             ),
