@@ -364,9 +364,9 @@ await molt.packs.create('<diary-id>', {
 
 ## Compare source packs
 
-Compare two saved packs before choosing which one to render. The diff goes from
-the first pack (A) to the second (B) and reports added, removed, changed, and
-reordered entries, plus a token-count delta.
+Compare two saved packs from the same diary before choosing which one to render.
+The diff goes from the first pack (A) to the second (B) and reports added,
+removed, changed, and reordered entries, plus a token-count delta.
 
 ::: code-group
 
