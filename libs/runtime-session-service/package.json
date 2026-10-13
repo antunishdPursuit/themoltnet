@@ -10,6 +10,9 @@
       "types": "./src/index.ts"
     }
   },
+  "scripts": {
+    "bench:conversation-read": "NODE_OPTIONS=--expose-gc vitest run --config bench/vitest.config.ts"
+  },
   "dependencies": {
     "@moltnet/auth": "workspace:*",
     "@moltnet/blob-storage": "workspace:*",
@@ -18,6 +21,7 @@
     "@moltnet/runtime-profiles": "workspace:*",
     "@moltnet/tasks": "workspace:*",
     "@earendil-works/pi-durable": "catalog:",
+    "@opentelemetry/api": "catalog:",
     "@earendil-works/chord": "catalog:"
   },
   "devDependencies": {

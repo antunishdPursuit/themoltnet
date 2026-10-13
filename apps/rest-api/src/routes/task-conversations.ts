@@ -56,6 +56,8 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
       storage: fastify.runtimeSessionStorage,
       permissionChecker: fastify.permissionChecker,
       maxBytes: Math.min(fastify.runtimeSessionMaxBytes, 1024 * 1024),
+      // Cold reads replay the whole history; overlap object fetches.
+      readConcurrency: 8,
     }),
     repository: fastify.runtimeSessionRepository.durable,
     tasks: fastify.taskRepository,
