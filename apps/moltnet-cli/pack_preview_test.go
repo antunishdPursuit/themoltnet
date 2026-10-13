@@ -12,7 +12,6 @@ import (
 const (
 	previewDiaryID = "cc000000-0000-0000-0000-000000000001"
 	previewEntryID = "dd000000-0000-0000-0000-000000000001"
-	previewPackID  = "ee000000-0000-0000-0000-000000000001"
 )
 
 func TestPackPreviewCommandHelp(t *testing.T) {
@@ -20,9 +19,14 @@ func TestPackPreviewCommandHelp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, flag := range []string{"--diary-id", "--entries", "--token-budget", "--pinned", "--force", "--supersedes"} {
+	for _, flag := range []string{"--diary-id", "--entries", "--token-budget", "--force"} {
 		if !strings.Contains(stdout, flag) {
 			t.Errorf("help missing %s", flag)
+		}
+	}
+	for _, flag := range []string{"--pinned", "--supersedes"} {
+		if strings.Contains(stdout, flag) {
+			t.Errorf("preview help advertises inert %s", flag)
 		}
 	}
 	if !strings.Contains(stdout, "without saving") {
@@ -44,11 +48,9 @@ func TestRunPackPreviewCmd(t *testing.T) {
 			EntryID string `json:"entryId"`
 			Rank    int    `json:"rank"`
 		} `json:"entries"`
-		PackType         string `json:"packType"`
-		TokenBudget      int    `json:"tokenBudget"`
-		Pinned           bool   `json:"pinned"`
-		Force            bool   `json:"force"`
-		SupersedesPackID string `json:"supersedesPackId"`
+		PackType    string `json:"packType"`
+		TokenBudget int    `json:"tokenBudget"`
+		Force       bool   `json:"force"`
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -69,9 +71,8 @@ func TestRunPackPreviewCmd(t *testing.T) {
 	credPath := writeRenderedPacksCreds(t, server.URL)
 
 	var stdout bytes.Buffer
-	pinned := true
 	err := runPackPreviewCmd(&stdout, server.URL, credPath, previewDiaryID,
-		`[{"entryId":"`+previewEntryID+`","rank":2}]`, 100, &pinned, true, previewPackID)
+		`[{"entryId":"`+previewEntryID+`","rank":2}]`, 100, true)
 	if err != nil {
 		t.Fatalf("runPackPreviewCmd: %v", err)
 	}
@@ -81,7 +82,7 @@ func TestRunPackPreviewCmd(t *testing.T) {
 	if len(requestBody.Entries) != 1 || requestBody.Entries[0].EntryID != previewEntryID || requestBody.Entries[0].Rank != 2 {
 		t.Errorf("entries = %+v", requestBody.Entries)
 	}
-	if requestBody.PackType != "custom" || requestBody.TokenBudget != 100 || !requestBody.Pinned || !requestBody.Force || requestBody.SupersedesPackID != previewPackID {
+	if requestBody.PackType != "custom" || requestBody.TokenBudget != 100 || !requestBody.Force {
 		t.Errorf("preview options = %+v", requestBody)
 	}
 	if !strings.Contains(stdout.String(), "bafy-preview") {
@@ -91,16 +92,15 @@ func TestRunPackPreviewCmd(t *testing.T) {
 
 func TestRunPackPreviewCmdRejectsInvalidSelection(t *testing.T) {
 	for _, tt := range []struct {
-		name, diaryID, entries, supersedes, want string
+		name, diaryID, entries, want string
 	}{
-		{"diary ID", "bad", `[{"entryId":"` + previewEntryID + `","rank":1}]`, "", "invalid diary ID"},
-		{"JSON", previewDiaryID, "{", "", "invalid --entries JSON"},
-		{"empty", previewDiaryID, "[]", "", "at least one entry"},
-		{"entry ID", previewDiaryID, `[{"entryId":"bad","rank":1}]`, "", "invalid entryId"},
-		{"supersedes", previewDiaryID, `[{"entryId":"` + previewEntryID + `","rank":1}]`, "bad", "invalid --supersedes"},
+		{"diary ID", "bad", `[{"entryId":"` + previewEntryID + `","rank":1}]`, "invalid diary ID"},
+		{"JSON", previewDiaryID, "{", "invalid --entries JSON"},
+		{"empty", previewDiaryID, "[]", "at least one entry"},
+		{"entry ID", previewDiaryID, `[{"entryId":"bad","rank":1}]`, "invalid entryId"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			err := runPackPreviewCmd(&bytes.Buffer{}, "http://localhost", "", tt.diaryID, tt.entries, 0, nil, false, tt.supersedes)
+			err := runPackPreviewCmd(&bytes.Buffer{}, "http://localhost", "", tt.diaryID, tt.entries, 0, false)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("error = %v, want %q", err, tt.want)
 			}
@@ -122,7 +122,7 @@ func TestRunPackPreviewCmdFormatsAPIError(t *testing.T) {
 	credPath := writeRenderedPacksCreds(t, server.URL)
 
 	err := runPackPreviewCmd(&bytes.Buffer{}, server.URL, credPath, previewDiaryID,
-		`[{"entryId":"`+previewEntryID+`","rank":1}]`, 0, nil, false, "")
+		`[{"entryId":"`+previewEntryID+`","rank":1}]`, 0, false)
 	if err == nil || !strings.Contains(err.Error(), "diary missing") {
 		t.Fatalf("error = %v, want API detail", err)
 	}

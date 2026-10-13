@@ -226,21 +226,13 @@ func newPackPreviewCmd() *cobra.Command {
 			entries, _ := cmd.Flags().GetString("entries")
 			tokenBudget, _ := cmd.Flags().GetInt("token-budget")
 			force, _ := cmd.Flags().GetBool("force")
-			supersedes, _ := cmd.Flags().GetString("supersedes")
-			var pinned *bool
-			if cmd.Flags().Changed("pinned") {
-				v := true
-				pinned = &v
-			}
-			return runPackPreviewCmd(cmd.OutOrStdout(), apiURL, credPath, diaryID, entries, tokenBudget, pinned, force, supersedes)
+			return runPackPreviewCmd(cmd.OutOrStdout(), apiURL, credPath, diaryID, entries, tokenBudget, force)
 		},
 	}
 	cmd.Flags().String("diary-id", "", "Diary UUID (required)")
 	cmd.Flags().String("entries", "", `JSON array of entries: [{"entryId":"<uuid>","rank":1}]`)
 	cmd.Flags().Int("token-budget", 0, "Token budget for the pack")
-	cmd.Flags().Bool("pinned", false, "Preview a pinned pack")
 	cmd.Flags().Bool("force", false, "Override the prompt-injection guard for flagged entries")
-	cmd.Flags().String("supersedes", "", "UUID of the pack this preview would replace")
 	_ = cmd.MarkFlagRequired("diary-id")
 	_ = cmd.MarkFlagRequired("entries")
 	return cmd

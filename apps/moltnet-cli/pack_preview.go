@@ -41,7 +41,7 @@ func parseCustomPackSelection(diaryID, entriesJSON string) (uuid.UUID, []moltnet
 	return diaryUUID, entries, nil
 }
 
-func runPackPreviewCmd(stdout io.Writer, apiURL, credPath, diaryID, entriesJSON string, tokenBudget int, pinned *bool, force bool, supersedes string) error {
+func runPackPreviewCmd(stdout io.Writer, apiURL, credPath, diaryID, entriesJSON string, tokenBudget int, force bool) error {
 	diaryUUID, entries, err := parseCustomPackSelection(diaryID, entriesJSON)
 	if err != nil {
 		return err
@@ -59,18 +59,8 @@ func runPackPreviewCmd(stdout io.Writer, apiURL, credPath, diaryID, entriesJSON 
 	if tokenBudget > 0 {
 		req.TokenBudget = moltnetapi.NewOptInt(tokenBudget)
 	}
-	if pinned != nil {
-		req.Pinned = moltnetapi.NewOptBool(*pinned)
-	}
 	if force {
 		req.Force = moltnetapi.NewOptBool(true)
-	}
-	if supersedes != "" {
-		supersedesUUID, err := uuid.Parse(supersedes)
-		if err != nil {
-			return fmt.Errorf("invalid --supersedes UUID: %w", err)
-		}
-		req.SupersedesPackId = moltnetapi.NewOptUUID(supersedesUUID)
 	}
 
 	client, err := newAuthenticatedClient(apiURL, credPath)
