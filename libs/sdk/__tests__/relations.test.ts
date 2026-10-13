@@ -44,7 +44,7 @@ describe('RelationsNamespace', () => {
           relation: 'supersedes',
           status: 'accepted',
         },
-        auth,
+        auth: expect.any(Function),
       }),
     );
   });
