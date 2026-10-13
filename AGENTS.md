@@ -295,6 +295,7 @@ workflow sets `NX_LOAD_DOT_ENV_FILES: false` at the workflow level and pins
 - Fastify plugins for cross-cutting concerns
 - Repository pattern for database access
 - ESLint (`@typescript-eslint/recommended`) + Prettier (single quotes, trailing commas, 80 width)
+- **Fake credentials in fixtures need a rule-scoped Secretlint suppression.** Every project has a `secretlint` target; see [docs/contribute/secret-scanning.md](docs/contribute/secret-scanning.md#false-positives).
 - **No dynamic imports (`await import(...)`) in tests.** Use static imports at the top of the file. Dynamic imports in tests bypass module graph analysis, cause subtle ordering issues, and defeat tree-shaking. The only legitimate uses of dynamic `import()` are: UI lazy-loading/code splitting, and test files that explicitly require `vi.resetModules()` to reload a module with different environment state (e.g. DBOS lifecycle tests, credentials tests). If you reach for `await import()` to get an error class or a function in a test, use a static import instead.
 
 ## Database Schema Changes

@@ -21,7 +21,15 @@ config and the Secretlint packages, so a cached result is replayed only when
 none of the scanned files changed.
 
 A project that contains nested projects, such as `packages/cli`, also scans
-their files. The nested projects scan them again in their own targets.
+their files with its own config. The nested projects scan them again in their
+own targets. A nested project's `.secretlintrc.json` therefore does not exempt a
+file from the parent's scan: repeat the override in the parent's config.
+
+Secretlint skips binary files, so it does not inspect keystores or other binary
+credential files.
+
+Every path matching `.gitignore` is skipped, including tracked files. CI fails
+when a tracked file matches `.gitignore`, so such a file cannot go unscanned.
 
 `infra/ory/project.json` is listed in `.nxignore`, so Nx does not hash it. The
 workspace target scans it, but a change to that file alone does not invalidate

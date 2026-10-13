@@ -13,12 +13,12 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 
 import {
-  type CreateNodesContextV2,
   createNodesFromFiles,
   type CreateNodesV2,
   type TargetConfiguration,
 } from '@nx/devkit';
 import ignore from 'ignore';
+import JSON5 from 'json5';
 
 export interface SecretlintPluginOptions {
   targetName?: string;
@@ -33,13 +33,19 @@ const WORKSPACE_ROOT = '.';
 
 /**
  * Packages whose version changes what a scan finds: the CLI plus every
- * top-level rule package in the config.
+ * top-level rule package in the config. Parsed as JSON5, as Secretlint does,
+ * so a comment in the config does not break the project graph.
  */
 export function externalDependencies(configPath: string): string[] {
-  const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
-    rules?: Array<{ id?: unknown }>;
-  };
-  const rules = (config.rules ?? [])
+  let config: { rules?: Array<{ id?: unknown }> };
+  try {
+    config = JSON5.parse(readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `secretlint plugin: cannot read ${configPath}: ${(error as Error).message}`,
+    );
+  }
+  const rules = (config?.rules ?? [])
     .map((rule) => rule.id)
     .filter((id): id is string => typeof id === 'string');
   return ['secretlint', ...rules];
@@ -88,26 +94,26 @@ export function orphanGlobs(
     }
     if (hasFiles) globs.push(dir === WORKSPACE_ROOT ? '*' : `${dir}/*`);
   }
-  return globs;
+  // readdir order is filesystem-dependent; a stable command keeps the target stable.
+  return globs.sort();
 }
+
+/** Single-quotes a shell word, so `$`, backticks and globs stay literal. */
+const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 
 function buildTarget(
   globs: readonly string[],
   config: string,
-  context: CreateNodesContextV2,
+  dependencies: string[],
   description: string,
 ): TargetConfiguration {
   return {
-    command: `secretlint ${globs.map((glob) => JSON.stringify(glob)).join(' ')} --secretlintrc ${config}`,
+    command: `secretlint ${globs.map(shellQuote).join(' ')} --secretlintrc ${shellQuote(config)}`,
     cache: true,
     inputs: [
       ...globs.map((glob) => `{workspaceRoot}/${glob}`),
       `{workspaceRoot}/${config}`,
-      {
-        externalDependencies: externalDependencies(
-          join(context.workspaceRoot, config),
-        ),
-      },
+      { externalDependencies: dependencies },
     ],
     outputs: [],
     metadata: { description, technologies: ['secretlint'] },
@@ -132,9 +138,23 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
     if (!projectRoots.includes(hostRoot)) {
       // Without a host, the workspace target would disappear silently.
       throw new Error(
-        `secretlint plugin: workspace target host "${hostRoot}" is not a project root`,
+        `secretlint plugin: workspace target host "${hostRoot}" is not a project root; ` +
+          'set workspaceTargetProjectRoot in the plugin options in nx.json',
       );
     }
+
+    // Each config is parsed once per graph build, not once per project.
+    const dependenciesByConfig = new Map<string, string[]>();
+    const dependenciesFor = (config: string) => {
+      let dependencies = dependenciesByConfig.get(config);
+      if (!dependencies) {
+        dependencies = externalDependencies(
+          join(context.workspaceRoot, config),
+        );
+        dependenciesByConfig.set(config, dependencies);
+      }
+      return dependencies;
+    };
 
     // A directory with both project.json and package.json matches twice;
     // attach targets through the first file only.
@@ -158,7 +178,7 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
           [targetName]: buildTarget(
             [`${root}/**/*`],
             config,
-            context,
+            dependenciesFor(config),
             'Scan project files for committed secrets',
           ),
         };
@@ -166,7 +186,7 @@ export const createNodesV2: CreateNodesV2<SecretlintPluginOptions> = [
           targets[workspaceTargetName] = buildTarget(
             orphanGlobs(projectRoots, context.workspaceRoot),
             CONFIG_FILE,
-            context,
+            dependenciesFor(CONFIG_FILE),
             'Scan files outside every project for committed secrets',
           );
         }

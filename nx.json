@@ -121,8 +121,7 @@
     {
       "exclude": ["examples/**/*"],
       "options": {
-        "targetName": "secretlint",
-        "workspaceTargetName": "secretlint:workspace"
+        "workspaceTargetProjectRoot": "tools"
       },
       "plugin": "./tools/nx-plugins/secretlint/index.ts"
     }

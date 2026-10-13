@@ -355,6 +355,16 @@ jobs:
       - name: Action runtime locks are current
         if: github.event_name == 'pull_request'
         run: node tools/src/release/action-runtime-lock.ts --check
+      # Secretlint and Nx both skip paths matching .gitignore, so a tracked
+      # file under an ignore rule would never be scanned for secrets.
+      - name: No tracked file matches .gitignore
+        run: |
+          ignored="$(git ls-files --cached --ignored --exclude-standard)"
+          if [ -n "$ignored" ]; then
+            echo "::error::Tracked files match .gitignore. Untrack them, or un-ignore them so secretlint scans them."
+            printf '%s\n' "$ignored"
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
       - id: shas
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
