@@ -30,6 +30,15 @@ type Subject = RuntimeSessionSubject & { teamId: string };
 type Authority = Subject & Omit<RuntimeStoreAuthority, 'agentId'>;
 type Writer = Authority & RuntimeStoreWriter & { storeId: string };
 
+/** Deployment tuning for Durable commit reads (rest-api configuration). */
+export interface RuntimeStoreReadOptions {
+  /** Read concurrency for conversation routes; 1 disables read-ahead. */
+  conversationReadConcurrency?: number;
+  readAheadBytes?: number;
+  readAheadRequests?: number;
+  objectReadTimeoutMs?: number;
+}
+
 export function createRuntimeStoreService(deps: {
   repository: RuntimeStoreRepository;
   transactionRunner: TransactionRunner;

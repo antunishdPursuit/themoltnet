@@ -222,6 +222,24 @@ export const RuntimeSessionStorageConfigSchema = Type.Object({
   ),
   RUNTIME_SESSION_STORAGE_FORCE_PATH_STYLE: Type.Boolean({ default: true }),
   RUNTIME_SESSION_MAX_BYTES: Type.Number({ default: 10 * 1024 * 1024 }),
+  /** Object fetches in flight per conversation read page; 1 disables read-ahead. */
+  CONVERSATION_READ_CONCURRENCY: Type.Integer({
+    default: 8,
+    minimum: 1,
+    maximum: 32,
+  }),
+  /** Bytes all conversation reads may hold in read-ahead at once. */
+  CONVERSATION_READ_AHEAD_BYTES: Type.Integer({
+    default: 16 * 1024 * 1024,
+    minimum: 0,
+  }),
+  /** Read-ahead object requests all conversation reads may have in flight. */
+  CONVERSATION_READ_AHEAD_REQUESTS: Type.Integer({ default: 16, minimum: 0 }),
+  /** Timeout for one Durable commit object read. */
+  RUNTIME_STORE_OBJECT_READ_TIMEOUT_MS: Type.Integer({
+    default: 30_000,
+    minimum: 1,
+  }),
 });
 
 export const TaskArtifactStorageConfigSchema = Type.Object({

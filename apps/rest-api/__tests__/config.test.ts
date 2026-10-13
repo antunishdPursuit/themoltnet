@@ -9,6 +9,7 @@ import {
   loadOryConfig,
   loadPackGcConfig,
   loadRecoveryConfig,
+  loadRuntimeSessionStorageConfig,
   loadSecurityConfig,
   loadServerConfig,
   loadTaskOrphanSweeperConfig,
@@ -690,5 +691,31 @@ describe('loadOperatorOAuthClients', () => {
     expect(() =>
       loadOperatorOAuthClients({ MOLTNET_NATIVE_OAUTH_CLIENT_ID: '   ' }),
     ).toThrow('MOLTNET_NATIVE_OAUTH_CLIENT_ID');
+  });
+});
+
+describe('loadRuntimeSessionStorageConfig read tuning', () => {
+  it('defaults conversation reads to bounded read-ahead', () => {
+    expect(loadRuntimeSessionStorageConfig({})).toMatchObject({
+      CONVERSATION_READ_CONCURRENCY: 8,
+      CONVERSATION_READ_AHEAD_BYTES: 16 * 1024 * 1024,
+      CONVERSATION_READ_AHEAD_REQUESTS: 16,
+      RUNTIME_STORE_OBJECT_READ_TIMEOUT_MS: 30_000,
+    });
+  });
+
+  it('accepts concurrency 1 as the read-ahead kill switch', () => {
+    expect(
+      loadRuntimeSessionStorageConfig({ CONVERSATION_READ_CONCURRENCY: '1' }),
+    ).toMatchObject({ CONVERSATION_READ_CONCURRENCY: 1 });
+  });
+
+  it.each([
+    ['CONVERSATION_READ_CONCURRENCY', '0'],
+    ['CONVERSATION_READ_CONCURRENCY', '64'],
+    ['CONVERSATION_READ_AHEAD_BYTES', '-1'],
+    ['RUNTIME_STORE_OBJECT_READ_TIMEOUT_MS', '0'],
+  ])('rejects %s=%s', (name, value) => {
+    expect(() => loadRuntimeSessionStorageConfig({ [name]: value })).toThrow();
   });
 });

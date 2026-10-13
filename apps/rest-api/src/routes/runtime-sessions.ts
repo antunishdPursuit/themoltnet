@@ -218,6 +218,7 @@ async function registerDurableSessionRoutes(fastify: FastifyInstance) {
     storage: fastify.runtimeSessionStorage,
     permissionChecker: fastify.permissionChecker,
     maxBytes: Math.min(fastify.runtimeSessionMaxBytes, 1024 * 1024),
+    objectReadTimeoutMs: fastify.runtimeStoreReads.objectReadTimeoutMs,
   });
   const config = {
     rateLimitBucket: 'runtime-store',

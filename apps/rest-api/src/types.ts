@@ -85,7 +85,10 @@ import type {
 } from '@moltnet/database';
 import type { DiaryService } from '@moltnet/diary-service';
 import type { EmbeddingService } from '@moltnet/embedding-service';
-import type { RuntimeSessionStorage } from '@moltnet/runtime-session-service';
+import type {
+  RuntimeSessionStorage,
+  RuntimeStoreReadOptions,
+} from '@moltnet/runtime-session-service';
 import type { SigningService } from '@moltnet/signing-service';
 import type { TaskAnalyticsService } from '@moltnet/task-analytics-service';
 import type { TaskArtifactStorage } from '@moltnet/task-artifact-service';
@@ -147,6 +150,7 @@ declare module 'fastify' {
     transactionRunner: TransactionRunner;
     packGcConfig: PackGcConfig;
     runtimeSessionMaxBytes: number;
+    runtimeStoreReads: RuntimeStoreReadOptions;
     taskArtifactMaxBytes: number;
   }
 

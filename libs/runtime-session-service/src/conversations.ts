@@ -17,7 +17,13 @@ import type {
   ConversationMessage,
   ConversationSnapshot,
 } from '@moltnet/runtime-profiles';
-import { type Span, trace } from '@opentelemetry/api';
+import {
+  type Attributes,
+  metrics,
+  type Span,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api';
 
 import { createProblem } from './problems.js';
 import type { RuntimeSessionSubject } from './runtime-sessions.js';
@@ -36,6 +42,35 @@ const MAX_READERS = 16;
 const MAX_TOTAL_REPLAY_BYTES = 128 * 1024 * 1024;
 const IDLE_TTL_MS = 30_000;
 const tracer = trace.getTracer('@moltnet/runtime-session-service');
+const meter = metrics.getMeter('@moltnet/runtime-session-service');
+// Low-cardinality signals that survive trace sampling: alert on these.
+const refreshDuration = meter.createHistogram(
+  'moltnet.conversation.refresh.duration',
+  {
+    description: 'Duration of one conversation reader refresh',
+    unit: 'ms',
+    advice: {
+      explicitBucketBoundaries: [
+        0, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 3000, 5000, 10000, 30000,
+        60000,
+      ],
+    },
+  },
+);
+const commitsReplayed = meter.createCounter(
+  'moltnet.conversation.commits_replayed',
+  { description: 'Durable commits replayed into conversation readers' },
+);
+const readerEvictions = meter.createCounter(
+  'moltnet.conversation.reader.evictions',
+  { description: 'Idle conversation readers evicted to make room' },
+);
+const readerRejections = meter.createCounter(
+  'moltnet.conversation.reader.rejections',
+  { description: 'Conversation reads refused for lack of reader capacity' },
+);
+type AttributeSink = Pick<Span, 'setAttribute' | 'setAttributes'>;
+const REFRESH_SPAN = 'moltnet.conversation.refresh';
 const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -61,6 +96,18 @@ function abortKind(
     : 'caller';
 }
 
+/** Record a completed quiet refresh as a span after the fact. */
+function emitSpan(attributes: Attributes, startTime: number, error?: unknown) {
+  const span = tracer.startSpan(REFRESH_SPAN, { startTime, attributes });
+  if (error === undefined) span.setStatus({ code: SpanStatusCode.OK });
+  else {
+    const message = error instanceof Error ? error.message : String(error);
+    span.recordException(error instanceof Error ? error : new Error(message));
+    span.setStatus({ code: SpanStatusCode.ERROR, message });
+  }
+  span.end();
+}
+
 /** An isolated read replica. Only Pi's public Storage methods run; no Harness, scheduler, models or writer lease. */
 export function createConversationService(deps: {
   stores: Stores;
@@ -79,9 +126,13 @@ export function createConversationService(deps: {
     totalBytes -= reader.bytes;
     await reader.close();
   }
-  async function evictOldest() {
+  async function evictOldest(reason: 'readers' | 'bytes') {
     const entry = idle.entries().next().value;
-    if (!entry) return false;
+    if (!entry) {
+      readerRejections.add(1, { reason });
+      return false;
+    }
+    readerEvictions.add(1, { reason });
     const [key, cached] = entry;
     idle.delete(key);
     clearTimeout(cached.timer);
@@ -160,28 +211,65 @@ export function createConversationService(deps: {
     // One span per refresh: cold vs incremental replay, and how its time splits
     // between waiting on reads and applying commits. Counters are set even when
     // the refresh fails, so a failed cold read still shows how far it got.
-    function refresh(signal?: AbortSignal) {
-      return withActiveSpan(
-        tracer,
-        'moltnet.conversation.refresh',
-        {
-          attributes: {
-            'moltnet.task.id': input.taskId,
-            'moltnet.task.attempt_n': input.attemptN,
+    // Quiet refreshes (SSE polling ticks) only emit a span when they replayed
+    // something or failed; every refresh is measured by the metrics above.
+    async function refresh(
+      signal?: AbortSignal,
+      options: { quiet?: boolean } = {},
+    ) {
+      const cold = seq === 0;
+      const before = seq;
+      const startedAt = Date.now();
+      const started = performance.now();
+      let outcome: 'ok' | 'error' | 'aborted' = 'ok';
+      const baseAttributes = {
+        'moltnet.task.id': input.taskId,
+        'moltnet.task.attempt_n': input.attemptN,
+      };
+      const isFailure = (error: unknown, span: AttributeSink) => {
+        const aborted = abortKind(error, signal);
+        if (aborted)
+          span.setAttribute('moltnet.conversation.aborted_by', aborted);
+        // A client disconnect or shutdown is not a read failure; a
+        // deadline is the slow read this span exists to expose.
+        return aborted !== 'caller';
+      };
+      try {
+        if (!options.quiet || cold)
+          return await withActiveSpan(
+            tracer,
+            REFRESH_SPAN,
+            { attributes: baseAttributes, isFailure },
+            (span) => replay(span, signal),
+          );
+        const recorded: Attributes = { ...baseAttributes };
+        const sink: AttributeSink = {
+          setAttribute(key, value) {
+            recorded[key] = value;
+            return sink as Span;
           },
-          isFailure: (error, span) => {
-            const aborted = abortKind(error, signal);
-            if (aborted)
-              span.setAttribute('moltnet.conversation.aborted_by', aborted);
-            // A client disconnect or shutdown is not a read failure; a
-            // deadline is the slow read this span exists to expose.
-            return aborted !== 'caller';
+          setAttributes(values) {
+            Object.assign(recorded, values);
+            return sink as Span;
           },
-        },
-        (span) => replay(span, signal),
-      );
+        };
+        try {
+          const result = await replay(sink, signal);
+          if (seq > before) emitSpan(recorded, startedAt);
+          return result;
+        } catch (error) {
+          if (isFailure(error, sink)) emitSpan(recorded, startedAt, error);
+          throw error;
+        }
+      } catch (error) {
+        outcome = abortKind(error, signal) ? 'aborted' : 'error';
+        throw error;
+      } finally {
+        refreshDuration.record(performance.now() - started, { cold, outcome });
+        if (seq > before) commitsReplayed.add(seq - before, { cold });
+      }
     }
-    async function replay(span: Span, signal?: AbortSignal) {
+    async function replay(span: AttributeSink, signal?: AbortSignal) {
       signal?.throwIfAborted();
       span.setAttribute('moltnet.conversation.cold', seq === 0);
       if (closed) throw new Error('Conversation reader is closed');
@@ -246,7 +334,7 @@ export function createConversationService(deps: {
                 'Conversation replay exceeds the supported size',
               );
             while (totalBytes + size > MAX_TOTAL_REPLAY_BYTES) {
-              if (!(await evictOldest()))
+              if (!(await evictOldest('bytes')))
                 throw createProblem(
                   'service-unavailable',
                   'Conversation reader capacity reached',
@@ -475,7 +563,7 @@ export function createConversationService(deps: {
         clearTimeout(cached.timer);
       }
       while (!cached && readers.size >= MAX_READERS) {
-        if (!(await evictOldest()))
+        if (!(await evictOldest('readers')))
           throw createProblem(
             'service-unavailable',
             'Conversation reader capacity reached',
@@ -501,10 +589,13 @@ export function createConversationService(deps: {
           throw new Error('Conversation reader is closed');
       }
       return {
-        async refresh(refreshSignal?: AbortSignal) {
+        async refresh(
+          refreshSignal?: AbortSignal,
+          refreshOptions?: { quiet?: boolean },
+        ) {
           assertOpen();
           try {
-            return await reader.refresh(refreshSignal);
+            return await reader.refresh(refreshSignal, refreshOptions);
           } catch (error) {
             reusable = false;
             throw error;

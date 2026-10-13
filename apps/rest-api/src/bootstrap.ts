@@ -844,6 +844,16 @@ export async function bootstrap(config: AppConfig): Promise<BootstrapResult> {
     taskArtifactStorage,
     runtimeSessionMaxBytes:
       config.runtimeSessionStorage.RUNTIME_SESSION_MAX_BYTES,
+    runtimeStoreReads: {
+      conversationReadConcurrency:
+        config.runtimeSessionStorage.CONVERSATION_READ_CONCURRENCY,
+      readAheadBytes:
+        config.runtimeSessionStorage.CONVERSATION_READ_AHEAD_BYTES,
+      readAheadRequests:
+        config.runtimeSessionStorage.CONVERSATION_READ_AHEAD_REQUESTS,
+      objectReadTimeoutMs:
+        config.runtimeSessionStorage.RUNTIME_STORE_OBJECT_READ_TIMEOUT_MS,
+    },
     taskArtifactMaxBytes: config.taskArtifactStorage.TASK_ARTIFACT_MAX_BYTES,
     runtimeSlotRepository,
     runtimeModelRepository,

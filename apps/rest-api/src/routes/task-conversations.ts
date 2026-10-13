@@ -57,7 +57,12 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
       permissionChecker: fastify.permissionChecker,
       maxBytes: Math.min(fastify.runtimeSessionMaxBytes, 1024 * 1024),
       // Cold reads replay the whole history; overlap object fetches.
-      readConcurrency: 8,
+      // CONVERSATION_READ_CONCURRENCY=1 turns read-ahead off.
+      readConcurrency:
+        fastify.runtimeStoreReads.conversationReadConcurrency ?? 8,
+      readAheadBytes: fastify.runtimeStoreReads.readAheadBytes,
+      readAheadRequests: fastify.runtimeStoreReads.readAheadRequests,
+      objectReadTimeoutMs: fastify.runtimeStoreReads.objectReadTimeoutMs,
     }),
     repository: fastify.runtimeSessionRepository.durable,
     tasks: fastify.taskRepository,
@@ -215,7 +220,8 @@ export async function taskConversationRoutes(fastify: FastifyInstance) {
               cursor = snapshot.cursor;
             } else yield ': keepalive\n\n';
             await setTimeout(1000, undefined, { signal });
-            await reader.refresh(signal);
+            // Polling ticks: measured, but traced only when something changed.
+            await reader.refresh(signal, { quiet: true });
             snapshot = await reader.snapshot(request.params.conversationId);
           }
         } catch (error) {

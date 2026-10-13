@@ -17,48 +17,84 @@ const spans = vi.hoisted(
   () =>
     [] as {
       name: string;
+      active: boolean;
       attributes: Record<string, unknown>;
       status?: { code: number; message?: string };
       exception?: unknown;
       ended: boolean;
     }[],
 );
-vi.mock('@opentelemetry/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof OtelApi>()),
-  trace: {
-    getTracer: () => ({
-      startActiveSpan: (
-        name: string,
-        options: { attributes?: Record<string, unknown> },
-        fn: (span: unknown) => unknown,
-      ) => {
-        const recorded: (typeof spans)[number] = {
-          name,
-          attributes: { ...options.attributes },
-          ended: false,
-        };
-        spans.push(recorded);
-        return fn({
-          setAttribute: (key: string, value: unknown) => {
-            recorded.attributes[key] = value;
-          },
-          setAttributes: (values: Record<string, unknown>) => {
-            Object.assign(recorded.attributes, values);
-          },
-          setStatus: (status: { code: number; message?: string }) => {
-            recorded.status = status;
-          },
-          recordException: (error: unknown) => {
-            recorded.exception = error;
-          },
-          end: () => {
-            recorded.ended = true;
-          },
-        });
+const measurements = vi.hoisted(
+  () =>
+    [] as {
+      name: string;
+      value: number;
+      attributes: Record<string, unknown>;
+    }[],
+);
+vi.mock('@opentelemetry/api', async (importOriginal) => {
+  const makeSpan = (
+    name: string,
+    active: boolean,
+    attributes: Record<string, unknown> = {},
+  ) => {
+    const recorded: (typeof spans)[number] = {
+      name,
+      active,
+      attributes: { ...attributes },
+      ended: false,
+    };
+    spans.push(recorded);
+    return {
+      setAttribute: (key: string, value: unknown) => {
+        recorded.attributes[key] = value;
       },
-    }),
-  },
-}));
+      setAttributes: (values: Record<string, unknown>) => {
+        Object.assign(recorded.attributes, values);
+      },
+      setStatus: (status: { code: number; message?: string }) => {
+        recorded.status = status;
+      },
+      recordException: (error: unknown) => {
+        recorded.exception = error;
+      },
+      end: () => {
+        recorded.ended = true;
+      },
+    };
+  };
+  const instrument = (name: string) => {
+    const record = (
+      value: number,
+      attributes: Record<string, unknown> = {},
+    ) => {
+      measurements.push({ name, value, attributes });
+    };
+    return { add: record, record };
+  };
+  return {
+    ...(await importOriginal<typeof OtelApi>()),
+    trace: {
+      getTracer: () => ({
+        startActiveSpan: (
+          name: string,
+          options: { attributes?: Record<string, unknown> },
+          fn: (span: unknown) => unknown,
+        ) => fn(makeSpan(name, true, options.attributes)),
+        startSpan: (
+          name: string,
+          options: { attributes?: Record<string, unknown> },
+        ) => makeSpan(name, false, options.attributes),
+      }),
+    },
+    metrics: {
+      getMeter: () => ({
+        createHistogram: instrument,
+        createCounter: instrument,
+      }),
+    },
+  };
+});
 
 const context = BACKGROUND_CONTEXT;
 const input = {
@@ -124,6 +160,7 @@ async function fixture(
 describe('conversation refresh telemetry', () => {
   beforeEach(() => {
     spans.length = 0;
+    measurements.length = 0;
   });
 
   it('records cold and incremental replay sizes on the refresh span', async () => {
@@ -265,5 +302,98 @@ describe('conversation refresh telemetry', () => {
     expect(spans[1].attributes['moltnet.conversation.aborted_by']).toBe(
       'deadline',
     );
+  });
+
+  it('traces a quiet polling tick only when it replayed something', async () => {
+    const f = await fixture();
+    const reader = await f.service.open(input);
+    await reader.refresh(undefined, { quiet: true });
+    expect(spans).toHaveLength(1);
+    await f.add();
+    await reader.refresh(undefined, { quiet: true });
+    await reader.close();
+    await f.service.close();
+    await f.session.close(context);
+
+    expect(spans).toHaveLength(2);
+    expect(spans[1]).toMatchObject({
+      name: 'moltnet.conversation.refresh',
+      active: false,
+      ended: true,
+      status: { code: SpanStatusCode.OK },
+      attributes: {
+        'moltnet.task.id': 'task',
+        'moltnet.conversation.commits_replayed': 1,
+      },
+    });
+    const durations = measurements.filter(
+      (m) => m.name === 'moltnet.conversation.refresh.duration',
+    );
+    expect(durations.map((m) => m.attributes)).toEqual([
+      { cold: true, outcome: 'ok' },
+      { cold: false, outcome: 'ok' },
+      { cold: false, outcome: 'ok' },
+    ]);
+    expect(
+      measurements.filter(
+        (m) => m.name === 'moltnet.conversation.commits_replayed',
+      ),
+    ).toEqual([
+      expect.objectContaining({ value: 2, attributes: { cold: true } }),
+      expect.objectContaining({ value: 1, attributes: { cold: false } }),
+    ]);
+  });
+
+  it('traces a failed quiet tick as an error', async () => {
+    const f = await fixture({ failAfter: 2 });
+    const reader = await f.service.open(input);
+    await f.add();
+    await expect(reader.refresh(undefined, { quiet: true })).rejects.toThrow(
+      'object store unavailable',
+    );
+    await reader.close();
+    await f.service.close();
+    await f.session.close(context);
+
+    expect(spans[1]).toMatchObject({
+      active: false,
+      status: { code: SpanStatusCode.ERROR },
+    });
+    expect(measurements.at(-1)).toMatchObject({
+      name: 'moltnet.conversation.refresh.duration',
+      attributes: { cold: false, outcome: 'error' },
+    });
+  });
+
+  it('counts reader evictions and capacity rejections', async () => {
+    const f = await fixture();
+    const idle = await f.service.open(input);
+    await idle.close();
+    const held = [];
+    // 16 readers in total: one idle plus fifteen held open by distinct subjects.
+    for (let i = 0; i < 15; i++)
+      held.push(await f.service.open({ ...input, subjectId: `agent-${i}` }));
+    held.push(await f.service.open({ ...input, subjectId: 'agent-evicts' }));
+    await expect(
+      f.service.open({ ...input, subjectId: 'agent-refused' }),
+    ).rejects.toMatchObject({ statusCode: 503 });
+    for (const reader of held) await reader.close();
+    await f.service.close();
+    await f.session.close(context);
+
+    expect(
+      measurements.filter((m) =>
+        m.name.startsWith('moltnet.conversation.reader'),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        name: 'moltnet.conversation.reader.evictions',
+        attributes: { reason: 'readers' },
+      }),
+      expect.objectContaining({
+        name: 'moltnet.conversation.reader.rejections',
+        attributes: { reason: 'readers' },
+      }),
+    ]);
   });
 });

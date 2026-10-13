@@ -12,7 +12,10 @@ import {
 } from '@moltnet/auth';
 import { ProblemDetailsSchema } from '@moltnet/models';
 import { createMetricCounter } from '@moltnet/observability';
-import type { RuntimeSessionStorage } from '@moltnet/runtime-session-service';
+import type {
+  RuntimeSessionStorage,
+  RuntimeStoreReadOptions,
+} from '@moltnet/runtime-session-service';
 import { createSigningService } from '@moltnet/signing-service';
 import type { TaskAnalyticsService } from '@moltnet/task-analytics-service';
 import type { TaskArtifactStorage } from '@moltnet/task-artifact-service';
@@ -223,6 +226,8 @@ export interface AppOptions {
   /** Publisher ssh-ed25519 key served in the discovery document. */
   releaseSignerPublicKey?: string;
   runtimeSessionMaxBytes: number;
+  /** Durable commit read tuning; defaults apply when omitted. */
+  runtimeStoreReads?: RuntimeStoreReadOptions;
   taskArtifactMaxBytes: number;
   /**
    * Optional ioredis client for the shared rate-limit store. When omitted, the
@@ -480,6 +485,7 @@ export async function registerApiRoutes(
   decorateSafe('signingTimeoutSeconds', options.signingTimeoutSeconds ?? 300);
   decorateSafe('packGcConfig', options.packGcConfig);
   decorateSafe('runtimeSessionMaxBytes', options.runtimeSessionMaxBytes);
+  decorateSafe('runtimeStoreReads', options.runtimeStoreReads ?? {});
   decorateSafe('taskArtifactMaxBytes', options.taskArtifactMaxBytes);
   decorateSafe('taskRepository', options.taskRepository);
   decorateSafe('taskAnalyticsService', options.taskAnalyticsService);
