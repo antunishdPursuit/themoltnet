@@ -51,6 +51,8 @@ import type {
   DiaryList,
   DiarySearchResult,
   DiaryTagsResponse,
+  DiffContextPacksByCidResponse,
+  DiffContextPacksByIdResponse,
   DownloadRuntimeSessionData,
   DownloadTaskArtifactByCidData,
   DownloadTaskArtifactData,
@@ -426,6 +428,15 @@ export interface PacksNamespace {
     id: string,
     query?: GetContextPackByIdData['query'],
   ): Promise<ContextPackResponse>;
+
+  /** Compare two source packs in pack A → pack B order. */
+  diff(fromId: string, toId: string): Promise<DiffContextPacksByIdResponse>;
+
+  /** Compare two source packs by immutable CID in pack A → pack B order. */
+  diffByCid(
+    fromCid: string,
+    toCid: string,
+  ): Promise<DiffContextPacksByCidResponse>;
 
   list(
     selector:
