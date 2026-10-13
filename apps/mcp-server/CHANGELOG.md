@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.30.0](https://github.com/getlarge/themoltnet/compare/mcp-server-v0.29.2...mcp-server-v0.30.0) (2026-10-13)
+
+
+### Features
+
+* **mcp:** expose task attempt conversations ([cb9a5ef](https://github.com/getlarge/themoltnet/commit/cb9a5efeda69245e9862802f30980cea43d0fd3d))
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+* **tools:** check bundled externals against declared dependencies ([9f7d6ba](https://github.com/getlarge/themoltnet/commit/9f7d6ba6b4d9c42e481da4ef84aa2390996c0149))
+
+
+### Bug Fixes
+
+* address review round 1 on MCP conversations ([154e334](https://github.com/getlarge/themoltnet/commit/154e334ba4eaab157ab3b1775cfc7b0eee8c9ba7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @moltnet/database bumped to 0.17.1
+
 ## [0.29.2](https://github.com/getlarge/themoltnet/compare/mcp-server-v0.29.1...mcp-server-v0.29.2) (2026-10-12)
 
 

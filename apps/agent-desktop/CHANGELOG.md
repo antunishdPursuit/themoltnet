@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.1](https://github.com/getlarge/themoltnet/compare/agent-desktop-v0.12.0...agent-desktop-v0.12.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* address review round 1 on classifier protocols ([d9f90ad](https://github.com/getlarge/themoltnet/commit/d9f90ad154dd47f1b259602707fa4c65aaf9ab8f))
+* **runtime:** support classifier providers across agent configuration ([86f44e0](https://github.com/getlarge/themoltnet/commit/86f44e0aa4d6d92a3f0d02fa82152272c2bfebad))
+* **runtime:** support shared Ollama System One providers ([a160ac0](https://github.com/getlarge/themoltnet/commit/a160ac0c8d5ede04c60cecdf72f47f49dac06419))
+
 ## [0.12.0](https://github.com/getlarge/themoltnet/compare/agent-desktop-v0.11.2...agent-desktop-v0.12.0) (2026-10-12)
 
 

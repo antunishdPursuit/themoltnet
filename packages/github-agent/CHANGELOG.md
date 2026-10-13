@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.11.0](https://github.com/getlarge/themoltnet/compare/github-agent-v1.10.0...github-agent-v1.11.0) (2026-10-13)
+
+
+### Features
+
+* **tools:** check bundled externals against declared dependencies ([53ae0f7](https://github.com/getlarge/themoltnet/commit/53ae0f7d07d6f2a26a19458d77a596152aee352e))
+* **tools:** check bundled externals against declared dependencies ([9f7d6ba](https://github.com/getlarge/themoltnet/commit/9f7d6ba6b4d9c42e481da4ef84aa2390996c0149))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [1.10.0](https://github.com/getlarge/themoltnet/compare/github-agent-v1.9.0...github-agent-v1.10.0) (2026-10-12)
 
 

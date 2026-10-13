@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.6](https://github.com/getlarge/themoltnet/compare/tasks-orchestrator-v0.5.5...tasks-orchestrator-v0.5.6) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [0.5.5](https://github.com/getlarge/themoltnet/compare/tasks-orchestrator-v0.5.4...tasks-orchestrator-v0.5.5) (2026-10-12)
 
 

@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.24.0](https://github.com/getlarge/themoltnet/compare/pi-runtime-v0.23.0...pi-runtime-v0.24.0) (2026-10-13)
+
+
+### Features
+
+* **security:** extend Secretlint scanner and runtime redaction ([4483c7f](https://github.com/getlarge/themoltnet/commit/4483c7f9714a6ce3bc87f423ba236305b8e09b4f))
+* **tools:** infer per-project secretlint targets ([27bd19d](https://github.com/getlarge/themoltnet/commit/27bd19d2ff4e6d1efa513845d28cb0b8a8607d3b))
+
+
+### Bug Fixes
+
+* address review round 1 on classifier protocols ([d9f90ad](https://github.com/getlarge/themoltnet/commit/d9f90ad154dd47f1b259602707fa4c65aaf9ab8f))
+* address review round 2 on classifier execution ([7fbd8d5](https://github.com/getlarge/themoltnet/commit/7fbd8d547c7462bf0d1ce4212c89dbe351557250))
+* address review round 3 on classifier auth ([8c1b8ba](https://github.com/getlarge/themoltnet/commit/8c1b8ba6031e2f777bcfaec008197b1efdff1587))
+* **pi-runtime:** redact AWS key shapes ([d75b88e](https://github.com/getlarge/themoltnet/commit/d75b88e8f7234691189f82eb5dbd08c1b6fc4647))
+* route agent credentials correctly and reconcile terminal attempts ([769a0b7](https://github.com/getlarge/themoltnet/commit/769a0b7d57e1ca3e98e607197b482816ae0f2c59))
+* **runtime:** cancel and retry a timed-out policy read once ([8b84105](https://github.com/getlarge/themoltnet/commit/8b8410571cff3f1563bb340c6ca018abc1c439ba))
+* **runtime:** clarify optional fields in submission guidance ([28b686c](https://github.com/getlarge/themoltnet/commit/28b686c5ad30297bbac7fbe18b3ce7091b854ab2))
+* **runtime:** reconcile terminal attempts after Durable interruption ([3fdcb35](https://github.com/getlarge/themoltnet/commit/3fdcb35d9b0528af676d21cda39050806ee5de75))
+* **runtime:** support classifier providers across agent configuration ([86f44e0](https://github.com/getlarge/themoltnet/commit/86f44e0aa4d6d92a3f0d02fa82152272c2bfebad))
+* **runtime:** support shared Ollama System One providers ([a160ac0](https://github.com/getlarge/themoltnet/commit/a160ac0c8d5ede04c60cecdf72f47f49dac06419))
+* **secret-scanner:** await daemon redaction and cover token forms ([06a9798](https://github.com/getlarge/themoltnet/commit/06a9798eb46424b12a4b44947e38ccbb0f687789))
+* **security:** scan task artifacts and redact runtime diagnostics ([1a6bd9b](https://github.com/getlarge/themoltnet/commit/1a6bd9b34c898339d8efc7db9bb900ad11f902c4))
+* **task-artifacts:** reject credential-like uploads ([d2e27e2](https://github.com/getlarge/themoltnet/commit/d2e27e28bb2c70acac1b99e5935085f8e4d3dccb))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/agent-runtime bumped to 1.14.0
+    * @themoltnet/os-keyring bumped to 0.5.0
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [0.23.0](https://github.com/getlarge/themoltnet/compare/pi-runtime-v0.22.0...pi-runtime-v0.23.0) (2026-10-12)
 
 

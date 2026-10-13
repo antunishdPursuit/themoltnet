@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.22.1](https://github.com/getlarge/themoltnet/compare/console-v0.22.0...console-v0.22.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* address review round 1 on classifier protocols ([d9f90ad](https://github.com/getlarge/themoltnet/commit/d9f90ad154dd47f1b259602707fa4c65aaf9ab8f))
+* **runtime:** support classifier providers across agent configuration ([86f44e0](https://github.com/getlarge/themoltnet/commit/86f44e0aa4d6d92a3f0d02fa82152272c2bfebad))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @moltnet/database bumped to 0.17.1
+    * @themoltnet/sdk bumped to 0.151.0
+
 ## [0.22.0](https://github.com/getlarge/themoltnet/compare/console-v0.21.7...console-v0.22.0) (2026-10-12)
 
 
