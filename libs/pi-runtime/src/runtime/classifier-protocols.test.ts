@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,26 +14,48 @@ afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
 });
 
-it.each(PI_CLASSIFIER_APIS)(
-  'executes %s through its actual Pi transport',
-  async (api) => {
+it.each([
+  ...PI_CLASSIFIER_APIS.map((api) => ({ api, source: 'configured' })),
+  ...['anonymous', 'stored', 'missing'].map((source) => ({
+    api: 'llama-cpp-classify' as const,
+    source,
+  })),
+])(
+  'executes $api with $source credentials through its actual Pi transport',
+  async ({ api, source }) => {
     const piDir = mkdtempSync(join(tmpdir(), 'classifier-transport-'));
     dirs.push(piDir);
-    vi.stubEnv('PROTOCOL_TEST_KEY', 'test-transport-key');
+    vi.stubEnv(
+      'PROTOCOL_TEST_KEY',
+      source === 'configured' ? 'test-transport-key' : undefined,
+    );
+    if (source === 'stored')
+      writeFileSync(
+        join(piDir, 'auth.json'),
+        JSON.stringify({
+          team: { type: 'api_key', key: 'stored-transport-key' },
+        }),
+      );
     writePiConfig({
       piDir,
       providers: {
         team: {
           api: 'openai-completions',
           baseUrl: 'https://protocol.example/v1',
-          apiKeyEnvRef: '$PROTOCOL_TEST_KEY',
+          ...(['configured', 'missing'].includes(source)
+            ? { apiKeyEnvRef: '$PROTOCOL_TEST_KEY' }
+            : {}),
           models: [{ id: 'chat' }, { id: 'labels', type: 'classifier', api }],
         },
       },
     });
     const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
       expect(new Headers(init?.headers).get('authorization')).toBe(
-        'Bearer test-transport-key',
+        source === 'anonymous'
+          ? null
+          : source === 'stored'
+            ? 'Bearer stored-transport-key'
+            : 'Bearer test-transport-key',
       );
       if (
         !(typeof url === 'string' || url instanceof URL) ||
@@ -84,6 +106,7 @@ it.each(PI_CLASSIFIER_APIS)(
     const models = await createRuntimeModels(piDir);
     const model = models.getModelOfType('classifier', 'team', 'labels');
     if (!model) throw new Error('Missing classifier');
+    await models.refresh({ allowNetwork: false });
     const result = await models.classify(
       model,
       {
@@ -98,6 +121,14 @@ it.each(PI_CLASSIFIER_APIS)(
       },
       { fetch, maxRetries: 0 },
     );
+    if (source === 'missing') {
+      expect(result.stopReason).toBe('error');
+      expect(result.errorMessage).toMatch(
+        /environment variable|API key|configured/,
+      );
+      expect(fetch).not.toHaveBeenCalled();
+      return;
+    }
     expect(result.errorMessage).toBeUndefined();
     expect(result.stopReason).toBe('stop');
     expect(result.answers.actionable).toMatchObject({

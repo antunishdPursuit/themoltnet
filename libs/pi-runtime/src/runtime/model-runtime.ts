@@ -63,7 +63,11 @@ export async function createRuntimeModels(
   let document: {
     providers?: Record<
       string,
-      { baseUrl?: string; models?: Array<{ id: string; type?: string }> }
+      {
+        baseUrl?: string;
+        apiKey?: string;
+        models?: Array<{ id: string; type?: string }>;
+      }
     >;
   };
   try {
@@ -105,6 +109,13 @@ export async function createRuntimeModels(
     const ids = new Set(classifiers.map((model) => model.id));
     models.registerProvider(provider, {
       baseUrl: config.baseUrl,
+      // Pi requires an auth resolution even for anonymous local servers. An
+      // explicit empty key emits no Authorization; stored credentials still win.
+      // Never mask a configured key/reference or enable anonymous System One.
+      ...(config.apiKey === undefined &&
+      classifiers.every((model) => model.api === 'llama-cpp-classify')
+        ? { apiKey: '' }
+        : {}),
       classifiers: {
         'typesafe-system-one': { classify },
         'cloudflare-workers-ai-system-one': { classify: classifyCloudflare },
