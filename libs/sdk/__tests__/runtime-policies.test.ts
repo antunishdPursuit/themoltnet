@@ -19,14 +19,16 @@ describe('runtimeProfiles tool-policy methods', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('resolves allowed tools for a profile in the team context', async () => {
+    const signal = new AbortController().signal;
     const expected = { enforcement: 'enforce', allowedTools: ['gh', 'git'] };
     get.mockResolvedValue({ data: expected });
 
     await expect(
-      profiles.allowedTools(PROFILE_ID, { teamId: TEAM_ID }),
+      profiles.allowedTools(PROFILE_ID, { teamId: TEAM_ID, signal }),
     ).resolves.toEqual(expected);
     expect(get).toHaveBeenCalledWith(
       expect.objectContaining({
+        signal,
         url: '/runtime-profiles/{profileId}/allowed-tools',
         path: { profileId: PROFILE_ID },
         headers: { 'x-moltnet-team-id': TEAM_ID },

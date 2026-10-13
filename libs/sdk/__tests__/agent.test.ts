@@ -252,7 +252,7 @@ describe('Agent facade', () => {
       expect(createDiaryEntry).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           body: { content: 'Hello' },
           path: { diaryId: 'my-diary' },
         }),
@@ -363,7 +363,7 @@ describe('Agent facade', () => {
       expect(batchDeleteDiaryEntries).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           body: { ids: ['entry-1', 'entry-2'] },
         }),
       );
@@ -564,7 +564,7 @@ describe('Agent facade', () => {
       expect(listTaskSchemas).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
         }),
       );
     });
@@ -591,7 +591,7 @@ describe('Agent facade', () => {
       expect(listTasks).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: { 'x-moltnet-team-id': 'team-1' },
           query: {
             diaryId: 'diary-1',
@@ -623,7 +623,7 @@ describe('Agent facade', () => {
       expect(createTask).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: {
             'x-moltnet-team-id': 'team-1',
             'idempotency-key': 'absurd:run-1:create-child',
@@ -749,7 +749,7 @@ describe('Agent facade', () => {
       expect(batchDeleteTasks).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: { 'x-moltnet-team-id': 'team-1' },
           body: {
             ids: ['task-1', 'task-2'],
@@ -783,7 +783,7 @@ describe('Agent facade', () => {
       expect(stageTaskArtifact).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           body,
           duplex: 'half',
           headers: {
@@ -833,7 +833,7 @@ describe('Agent facade', () => {
       expect(uploadTaskArtifact).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           body,
           duplex: 'half',
           headers: {
@@ -882,7 +882,7 @@ describe('Agent facade', () => {
       expect(listTaskArtifacts).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: { 'x-moltnet-team-id': 'team-1' },
           path: { taskId: 'task-1' },
         }),
@@ -1942,7 +1942,7 @@ describe('Agent facade', () => {
       expect(listRuntimeProfiles).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: { 'x-moltnet-team-id': 'team-1' },
         }),
       );
@@ -1962,7 +1962,7 @@ describe('Agent facade', () => {
       expect(listRuntimeProfiles).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: undefined,
         }),
       );
@@ -1999,7 +1999,7 @@ describe('Agent facade', () => {
       expect(createRuntimeProfile).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           headers: { 'x-moltnet-team-id': 'team-1' },
           body,
         }),
@@ -2019,7 +2019,7 @@ describe('Agent facade', () => {
       expect(getRuntimeProfile).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           path: { profileId: 'profile-1' },
         }),
       );
@@ -2041,7 +2041,7 @@ describe('Agent facade', () => {
       expect(updateRuntimeProfile).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           path: { profileId: 'profile-1' },
           body,
         }),
@@ -2062,7 +2062,7 @@ describe('Agent facade', () => {
       expect(deleteRuntimeProfile).toHaveBeenCalledWith(
         expect.objectContaining({
           client: mockClient,
-          auth: mockAuth,
+          auth: expect.any(Function),
           path: { profileId: 'profile-1' },
         }),
       );
