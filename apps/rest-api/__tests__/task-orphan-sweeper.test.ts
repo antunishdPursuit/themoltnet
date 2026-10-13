@@ -16,11 +16,13 @@ const {
   registeredScheduled,
   dbosMock,
   dbosErrorsMock,
+  inStep,
 } = vi.hoisted(() => {
   const registeredWorkflows: Record<string, (...args: unknown[]) => unknown> =
     {};
   const registeredSteps: Record<string, (...args: unknown[]) => unknown> = {};
   const registeredScheduled: Record<string, unknown> = {};
+  const inStep = { active: false };
   const dbosMock = {
     registerWorkflow: vi.fn(
       (
@@ -36,8 +38,16 @@ const {
         fn: (...args: unknown[]) => unknown,
         config: { name: string },
       ): ((...args: unknown[]) => unknown) => {
-        registeredSteps[config.name] = fn;
-        return fn;
+        const wrapped = async (...args: unknown[]) => {
+          inStep.active = true;
+          try {
+            return await fn(...args);
+          } finally {
+            inStep.active = false;
+          }
+        };
+        registeredSteps[config.name] = wrapped;
+        return wrapped;
       },
     ),
     registerScheduled: vi.fn((workflow: unknown, config: { name: string }) => {
@@ -66,6 +76,7 @@ const {
     registeredScheduled,
     dbosMock,
     dbosErrorsMock,
+    inStep,
   };
 });
 
@@ -174,7 +185,12 @@ function makeDeps(orphans: Array<{ task: Task; attempt: TaskAttempt }>): {
     runTransaction: vi.fn(async (fn: () => Promise<unknown>) => fn()),
   };
   const transactionRunner = {
-    runInTransaction: vi.fn(async (fn: () => Promise<unknown>) => fn()),
+    runInTransaction: vi.fn(async (fn: () => Promise<unknown>) => {
+      if (inStep.active) {
+        throw new Error('DBOS transaction cannot run inside a step');
+      }
+      return fn();
+    }),
   };
   const relationshipWriter = {
     removeTaskClaimant: vi.fn().mockResolvedValue(undefined),
