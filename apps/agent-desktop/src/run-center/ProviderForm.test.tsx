@@ -42,6 +42,49 @@ function setup(
 }
 
 describe('Desktop provider creation', () => {
+  it('adds a keyless System One classifier to the local Ollama generation provider', async () => {
+    const chat = { id: 'qwen3', type: 'chat' as const };
+    const { putProvider, discoverModels, onDone } = setup(
+      { ollama: { ...LOCAL, models: [chat] } },
+      'ollama',
+    );
+    expect(
+      screen.getByRole('option', { name: 'System One (Typesafe / Ollama)' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Local Ollama v0.35\+ supports System One/),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Classifier model ID'), {
+      target: { value: 'nimble' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add classifier' }));
+    expect(screen.getByRole('checkbox', { name: 'qwen3' })).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: 'nimble (classifier)' }),
+    ).toBeChecked();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Save models for Ollama/ }),
+    );
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(putProvider).toHaveBeenCalledWith('ollama', {
+      api: 'openai-completions',
+      baseUrl: 'http://localhost:11434/v1',
+      envName: 'MOLTNET_PROVIDER_OLLAMA_API_KEY',
+      supportsDeveloperRole: false,
+      models: [
+        chat,
+        {
+          id: 'nimble',
+          type: 'classifier',
+          api: 'typesafe-system-one',
+          contextWindow: 8192,
+        },
+      ],
+    });
+    expect(putProvider.mock.calls[0][1]).not.toHaveProperty('apiKey');
+    expect(discoverModels).not.toHaveBeenCalled();
+  });
+
   it.each([
     'typesafe-system-one',
     'cloudflare-workers-ai-system-one',

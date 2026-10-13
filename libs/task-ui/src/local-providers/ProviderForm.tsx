@@ -34,8 +34,8 @@ const PRESETS: Array<{
 
 const CLASSIFIER_APIS = {
   'typesafe-system-one': {
-    label: 'Typesafe System One',
-    hint: 'Use an endpoint serving the System One API.',
+    label: 'System One (Typesafe / Ollama)',
+    hint: 'Local Ollama v0.35+ supports System One with decision models such as nimble and tev1. Clef models require v0.35.1+. Use a /v1 base URL; local Ollama needs no API key.',
   },
   'cloudflare-workers-ai-system-one': {
     label: 'Cloudflare Workers AI System One',
@@ -418,8 +418,9 @@ export function ProviderForm({
           </Text>
           <Text variant="caption" color="secondary">
             Classifiers share this provider's endpoint and credentials. The
-            endpoint must support the selected classifier API; ordinary Ollama
-            endpoints do not. Model discovery is optional.
+            endpoint must support the selected classifier API. Local Ollama
+            supports System One; Ollama Cloud currently does not. Model
+            discovery is optional.
           </Text>
           <Select
             label="Classifier API"

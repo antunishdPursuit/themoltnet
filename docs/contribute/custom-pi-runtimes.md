@@ -143,8 +143,9 @@ the provider's endpoint and credentials through the normal provider settings;
 classifier models use the same credential resolver as chat models. Supported
 classifier APIs are `typesafe-system-one` (the default),
 `cloudflare-workers-ai-system-one`, and `llama-cpp-classify`. The endpoint must
-implement the selected protocol; the provider name is arbitrary. An optional
-`contextWindow` overrides the default of 8192 tokens. See
+implement the selected protocol; local Ollama v0.35+ uses `typesafe-system-one`
+at `/v1/systemone` without an API key. The provider name is arbitrary. An
+optional `contextWindow` overrides the default of 8192 tokens. See
 [Classifier models](../operate/running-agents.md#classifier-models) for Desktop
 and CLI setup, endpoint compatibility, and model ID requirements.
 

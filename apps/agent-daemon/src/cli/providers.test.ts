@@ -197,6 +197,70 @@ describe('moltnet-agent providers', () => {
     ]);
   });
 
+  it('discovers and saves keyless Ollama decision models alongside chat and manual classifiers', async () => {
+    const test = await fixture({
+      fetchImpl: (input, init) => {
+        const url = input instanceof Request ? input.url : input.toString();
+        if (url.endsWith('/api/show')) {
+          const { model } = JSON.parse(
+            typeof init?.body === 'string' ? init.body : '{}',
+          ) as { model: string };
+          return Promise.resolve(
+            new Response(
+              JSON.stringify(
+                model === 'nimble:latest'
+                  ? {
+                      capabilities: ['decision'],
+                      model_info: { 'qwen35.context_length': 262144 },
+                    }
+                  : { capabilities: ['completion'] },
+              ),
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify(
+              url.endsWith('/api/tags')
+                ? { models: [{ name: 'nimble:latest' }, { name: 'chat' }] }
+                : { data: [{ id: 'nimble:latest' }, { id: 'chat' }] },
+            ),
+          ),
+        );
+      },
+    });
+    expect(
+      await runProviders(
+        [
+          'set',
+          'ollama',
+          '--base-url',
+          'http://localhost:11434/v1',
+          '--chat-model',
+          'chat',
+          '--classifier-model',
+          'manual',
+        ],
+        test.dependencies,
+      ),
+    ).toBe(0);
+    expect(
+      await runProviders(['discover', 'ollama', '--save'], test.dependencies),
+    ).toBe(0);
+    const provider = test.configuration.list().ollama;
+    expect(provider.models).toEqual([
+      { id: 'chat', type: 'chat', reasoning: false },
+      {
+        id: 'nimble:latest',
+        type: 'classifier',
+        api: 'typesafe-system-one',
+        contextWindow: 262144,
+      },
+      { id: 'manual', type: 'classifier', api: 'typesafe-system-one' },
+    ]);
+    expect(provider.hasApiKey).toBe(false);
+  });
+
   it('rejects conflicting or malformed classifier declarations', async () => {
     const test = await fixture();
     for (const args of [

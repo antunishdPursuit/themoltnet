@@ -429,6 +429,10 @@ Provider IDs and model IDs refer to the daemon's configured catalog. Select the
 classifier API in the daemon provider settings, not in the profile; see
 [Classifier models](./running-agents.md#classifier-models). Generation and
 classification can share a provider when its endpoint supports both protocols.
+For local Ollama v0.35+, select the same `ollama` provider for both roles, a
+generation model such as `qwen3`, and a decision model such as `nimble`. The
+provider uses `openai-completions` for generation and the classifier declaration
+uses `typesafe-system-one`; the profile only selects provider/model IDs.
 
 The remote runtime model catalog can mark entries with boolean
 `capabilities.generation` and `capabilities.classification` flags. Console uses

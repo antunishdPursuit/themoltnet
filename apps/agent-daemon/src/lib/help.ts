@@ -241,8 +241,10 @@ content parts before the request leaves the runtime.
 typesafe-system-one (default), cloudflare-workers-ai-system-one, or
 llama-cpp-classify for classifier models in this command. The optional positive
 context window defaults to 8192. A classifier can share a provider and
-credentials with chat models when the endpoint supports both APIs. Standard
-Ollama endpoints do not expose these classifier APIs.
+credentials with chat models when the endpoint supports both APIs. Local
+Ollama v0.35+ supports typesafe-system-one at /v1/systemone with decision
+models such as nimble and tev1; Clef models require v0.35.1+. Local requests
+need no API key. Ollama Cloud currently does not support classification.
 --model-reasoning marks a model as supporting reasoning. --model-thinking-map
 sets its Pi thinking-level to provider effort mapping and implies reasoning.
 --model-strict-mode explicitly sets Pi's strict JSON-schema tool mode for an

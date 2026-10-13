@@ -9,7 +9,6 @@ import type {
 } from '@earendil-works/pi-ai';
 import { classify as classifyCloudflare } from '@earendil-works/pi-ai/api/cloudflare-workers-ai-system-one';
 import { classify as classifyLlamaCpp } from '@earendil-works/pi-ai/api/llama-cpp-classify';
-import { classify } from '@earendil-works/pi-ai/api/typesafe-system-one';
 import {
   ModelRuntime,
   type ToolDefinition,
@@ -30,10 +29,12 @@ import { Value } from 'typebox/value';
 
 import { resolvePiCodingAgentDir } from '../config.js';
 import { PI_CLASSIFIER_API, PI_CLASSIFIER_APIS } from '../pi-config.js';
+import { streamAnonymousOpenAI } from './anonymous-openai.js';
 import {
   classifyProviderFailure,
   sanitizeProviderDiagnostic,
 } from './provider-error-classification.js';
+import { classify } from './system-one.js';
 
 const ClassifierDeclaration = Type.Object(
   {
@@ -66,6 +67,7 @@ export async function createRuntimeModels(
       {
         baseUrl?: string;
         apiKey?: string;
+        api?: string;
         models?: Array<{ id: string; type?: string }>;
       }
     >;
@@ -107,16 +109,26 @@ export async function createRuntimeModels(
     )
       throw new Error(`Duplicate model declaration for provider "${provider}"`);
     const ids = new Set(classifiers.map((model) => model.id));
+    const anonymous =
+      config.apiKey === undefined &&
+      !models.hasConfiguredAuth(provider) &&
+      classifiers.every((model) =>
+        ['typesafe-system-one', 'llama-cpp-classify'].includes(
+          model.api ?? PI_CLASSIFIER_API,
+        ),
+      );
     models.registerProvider(provider, {
       baseUrl: config.baseUrl,
+      ...(anonymous && config.api === 'openai-completions'
+        ? {
+            api: 'openai-completions' as const,
+            streamSimple: streamAnonymousOpenAI,
+          }
+        : {}),
       // Pi requires an auth resolution even for anonymous local servers. An
       // explicit empty key emits no Authorization; stored credentials still win.
-      // Never mask a configured key/reference or enable anonymous System One.
-      ...(config.apiKey === undefined &&
-      !models.hasConfiguredAuth(provider) &&
-      classifiers.every((model) => model.api === 'llama-cpp-classify')
-        ? { apiKey: '' }
-        : {}),
+      // Never mask a configured key/reference or enable anonymous Cloudflare.
+      ...(anonymous ? { apiKey: '' } : {}),
       classifiers: {
         'typesafe-system-one': { classify },
         'cloudflare-workers-ai-system-one': { classify: classifyCloudflare },

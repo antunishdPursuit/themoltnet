@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getUnsupportedRequestOptions,
   globalRuntimeModelCatalog,
+  ollamaClassifierModels,
   ollamaCloudModels,
   ollamaModels,
   piRuntimeModels,
@@ -71,6 +72,42 @@ describe('provider catalog', () => {
       [...ollamaModels, ...ollamaCloudModels].some(
         (entry) => entry.capabilities.classification === true,
       ),
+    ).toBe(false);
+  });
+
+  it('offers local Ollama decision models with version and vision requirements', () => {
+    expect(ollamaClassifierModels.map((entry) => entry.model)).toEqual([
+      'nimble',
+      'tev1',
+      'clef',
+      'clef-flash',
+    ]);
+    for (const entry of ollamaClassifierModels) {
+      const vision = entry.model.startsWith('clef');
+      expect(entry.provider).toBe('ollama');
+      expect(entry.capabilities).toMatchObject({
+        generation: false,
+        classification: true,
+        api: 'typesafe-system-one',
+        minimumOllamaVersion: vision ? '0.35.1' : '0.35.0',
+        supportsVision: vision,
+      });
+      expect(entry.capabilities).not.toHaveProperty('contextWindow');
+      expect(globalRuntimeModelCatalog).toContainEqual(entry);
+      expect(requestOptionCapabilities(entry.provider, entry.model)).toEqual({
+        temperature: false,
+        topP: false,
+        topK: false,
+        maxOutputTokens: false,
+      });
+    }
+    expect(
+      ollamaCloudModels.some(
+        (entry) => entry.capabilities.classification === true,
+      ),
+    ).toBe(false);
+    expect(
+      ollamaModels.some((entry) => entry.capabilities.classification === true),
     ).toBe(false);
   });
 

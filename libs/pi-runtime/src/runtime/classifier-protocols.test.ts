@@ -16,10 +16,9 @@ afterEach(() => {
 
 it.each([
   ...PI_CLASSIFIER_APIS.map((api) => ({ api, source: 'configured' })),
-  ...['anonymous', 'stored', 'missing'].map((source) => ({
-    api: 'llama-cpp-classify' as const,
-    source,
-  })),
+  ...(['llama-cpp-classify', 'typesafe-system-one'] as const).flatMap((api) =>
+    ['anonymous', 'stored', 'missing'].map((source) => ({ api, source })),
+  ),
 ])(
   'executes $api with $source credentials through its actual Pi transport',
   async ({ api, source }) => {
@@ -137,5 +136,90 @@ it.each([
     });
     expect(fetch).toHaveBeenCalled();
     expect(models.getModel('team', 'chat')).toBeDefined();
+  },
+);
+
+it.each(['anonymous', 'configured'])(
+  'uses one %s Ollama provider for generation and native classification',
+  async (source) => {
+    const piDir = mkdtempSync(join(tmpdir(), 'ollama-shared-provider-'));
+    dirs.push(piDir);
+    vi.stubEnv(
+      'OLLAMA_SHARED_TEST_KEY',
+      source === 'configured' ? 'shared-test-key' : undefined,
+    );
+    writePiConfig({
+      piDir,
+      providers: {
+        ollama: {
+          api: 'openai-completions',
+          baseUrl: 'http://localhost:11434/v1',
+          ...(source === 'configured'
+            ? { apiKeyEnvRef: '$OLLAMA_SHARED_TEST_KEY' }
+            : {}),
+          models: [{ id: 'qwen3' }, { id: 'nimble', type: 'classifier' }],
+        },
+      },
+    });
+    const models = await createRuntimeModels(piDir);
+    const chat = models.getModel('ollama', 'qwen3');
+    const classifier = models.getModelOfType('classifier', 'ollama', 'nimble');
+    if (!chat || !classifier) throw new Error('Missing shared provider models');
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => {
+      expect(
+        new Headers(
+          init?.headers ?? (url instanceof Request ? url.headers : undefined),
+        ).get('authorization'),
+      ).toBe(source === 'configured' ? 'Bearer shared-test-key' : null);
+      const path = new URL(url instanceof Request ? url.url : String(url))
+        .pathname;
+      if (path === '/v1/systemone')
+        return Promise.resolve(
+          Response.json({
+            answers: { actionable: { type: 'noul', noul: 0.9 } },
+          }),
+        );
+      expect(path).toBe('/v1/chat/completions');
+      return Promise.resolve(
+        new Response(
+          [
+            'data: {"id":"chat-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}',
+            'data: {"id":"chat-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
+            'data: [DONE]',
+            '',
+          ].join('\n\n'),
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
+      );
+    });
+    const generated = await models.completeSimple(
+      chat,
+      {
+        messages: [{ role: 'user', content: 'Hello', timestamp: Date.now() }],
+      },
+      { fetch, maxRetries: 0 },
+    );
+    expect(generated.errorMessage).toBeUndefined();
+    expect(generated.content).toContainEqual({ type: 'text', text: 'Hello' });
+    const classified = await models.classify(
+      classifier,
+      {
+        state: { ticket: 'Checkout returns HTTP 500' },
+        questions: {
+          actionable: {
+            type: 'bool',
+            instructions: 'Is this actionable?',
+            criteria: { true: 'Reproducible', false: 'Unclear' },
+          },
+        },
+      },
+      { fetch, maxRetries: 0 },
+    );
+    expect(classified.stopReason).toBe('stop');
+    expect(classified.answers.actionable).toEqual({
+      type: 'bool',
+      probability: 0.9,
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
   },
 );
