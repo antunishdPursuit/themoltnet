@@ -15,14 +15,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  api-deployed:
+    name: Check API deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    # A successful Deploy API run does not imply a deploy: its CI gate can
+    # decide not to deploy, and a manual dispatch can set deploy=false. Follow
+    # only runs whose Fly.io deploy job actually succeeded.
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      deployed: ${{ steps.check.outputs.deployed }}
+    steps:
+      - name: Check Fly.io deploy job
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          deployed=$(gh api --paginate \
+            "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" \
+            --jq '.jobs[] | select((.name | endswith("Deploy to Fly.io")) and .conclusion == "success") | .name' \
+            | grep -q . && echo true || echo false)
+          echo "Deploy API run $RUN_ID deployed: $deployed"
+          echo "deployed=$deployed" >> "$GITHUB_OUTPUT"
+
   deploy:
     name: Deploy Ory Config
+    needs: api-deployed
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' ||
+          needs.api-deployed.outputs.deployed == 'true') }}
     steps:
       # workflow_run is privileged; checkout the trusted default branch only.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

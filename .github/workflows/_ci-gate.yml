@@ -1,0 +1,67 @@
+name: CI deploy gate
+
+# Decides whether a completed CI run on main may deploy. A successful CI run
+# deploys. A failed run deploys only when every failed job is a live-model
+# eval lane: those lanes sample a hosted LLM, so a red there reflects model
+# variance rather than a defect in the deployed artifacts. Every other job,
+# including any added later, still gates the deploy. Manual dispatches are
+# always deployable; the caller applies its own dispatch inputs.
+
+on:
+  workflow_call:
+    outputs:
+      deployable:
+        description: "'true' when the triggering CI run may deploy"
+        value: ${{ jobs.gate.outputs.deployable }}
+
+permissions: {}
+
+jobs:
+  gate:
+    name: CI gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      deployable: ${{ steps.check.outputs.deployable }}
+    steps:
+      - name: Check CI jobs
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          # Live-model eval lanes, plus the aggregate agent-daemon status job
+          # that fails whenever one of them does. The deterministic
+          # agent-daemon shards are separate jobs and stay gating.
+          NON_BLOCKING_JOBS: '^E2E Tests \(Agent Daemon / (Live Evals [0-9]+|Shard 3)\)$'
+        run: |
+          set -euo pipefail
+          deployable=false
+          case "$EVENT_NAME:$RUN_CONCLUSION" in
+            workflow_dispatch:*|workflow_run:success)
+              deployable=true
+              ;;
+            workflow_run:failure)
+              blocking=$(gh api --paginate \
+                "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" \
+                --jq '.jobs[]
+                  | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")
+                  | select(.name | test(env.NON_BLOCKING_JOBS) | not)
+                  | "\(.name): \(.conclusion)"')
+              if [ -z "$blocking" ]; then
+                deployable=true
+                echo "::warning title=Deploying despite live eval failure::CI run $RUN_ID failed only in live-model eval lanes."
+              else
+                echo "CI run $RUN_ID has blocking job failures:"
+                printf '%s\n' "$blocking"
+              fi
+              ;;
+            *)
+              echo "CI run $RUN_ID concluded '$RUN_CONCLUSION'; not deploying."
+              ;;
+          esac
+          echo "deployable=$deployable" >> "$GITHUB_OUTPUT"

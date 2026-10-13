@@ -21,6 +21,12 @@ permissions:
   contents: read
 
 jobs:
+  ci-gate:
+    name: CI gate
+    permissions:
+      actions: read
+    uses: ./.github/workflows/_ci-gate.yml
+
   deploy:
     name: Deploy
     permissions:
@@ -29,9 +35,8 @@ jobs:
       id-token: write
       attestations: write
       security-events: write
-    if: >-
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'workflow_dispatch'
+    needs: ci-gate
+    if: ${{ needs.ci-gate.outputs.deployable == 'true' }}
     uses: ./.github/workflows/_deploy.yml
     secrets: inherit
     with:
@@ -42,7 +47,7 @@ jobs:
       head-sha: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha || '' }}
       deploy: >-
         ${{
-          (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+          (github.event_name == 'workflow_run' && needs.ci-gate.outputs.deployable == 'true') ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
         }}
       fly-token-secret: FLY_CONSOLE_TOKEN

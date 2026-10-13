@@ -26,6 +26,12 @@ permissions:
   contents: read
 
 jobs:
+  ci-gate:
+    name: CI gate
+    permissions:
+      actions: read
+    uses: ./.github/workflows/_ci-gate.yml
+
   preflight:
     name: Preflight
     runs-on: ubuntu-latest
@@ -33,9 +39,8 @@ jobs:
     environment: production
     permissions:
       contents: read
-    if: >-
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'workflow_dispatch'
+    needs: ci-gate
+    if: ${{ needs.ci-gate.outputs.deployable == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -97,7 +102,7 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: [preflight, build-image]
+    needs: [ci-gate, preflight, build-image]
     permissions:
       contents: read
       packages: write
@@ -119,7 +124,7 @@ jobs:
             github.event.inputs.sha || github.event.workflow_run.head_sha || '' }}
       deploy: >-
         ${{
-          (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+          (github.event_name == 'workflow_run' && needs.ci-gate.outputs.deployable == 'true') ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
         }}
       fly-token-secret: FLY_API_TOKEN
