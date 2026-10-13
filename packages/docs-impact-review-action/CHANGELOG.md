@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1](https://github.com/getlarge/themoltnet/compare/docs-impact-review-action-v0.5.0...docs-impact-review-action-v0.5.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **actions:** refresh release bundles and runtime locks ([61e0b2b](https://github.com/getlarge/themoltnet/commit/61e0b2bed41174176a9186f51384e31db675dec3))
+* **actions:** refresh release bundles and runtime locks ([9a1a488](https://github.com/getlarge/themoltnet/commit/9a1a488ea48eb5c43b6f54b1225b43a5389752bc))
+* **actions:** refresh runtime locks for rebuilt agent-daemon bundle ([5aea0d5](https://github.com/getlarge/themoltnet/commit/5aea0d55eeb1fddb3204e5a3861050c8e4fe6237))
+
 ## [0.5.0](https://github.com/getlarge/themoltnet/compare/docs-impact-review-action-v0.4.0...docs-impact-review-action-v0.5.0) (2026-10-13)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/getlarge/themoltnet/compare/agent-daemon-action-v0.6.0...agent-daemon-action-v0.6.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **actions:** refresh release bundles and runtime locks ([61e0b2b](https://github.com/getlarge/themoltnet/commit/61e0b2bed41174176a9186f51384e31db675dec3))
+* **actions:** refresh release bundles and runtime locks ([9a1a488](https://github.com/getlarge/themoltnet/commit/9a1a488ea48eb5c43b6f54b1225b43a5389752bc))
+
 ## [0.6.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-action-v0.5.0...agent-daemon-action-v0.6.0) (2026-10-13)
 
 

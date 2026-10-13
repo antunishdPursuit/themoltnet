@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.67.1](https://github.com/getlarge/themoltnet/compare/rest-api-v0.67.0...rest-api-v0.67.1) (2026-10-13)
+
+
+### Performance Improvements
+
+* **runtime-session-service:** concurrent ordered Durable commit reads ([84b3858](https://github.com/getlarge/themoltnet/commit/84b38589d3335ea78855459ea45c383200c53e3c))
+
 ## [0.67.0](https://github.com/getlarge/themoltnet/compare/rest-api-v0.66.0...rest-api-v0.67.0) (2026-10-13)
 
 
