@@ -42,7 +42,8 @@
             "command": "node tools/docker-build.mjs --project {projectName} --push --platform linux/amd64,linux/arm64 --tag \"${NX_DOCKER_RELEASE_TAG:?NX_DOCKER_RELEASE_TAG must be set}\""
           }
         }
-      }
+      },
+      "check:externals": {}
     }
   }
 }

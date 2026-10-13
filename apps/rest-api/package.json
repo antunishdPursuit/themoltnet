@@ -91,6 +91,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "thread-stream": "catalog:",
+    "tslib": "catalog:",
     "typebox": "catalog:",
     "winston": "catalog:",
     "winston-transport": "catalog:"
@@ -201,7 +202,8 @@
         "outputs": [
           "{projectRoot}/models"
         ]
-      }
+      },
+      "check:externals": {}
     }
   }
 }

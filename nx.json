@@ -294,6 +294,24 @@
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"]
     },
+    "check:externals": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": [
+        "{projectRoot}/package.json",
+        "{workspaceRoot}/tools/check-bundle-externals.mjs",
+        {
+          "dependentTasksOutputFiles": "**/*.{js,mjs,cjs}"
+        },
+        {
+          "externalDependencies": ["es-module-lexer"]
+        }
+      ],
+      "options": {
+        "command": "node tools/check-bundle-externals.mjs {projectRoot}"
+      }
+    },
     "check:pack": {
       "cache": false,
       "dependsOn": ["build"]

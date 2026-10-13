@@ -294,6 +294,9 @@ catalogs:
     drizzle-orm:
       specifier: ^0.45.2
       version: 0.45.2
+    es-module-lexer:
+      specifier: ^1.7.0
+      version: 1.7.0
     eslint:
       specifier: ^9.39.4
       version: 9.39.4
@@ -414,6 +417,9 @@ catalogs:
     tree-sitter-bash:
       specifier: ^0.25.1
       version: 0.25.1
+    tslib:
+      specifier: ^2.8.1
+      version: 2.8.1
     tsx:
       specifier: ^4.7.0
       version: 4.21.0
@@ -1703,6 +1709,9 @@ importers:
       thread-stream:
         specifier: 'catalog:'
         version: 3.1.0
+      tslib:
+        specifier: 'catalog:'
+        version: 2.8.1
       typebox:
         specifier: 'catalog:'
         version: 1.3.27
@@ -3965,6 +3974,9 @@ importers:
       '@types/ws':
         specifier: 'catalog:'
         version: 8.18.1
+      es-module-lexer:
+        specifier: 'catalog:'
+        version: 1.7.0
       ignore:
         specifier: 'catalog:'
         version: 7.0.8
@@ -22117,16 +22129,6 @@ snapshots:
       - debug
       - supports-color
 
-  axios@1.20.0(debug@4.3.4):
-    dependencies:
-      follow-redirects: 1.16.0(debug@4.3.4)
-      form-data: 4.0.6
-      https-proxy-agent: 5.0.1
-      proxy-from-env: 2.1.0
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
   axios@1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
       follow-redirects: 1.16.0(debug@4.4.3(supports-color@7.2.0))
@@ -24626,7 +24628,7 @@ snapshots:
       '@types/debug': 4.1.12
       '@types/node': 18.19.80
       '@types/tough-cookie': 4.0.0
-      axios: 1.20.0(debug@4.3.4)
+      axios: 1.20.0
       camelcase: 6.3.0
       debug: 4.3.4
       dotenv: 16.4.5
@@ -24637,7 +24639,7 @@ snapshots:
       jsonwebtoken: 9.0.3
       load-esm: 1.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.20.0)
+      retry-axios: 2.6.0(axios@1.20.0(debug@4.3.4))
       tough-cookie: 4.1.3
     transitivePeerDependencies:
       - supports-color
@@ -27231,7 +27233,7 @@ snapshots:
 
   ret@0.5.0: {}
 
-  retry-axios@2.6.0(axios@1.20.0):
+  retry-axios@2.6.0(axios@1.20.0(debug@4.3.4)):
     dependencies:
       axios: 1.20.0
 

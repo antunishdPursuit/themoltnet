@@ -53,7 +53,8 @@
           "cwd": "{workspaceRoot}",
           "command": "node --import tsx tools/src/release/github-action-publisher.ts --project @themoltnet/docs-impact-review-action --entries prepare.js,check.js,review.js,comment.js --stable-major-tag-prefix docs-impact-review-action-v --also-verify @themoltnet/agent-daemon-action"
         }
-      }
+      },
+      "check:externals": {}
     },
     "tags": [
       "type:app",

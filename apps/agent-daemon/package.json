@@ -216,7 +216,8 @@
           "{workspaceRoot}/test-fixtures/connection-state-root.json",
           "{workspaceRoot}/docs/.vitepress/config.ts"
         ]
-      }
+      },
+      "check:externals": {}
     }
   }
 }

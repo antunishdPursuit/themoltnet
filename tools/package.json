@@ -59,6 +59,7 @@
     "@nx/devkit": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "es-module-lexer": "catalog:",
     "ignore": "catalog:",
     "json5": "catalog:",
     "tsx": "catalog:",
