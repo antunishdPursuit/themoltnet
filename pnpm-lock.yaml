@@ -320,7 +320,7 @@ catalogs:
       version: 9.1.7
     ignore:
       specifier: ^7.0.5
-      version: 7.0.12
+      version: 7.0.8
     ioredis:
       specifier: ^5.9.2
       version: 5.9.2
@@ -3903,7 +3903,7 @@ importers:
         version: 8.18.1
       ignore:
         specifier: 'catalog:'
-        version: 7.0.12
+        version: 7.0.8
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -21047,7 +21047,7 @@ snapshots:
       '@typescript-eslint/utils': 8.58.0(eslint@9.39.4(jiti@2.4.2))(typescript@5.9.3)
       '@typescript-eslint/visitor-keys': 8.58.0
       eslint: 9.39.4(jiti@2.4.2)
-      ignore: 7.0.12
+      ignore: 7.0.8
       natural-compare: 1.4.0
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -21063,7 +21063,7 @@ snapshots:
       '@typescript-eslint/utils': 8.58.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       '@typescript-eslint/visitor-keys': 8.58.0
       eslint: 9.39.4(jiti@2.7.0)
-      ignore: 7.0.12
+      ignore: 7.0.8
       natural-compare: 1.4.0
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -22041,16 +22041,6 @@ snapshots:
   axe-core@4.13.0: {}
 
   axios@1.20.0:
-    dependencies:
-      follow-redirects: 1.16.0(debug@4.3.4)
-      form-data: 4.0.6
-      https-proxy-agent: 5.0.1
-      proxy-from-env: 2.1.0
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
-  axios@1.20.0(debug@4.3.4):
     dependencies:
       follow-redirects: 1.16.0(debug@4.3.4)
       form-data: 4.0.6
@@ -24559,7 +24549,7 @@ snapshots:
       '@types/debug': 4.1.12
       '@types/node': 18.19.80
       '@types/tough-cookie': 4.0.0
-      axios: 1.20.0(debug@4.3.4)
+      axios: 1.20.0
       camelcase: 6.3.0
       debug: 4.3.4
       dotenv: 16.4.5
@@ -24570,7 +24560,7 @@ snapshots:
       jsonwebtoken: 9.0.3
       load-esm: 1.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.20.0)
+      retry-axios: 2.6.0(axios@1.20.0(debug@4.3.4))
       tough-cookie: 4.1.3
     transitivePeerDependencies:
       - supports-color
@@ -27164,7 +27154,7 @@ snapshots:
 
   ret@0.5.0: {}
 
-  retry-axios@2.6.0(axios@1.20.0):
+  retry-axios@2.6.0(axios@1.20.0(debug@4.3.4)):
     dependencies:
       axios: 1.20.0
 
