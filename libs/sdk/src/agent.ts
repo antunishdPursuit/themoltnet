@@ -712,7 +712,7 @@ export interface RuntimeProfilesNamespace {
    */
   allowedTools(
     profileId: string,
-    options: RequiredTeamRequestOptions,
+    options: RequiredTeamRequestOptions & { signal?: AbortSignal },
   ): Promise<AllowedToolsResponse>;
 
   /** Replace the set of tool policies bound to a profile. Team-scoped. */
