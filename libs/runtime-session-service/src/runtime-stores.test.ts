@@ -356,22 +356,26 @@ describe('runtime store publication', () => {
     await expect(collect(page.items)).rejects.toThrow('checksum');
     expect(f.repository.listCommits).toHaveBeenCalledWith('store', 0, 50, 1);
   });
-  it('stops prefetching on early return and releases every in-flight object', async () => {
-    const f = setup({ readConcurrency: 2 });
-    await seed(f, 5);
-    const page = await f.service.read({ ...authority, storeId: 'store' });
-    expect(page.count).toBe(5);
-    expect(f.storage.getObject).not.toHaveBeenCalled();
-    for await (const commit of page.items) {
-      expect(commit.seq).toBe(1);
-      expect(commit.writes).toEqual(writes);
-      break;
-    }
-    // The window is refilled only when the consumer asks for more.
-    expect(f.storage.getObject).toHaveBeenCalledTimes(2);
-    for (const [, signal] of f.storage.getObject.mock.calls)
-      expect((signal as AbortSignal).aborted).toBe(true);
-  });
+  it(
+    'stops prefetching on early return and releases every in-flight object',
+    { timeout: 2000 },
+    async () => {
+      const f = setup({ readConcurrency: 2 });
+      await seed(f, 5);
+      const page = await f.service.read({ ...authority, storeId: 'store' });
+      expect(page.count).toBe(5);
+      expect(f.storage.getObject).not.toHaveBeenCalled();
+      for await (const commit of page.items) {
+        expect(commit.seq).toBe(1);
+        expect(commit.writes).toEqual(writes);
+        break;
+      }
+      // The window is refilled only when the consumer asks for more.
+      expect(f.storage.getObject).toHaveBeenCalledTimes(2);
+      for (const [, signal] of f.storage.getObject.mock.calls)
+        expect((signal as AbortSignal).aborted).toBe(true);
+    },
+  );
 });
 
 async function seed(f: ReturnType<typeof setup>, count: number) {
@@ -558,50 +562,58 @@ describe('concurrent ordered object reads', () => {
     expect(f.storage.getObject).toHaveBeenCalledTimes(10);
   });
 
-  it('cancels every in-flight fetch when the caller aborts mid-page', async () => {
-    const f = setup({ readConcurrency: 3 });
-    const keys = await seed(f, 6);
-    const gate = gatedStorage(f);
-    const controller = new AbortController();
-    const page = await f.service.read({
-      ...authority,
-      storeId: 'store',
-      signal: controller.signal,
-    });
-    const result = collect(page.items);
-    const rejected = expect(result).rejects.toMatchObject({
-      name: 'AbortError',
-    });
-    await vi.waitFor(() => expect(gate.started(keys[2])).toBe(true));
-    gate.release(keys[0]);
-    await vi.waitFor(() => expect(gate.started(keys[3])).toBe(true));
-    controller.abort();
-    await rejected;
-    expect(f.storage.getObject).toHaveBeenCalledTimes(4);
-    for (const [, signal] of f.storage.getObject.mock.calls)
-      expect((signal as AbortSignal).aborted).toBe(true);
-    // keys[0] completed; keys[1..3] were stalled mid-transfer at the abort.
-    expect(gate.bodies).toHaveLength(4);
-    expect(gate.bodies.every((body) => body.destroyed)).toBe(true);
-  });
+  it(
+    'cancels every in-flight fetch when the caller aborts mid-page',
+    { timeout: 2000 },
+    async () => {
+      const f = setup({ readConcurrency: 3 });
+      const keys = await seed(f, 6);
+      const gate = gatedStorage(f);
+      const controller = new AbortController();
+      const page = await f.service.read({
+        ...authority,
+        storeId: 'store',
+        signal: controller.signal,
+      });
+      const result = collect(page.items);
+      const rejected = expect(result).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await vi.waitFor(() => expect(gate.started(keys[2])).toBe(true));
+      gate.release(keys[0]);
+      await vi.waitFor(() => expect(gate.started(keys[3])).toBe(true));
+      controller.abort();
+      await rejected;
+      expect(f.storage.getObject).toHaveBeenCalledTimes(4);
+      for (const [, signal] of f.storage.getObject.mock.calls)
+        expect((signal as AbortSignal).aborted).toBe(true);
+      // keys[0] completed; keys[1..3] were stalled mid-transfer at the abort.
+      expect(gate.bodies).toHaveLength(4);
+      expect(gate.bodies.every((body) => body.destroyed)).toBe(true);
+    },
+  );
 
-  it('reports a failed later object instead of the aborts it causes', async () => {
-    const f = setup({ readConcurrency: 3 });
-    const keys = await seed(f, 5);
-    gatedStorage(f);
-    const missing = new Error('Runtime session object is missing');
-    const gated = f.storage.getObject.getMockImplementation()!;
-    f.storage.getObject.mockImplementation(async (key: string, signal) => {
-      if (key === keys[2]) throw missing;
-      return gated(key, signal);
-    });
-    const page = await f.service.read({ ...authority, storeId: 'store' });
-    // The head object is still pending; the failure must not wait for it.
-    await expect(collect(page.items)).rejects.toBe(missing);
-    for (const [, signal] of f.storage.getObject.mock.calls)
-      expect((signal as AbortSignal).aborted).toBe(true);
-    expect(f.storage.getObject).toHaveBeenCalledTimes(3);
-  });
+  it(
+    'reports a failed later object instead of the aborts it causes',
+    { timeout: 2000 },
+    async () => {
+      const f = setup({ readConcurrency: 3 });
+      const keys = await seed(f, 5);
+      gatedStorage(f);
+      const missing = new Error('Runtime session object is missing');
+      const gated = f.storage.getObject.getMockImplementation()!;
+      f.storage.getObject.mockImplementation(async (key: string, signal) => {
+        if (key === keys[2]) throw missing;
+        return gated(key, signal);
+      });
+      const page = await f.service.read({ ...authority, storeId: 'store' });
+      // The head object is still pending; the failure must not wait for it.
+      await expect(collect(page.items)).rejects.toBe(missing);
+      for (const [, signal] of f.storage.getObject.mock.calls)
+        expect((signal as AbortSignal).aborted).toBe(true);
+      expect(f.storage.getObject).toHaveBeenCalledTimes(3);
+    },
+  );
 
   it('yields the verified prefix, then rejects a corrupt object', async () => {
     const f = setup({ readConcurrency: 4 });
@@ -615,6 +627,25 @@ describe('concurrent ordered object reads', () => {
       })(),
     ).rejects.toThrow('Runtime commit 3 checksum mismatch');
     expect(seen).toEqual([1, 2]);
+  });
+
+  it('fails fast with the real error when a later corrupt object completes first', async () => {
+    const f = setup({ readConcurrency: 4 });
+    const keys = await seed(f, 4);
+    f.objects.set(keys[2], Buffer.from('corrupt'));
+    const gate = gatedStorage(f);
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    const seen: number[] = [];
+    const result = (async () => {
+      for await (const commit of page.items) seen.push(commit.seq);
+    })();
+    await vi.waitFor(() => expect(gate.started(keys[3])).toBe(true));
+    gate.release(keys[2]);
+    // Earlier objects never complete; the checksum failure must not wait for
+    // them, and must not be replaced by the aborts it causes.
+    await expect(result).rejects.toThrow('Runtime commit 3 checksum mismatch');
+    expect(seen).toEqual([]);
+    expect(gate.bodies.every((body) => body.destroyed)).toBe(true);
   });
 
   it('destroys an oversized object streamed in several chunks', async () => {

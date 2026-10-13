@@ -236,8 +236,8 @@ describe('conversation refresh telemetry', () => {
 
     expect(spans[1].status).toBeUndefined();
     expect(spans[1].ended).toBe(true);
-    expect(spans[1].attributes['moltnet.conversation.abort_reason']).toBe(
-      'This operation was aborted',
+    expect(spans[1].attributes['moltnet.conversation.aborted_by']).toBe(
+      'caller',
     );
   });
 
@@ -255,5 +255,8 @@ describe('conversation refresh telemetry', () => {
 
     expect(spans[1].status).toMatchObject({ code: SpanStatusCode.ERROR });
     expect(spans[1].exception).toBeDefined();
+    expect(spans[1].attributes['moltnet.conversation.aborted_by']).toBe(
+      'deadline',
+    );
   });
 });

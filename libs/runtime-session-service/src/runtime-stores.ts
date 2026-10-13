@@ -32,8 +32,8 @@ export function createRuntimeStoreService(deps: {
   permissionChecker: PermissionChecker;
   maxBytes: number;
   /**
-   * Object fetches in flight per read page (default 1: sequential, no
-   * read-ahead). Up to readConcurrency + 1 commits are held at once (in flight
+   * Object fetches in flight per read page; a positive integer (default 1:
+   * sequential, no read-ahead). Up to readConcurrency + 1 commits are held at once (in flight
    * plus the one the consumer holds), each transiently about three times its
    * stored size while it is verified and parsed.
    */
@@ -400,8 +400,6 @@ export function createRuntimeStoreService(deps: {
         ...(await commitTaskIds(store)),
         ...rows.map((row) => row.taskId),
       ]);
-      const fetchCommit = (row: (typeof rows)[number], signal: AbortSignal) =>
-        readCommit(deps.storage, deps.maxBytes, row, signal);
       return {
         headSeq: Math.min(store.headSeq, input.throughSeq ?? store.headSeq),
         count: rows.length,
@@ -410,7 +408,7 @@ export function createRuntimeStoreService(deps: {
         items: prefetchInOrder(
           rows,
           readConcurrency,
-          fetchCommit,
+          (row, signal) => readCommit(deps.storage, deps.maxBytes, row, signal),
           input.signal,
         ),
       };
@@ -472,10 +470,10 @@ async function readCommit(
 /**
  * Runs `fetch` over `items` with at most `concurrency` calls in flight and
  * yields results strictly in input order, refilling only when the consumer
- * asks for the next result. The first real failure aborts the
- * other fetches and is thrown in place of the abort errors it causes. Early
- * return, failure or caller abort aborts every in-flight fetch and waits for
- * it to settle, so `fetch` must honour its signal or closing will wait for it.
+ * asks for the next result. The first real failure aborts the other fetches
+ * and is thrown in place of the abort errors it causes. Early return, failure
+ * or caller abort aborts every in-flight fetch and waits for it to settle, so
+ * `fetch` must honour its signal or closing will wait for it.
  */
 async function* prefetchInOrder<T, R>(
   items: readonly T[],

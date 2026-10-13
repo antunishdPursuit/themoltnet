@@ -241,12 +241,14 @@ describe('conversation read benchmark', () => {
           await cold.close();
           t = performance.now();
           const warm = await f.service.open(input);
-          // Replay under concurrency must reconstruct the same state.
-          expect(warm.list()).toEqual(coldList);
+          const warmList = warm.list();
+          const warmMs = performance.now() - t;
+          // Sanity only: the warm reader is the cached cold replica. Ordered
+          // replay under concurrency is covered by runtime-stores tests.
+          expect(warmList).toEqual(coldList);
           expect(coldList.items).toEqual([
             expect.objectContaining({ kind: 'main' }),
           ]);
-          const warmMs = performance.now() - t;
           await warm.close();
           await f.service.close();
           const stats = f.stats();

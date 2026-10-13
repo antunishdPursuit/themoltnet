@@ -40,6 +40,32 @@ const record = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {};
 
+/**
+ * Why a refresh stopped early, if it did: `deadline` for a timeout, `caller`
+ * for a disconnect or shutdown. Undefined for a real failure, even one that
+ * races an abort, so it is still recorded as an error.
+ */
+function abortKind(
+  error: unknown,
+  signal: AbortSignal | undefined,
+): 'deadline' | 'caller' | undefined {
+  if (!signal?.aborted) return undefined;
+  const isAbort =
+    error === signal.reason ||
+    (error instanceof Error &&
+      (error.name === 'AbortError' || error.name === 'TimeoutError'));
+  if (!isAbort) return undefined;
+  return signal.reason instanceof Error && signal.reason.name === 'TimeoutError'
+    ? 'deadline'
+    : 'caller';
+}
+
+function recordFailure(span: Span, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  span.recordException(error instanceof Error ? error : new Error(message));
+  span.setStatus({ code: SpanStatusCode.ERROR, message });
+}
+
 /** An isolated read replica. Only Pi's public Storage methods run; no Harness, scheduler, models or writer lease. */
 export function createConversationService(deps: {
   stores: Stores;
@@ -154,25 +180,12 @@ export function createConversationService(deps: {
             span.setStatus({ code: SpanStatusCode.OK });
             return result;
           } catch (error) {
-            const reason: unknown = signal?.aborted ? signal.reason : undefined;
-            if (signal?.aborted)
-              span.setAttribute(
-                'moltnet.conversation.abort_reason',
-                reason instanceof Error ? reason.message : String(reason),
-              );
+            const aborted = abortKind(error, signal);
+            if (aborted)
+              span.setAttribute('moltnet.conversation.aborted_by', aborted);
             // A client disconnect or shutdown is not a read failure; a
-            // deadline (TimeoutError) is the slow read this span exists for.
-            if (
-              !signal?.aborted ||
-              (reason instanceof Error && reason.name === 'TimeoutError')
-            ) {
-              const message =
-                error instanceof Error ? error.message : String(error);
-              span.recordException(
-                error instanceof Error ? error : new Error(message),
-              );
-              span.setStatus({ code: SpanStatusCode.ERROR, message });
-            }
+            // deadline is the slow read this span exists to expose.
+            if (aborted !== 'caller') recordFailure(span, error);
             throw error;
           } finally {
             span.end();
@@ -284,9 +297,7 @@ export function createConversationService(deps: {
           'moltnet.conversation.commits_replayed': seq - replayedFrom,
           'moltnet.conversation.replay_bytes': bytes - bytesBefore,
           'moltnet.conversation.pages': pages,
-          // read_wait_ms: the replay loop minus apply_ms, i.e. object fetches,
-          // later-page authorization, the per-commit size pass and reader
-          // eviction. apply_ms: ancestry validation plus applying the commit.
+          // read_wait_ms is the replay loop's time minus apply_ms.
           'moltnet.conversation.read_wait_ms': Math.round(loopMs - applyMs),
           'moltnet.conversation.apply_ms': Math.round(applyMs),
         });
