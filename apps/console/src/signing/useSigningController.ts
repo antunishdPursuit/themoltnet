@@ -305,6 +305,7 @@ export function useSigningController(): SigningController {
           client: getApiClient(),
           headers: { 'x-moltnet-team-id': teamId },
           path: { id: credential.id },
+          body: {},
         });
         requireData(response, `Unable to ${action} signing credential`);
       }),

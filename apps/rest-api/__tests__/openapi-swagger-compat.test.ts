@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createMockServices, createTestApp } from './helpers.js';
 
 describe('OpenAPI Swagger compatibility', () => {
-  it('keeps artifact encoding parameters and optional signing transition bodies', async () => {
+  it('keeps artifact encoding parameters and requires signing transition bodies', async () => {
     const app = await createTestApp(createMockServices(), null);
     try {
       await app.ready();
@@ -29,7 +29,7 @@ describe('OpenAPI Swagger compatibility', () => {
         const operation =
           spec.paths?.[`/crypto/signing-credentials/{id}/${action}`]?.post;
         expect(operation?.requestBody).toBeDefined();
-        expect(operation?.requestBody).not.toHaveProperty('required', true);
+        expect(operation?.requestBody).toMatchObject({ required: true });
       }
     } finally {
       await app.close();

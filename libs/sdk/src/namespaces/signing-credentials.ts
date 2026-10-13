@@ -66,6 +66,7 @@ export function createSigningCredentialsNamespace(
           auth,
           headers: requiredTeamHeaders(options),
           path: { id },
+          body: {},
         }),
       );
     },
@@ -76,6 +77,7 @@ export function createSigningCredentialsNamespace(
           auth,
           headers: requiredTeamHeaders(options),
           path: { id },
+          body: {},
         }),
       );
     },
@@ -86,6 +88,7 @@ export function createSigningCredentialsNamespace(
           auth,
           headers: requiredTeamHeaders(options),
           path: { id },
+          body: {},
         }),
       );
     },

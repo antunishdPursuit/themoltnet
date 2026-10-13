@@ -1797,7 +1797,7 @@ func (s *Server) handleApproveSigningCredentialRequest(args [1]string, argsEscap
 		}
 
 		type (
-			Request  = OptApproveSigningCredentialReq
+			Request  = *ApproveSigningCredentialReq
 			Params   = ApproveSigningCredentialParams
 			Response = ApproveSigningCredentialRes
 		)
@@ -32572,7 +32572,7 @@ func (s *Server) handleRevokeSigningCredentialRequest(args [1]string, argsEscape
 		}
 
 		type (
-			Request  = OptRevokeSigningCredentialReq
+			Request  = *RevokeSigningCredentialReq
 			Params   = RevokeSigningCredentialParams
 			Response = RevokeSigningCredentialRes
 		)
@@ -35158,7 +35158,7 @@ func (s *Server) handleSuspendSigningCredentialRequest(args [1]string, argsEscap
 		}
 
 		type (
-			Request  = OptSuspendSigningCredentialReq
+			Request  = *SuspendSigningCredentialReq
 			Params   = SuspendSigningCredentialParams
 			Response = SuspendSigningCredentialRes
 		)

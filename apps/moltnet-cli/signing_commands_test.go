@@ -180,7 +180,7 @@ func (h *stubSigningCommandsHandler) GetSigningCredential(
 
 func (h *stubSigningCommandsHandler) ApproveSigningCredential(
 	_ context.Context,
-	_ moltnetapi.OptApproveSigningCredentialReq,
+	_ *moltnetapi.ApproveSigningCredentialReq,
 	_ moltnetapi.ApproveSigningCredentialParams,
 ) (moltnetapi.ApproveSigningCredentialRes, error) {
 	h.action = "approve"
@@ -189,7 +189,7 @@ func (h *stubSigningCommandsHandler) ApproveSigningCredential(
 
 func (h *stubSigningCommandsHandler) SuspendSigningCredential(
 	_ context.Context,
-	_ moltnetapi.OptSuspendSigningCredentialReq,
+	_ *moltnetapi.SuspendSigningCredentialReq,
 	_ moltnetapi.SuspendSigningCredentialParams,
 ) (moltnetapi.SuspendSigningCredentialRes, error) {
 	h.action = "suspend"
@@ -198,7 +198,7 @@ func (h *stubSigningCommandsHandler) SuspendSigningCredential(
 
 func (h *stubSigningCommandsHandler) RevokeSigningCredential(
 	_ context.Context,
-	_ moltnetapi.OptRevokeSigningCredentialReq,
+	_ *moltnetapi.RevokeSigningCredentialReq,
 	_ moltnetapi.RevokeSigningCredentialParams,
 ) (moltnetapi.RevokeSigningCredentialRes, error) {
 	h.action = "revoke"

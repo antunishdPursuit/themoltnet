@@ -217,7 +217,7 @@ func runSigningCredentialActionCmd(apiURL, credPath, teamID, id, action string, 
 	case "approve":
 		res, err = client.ApproveSigningCredential(
 			context.Background(),
-			moltnetapi.NewOptApproveSigningCredentialReq(moltnetapi.ApproveSigningCredentialReq{}),
+			&moltnetapi.ApproveSigningCredentialReq{},
 			moltnetapi.ApproveSigningCredentialParams{
 				ID: credentialID, XMoltnetTeamID: team,
 			},
@@ -225,7 +225,7 @@ func runSigningCredentialActionCmd(apiURL, credPath, teamID, id, action string, 
 	case "suspend":
 		res, err = client.SuspendSigningCredential(
 			context.Background(),
-			moltnetapi.NewOptSuspendSigningCredentialReq(moltnetapi.SuspendSigningCredentialReq{}),
+			&moltnetapi.SuspendSigningCredentialReq{},
 			moltnetapi.SuspendSigningCredentialParams{
 				ID: credentialID, XMoltnetTeamID: team,
 			},
@@ -233,7 +233,7 @@ func runSigningCredentialActionCmd(apiURL, credPath, teamID, id, action string, 
 	case "revoke":
 		res, err = client.RevokeSigningCredential(
 			context.Background(),
-			moltnetapi.NewOptRevokeSigningCredentialReq(moltnetapi.RevokeSigningCredentialReq{}),
+			&moltnetapi.RevokeSigningCredentialReq{},
 			moltnetapi.RevokeSigningCredentialParams{
 				ID: credentialID, XMoltnetTeamID: team,
 			},

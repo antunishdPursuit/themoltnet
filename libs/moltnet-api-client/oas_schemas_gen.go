@@ -36836,52 +36836,6 @@ func (o OptAgentKeyWithSecret) Or(d AgentKeyWithSecret) AgentKeyWithSecret {
 	return d
 }
 
-// NewOptApproveSigningCredentialReq returns new OptApproveSigningCredentialReq with value set to v.
-func NewOptApproveSigningCredentialReq(v ApproveSigningCredentialReq) OptApproveSigningCredentialReq {
-	return OptApproveSigningCredentialReq{
-		Value: v,
-		Set:   true,
-	}
-}
-
-// OptApproveSigningCredentialReq is optional ApproveSigningCredentialReq.
-type OptApproveSigningCredentialReq struct {
-	Value ApproveSigningCredentialReq
-	Set   bool
-}
-
-// IsSet returns true if OptApproveSigningCredentialReq was set.
-func (o OptApproveSigningCredentialReq) IsSet() bool { return o.Set }
-
-// Reset unsets value.
-func (o *OptApproveSigningCredentialReq) Reset() {
-	var v ApproveSigningCredentialReq
-	o.Value = v
-	o.Set = false
-}
-
-// SetTo sets value to v.
-func (o *OptApproveSigningCredentialReq) SetTo(v ApproveSigningCredentialReq) {
-	o.Set = true
-	o.Value = v
-}
-
-// Get returns value and boolean that denotes whether value was set.
-func (o OptApproveSigningCredentialReq) Get() (v ApproveSigningCredentialReq, ok bool) {
-	if !o.Set {
-		return v, false
-	}
-	return o.Value, true
-}
-
-// Or returns value if set, or given parameter if does not.
-func (o OptApproveSigningCredentialReq) Or(d ApproveSigningCredentialReq) ApproveSigningCredentialReq {
-	if v, ok := o.Get(); ok {
-		return v
-	}
-	return d
-}
-
 // NewOptBeginRuntimeSlotReqWorkspaceKind returns new OptBeginRuntimeSlotReqWorkspaceKind with value set to v.
 func NewOptBeginRuntimeSlotReqWorkspaceKind(v BeginRuntimeSlotReqWorkspaceKind) OptBeginRuntimeSlotReqWorkspaceKind {
 	return OptBeginRuntimeSlotReqWorkspaceKind{
@@ -40136,52 +40090,6 @@ func (o OptRelationType) Or(d RelationType) RelationType {
 	return d
 }
 
-// NewOptRevokeSigningCredentialReq returns new OptRevokeSigningCredentialReq with value set to v.
-func NewOptRevokeSigningCredentialReq(v RevokeSigningCredentialReq) OptRevokeSigningCredentialReq {
-	return OptRevokeSigningCredentialReq{
-		Value: v,
-		Set:   true,
-	}
-}
-
-// OptRevokeSigningCredentialReq is optional RevokeSigningCredentialReq.
-type OptRevokeSigningCredentialReq struct {
-	Value RevokeSigningCredentialReq
-	Set   bool
-}
-
-// IsSet returns true if OptRevokeSigningCredentialReq was set.
-func (o OptRevokeSigningCredentialReq) IsSet() bool { return o.Set }
-
-// Reset unsets value.
-func (o *OptRevokeSigningCredentialReq) Reset() {
-	var v RevokeSigningCredentialReq
-	o.Value = v
-	o.Set = false
-}
-
-// SetTo sets value to v.
-func (o *OptRevokeSigningCredentialReq) SetTo(v RevokeSigningCredentialReq) {
-	o.Set = true
-	o.Value = v
-}
-
-// Get returns value and boolean that denotes whether value was set.
-func (o OptRevokeSigningCredentialReq) Get() (v RevokeSigningCredentialReq, ok bool) {
-	if !o.Set {
-		return v, false
-	}
-	return o.Value, true
-}
-
-// Or returns value if set, or given parameter if does not.
-func (o OptRevokeSigningCredentialReq) Or(d RevokeSigningCredentialReq) RevokeSigningCredentialReq {
-	if v, ok := o.Get(); ok {
-		return v
-	}
-	return d
-}
-
 // NewOptRuntimeProfileListResponseItemsItemModelsClassification returns new OptRuntimeProfileListResponseItemsItemModelsClassification with value set to v.
 func NewOptRuntimeProfileListResponseItemsItemModelsClassification(v RuntimeProfileListResponseItemsItemModelsClassification) OptRuntimeProfileListResponseItemsItemModelsClassification {
 	return OptRuntimeProfileListResponseItemsItemModelsClassification{
@@ -41050,52 +40958,6 @@ func (o OptString) Get() (v string, ok bool) {
 
 // Or returns value if set, or given parameter if does not.
 func (o OptString) Or(d string) string {
-	if v, ok := o.Get(); ok {
-		return v
-	}
-	return d
-}
-
-// NewOptSuspendSigningCredentialReq returns new OptSuspendSigningCredentialReq with value set to v.
-func NewOptSuspendSigningCredentialReq(v SuspendSigningCredentialReq) OptSuspendSigningCredentialReq {
-	return OptSuspendSigningCredentialReq{
-		Value: v,
-		Set:   true,
-	}
-}
-
-// OptSuspendSigningCredentialReq is optional SuspendSigningCredentialReq.
-type OptSuspendSigningCredentialReq struct {
-	Value SuspendSigningCredentialReq
-	Set   bool
-}
-
-// IsSet returns true if OptSuspendSigningCredentialReq was set.
-func (o OptSuspendSigningCredentialReq) IsSet() bool { return o.Set }
-
-// Reset unsets value.
-func (o *OptSuspendSigningCredentialReq) Reset() {
-	var v SuspendSigningCredentialReq
-	o.Value = v
-	o.Set = false
-}
-
-// SetTo sets value to v.
-func (o *OptSuspendSigningCredentialReq) SetTo(v SuspendSigningCredentialReq) {
-	o.Set = true
-	o.Value = v
-}
-
-// Get returns value and boolean that denotes whether value was set.
-func (o OptSuspendSigningCredentialReq) Get() (v SuspendSigningCredentialReq, ok bool) {
-	if !o.Set {
-		return v, false
-	}
-	return o.Value, true
-}
-
-// Or returns value if set, or given parameter if does not.
-func (o OptSuspendSigningCredentialReq) Or(d SuspendSigningCredentialReq) SuspendSigningCredentialReq {
 	if v, ok := o.Get(); ok {
 		return v
 	}

@@ -328,11 +328,9 @@ export async function signingCredentialRoutes(fastify: FastifyInstance) {
           security: PRINCIPAL_AUTH_SECURITY,
           headers: TeamHeaderRequiredSchema,
           params: ParamsSchema,
-          body: Type.Optional(
-            Type.Object({
-              reason: Type.Optional(Type.String({ maxLength: 1000 })),
-            }),
-          ),
+          body: Type.Object({
+            reason: Type.Optional(Type.String({ maxLength: 1000 })),
+          }),
           response: {
             200: Type.Ref(SigningCredentialSchema.$id),
             401: Type.Ref(ProblemDetailsSchema.$id),
@@ -353,7 +351,7 @@ export async function signingCredentialRoutes(fastify: FastifyInstance) {
               action: transition.action,
               from: [...transition.from],
               to: transition.to,
-              reason: request.body?.reason,
+              reason: request.body.reason,
             });
           request.log.info(
             {

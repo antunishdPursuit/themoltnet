@@ -47,7 +47,7 @@ type Handler interface {
 	// ApproveSigningCredential implements approveSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/approve
-	ApproveSigningCredential(ctx context.Context, req OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
+	ApproveSigningCredential(ctx context.Context, req *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
 	// BatchDeleteDiaryEntries implements batchDeleteDiaryEntries operation.
 	//
 	// Delete multiple diary entries. Signed, unauthorized, and missing entries are skipped.
@@ -826,7 +826,7 @@ type Handler interface {
 	// RevokeSigningCredential implements revokeSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/revoke
-	RevokeSigningCredential(ctx context.Context, req OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
+	RevokeSigningCredential(ctx context.Context, req *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
 	// RevokeTaskGrant implements revokeTaskGrant operation.
 	//
 	// Revoke an explicit writer or manager task grant.
@@ -900,7 +900,7 @@ type Handler interface {
 	// SuspendSigningCredential implements suspendSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/suspend
-	SuspendSigningCredential(ctx context.Context, req OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
+	SuspendSigningCredential(ctx context.Context, req *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
 	// TaskHeartbeat implements taskHeartbeat operation.
 	//
 	// Send a heartbeat to keep the attempt lease alive.

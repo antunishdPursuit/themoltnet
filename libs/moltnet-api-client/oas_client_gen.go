@@ -68,7 +68,7 @@ type Invoker interface {
 	// ApproveSigningCredential invokes approveSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/approve
-	ApproveSigningCredential(ctx context.Context, request OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
+	ApproveSigningCredential(ctx context.Context, request *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error)
 	// BatchDeleteDiaryEntries invokes batchDeleteDiaryEntries operation.
 	//
 	// Delete multiple diary entries. Signed, unauthorized, and missing entries are skipped.
@@ -847,7 +847,7 @@ type Invoker interface {
 	// RevokeSigningCredential invokes revokeSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/revoke
-	RevokeSigningCredential(ctx context.Context, request OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
+	RevokeSigningCredential(ctx context.Context, request *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error)
 	// RevokeTaskGrant invokes revokeTaskGrant operation.
 	//
 	// Revoke an explicit writer or manager task grant.
@@ -921,7 +921,7 @@ type Invoker interface {
 	// SuspendSigningCredential invokes suspendSigningCredential operation.
 	//
 	// POST /crypto/signing-credentials/{id}/suspend
-	SuspendSigningCredential(ctx context.Context, request OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
+	SuspendSigningCredential(ctx context.Context, request *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error)
 	// TaskHeartbeat invokes taskHeartbeat operation.
 	//
 	// Send a heartbeat to keep the attempt lease alive.
@@ -2200,12 +2200,12 @@ func (c *Client) sendAppendTaskMessages(ctx context.Context, request *AppendTask
 // ApproveSigningCredential invokes approveSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/approve
-func (c *Client) ApproveSigningCredential(ctx context.Context, request OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error) {
+func (c *Client) ApproveSigningCredential(ctx context.Context, request *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (ApproveSigningCredentialRes, error) {
 	res, err := c.sendApproveSigningCredential(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendApproveSigningCredential(ctx context.Context, request OptApproveSigningCredentialReq, params ApproveSigningCredentialParams) (res ApproveSigningCredentialRes, err error) {
+func (c *Client) sendApproveSigningCredential(ctx context.Context, request *ApproveSigningCredentialReq, params ApproveSigningCredentialParams) (res ApproveSigningCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("approveSigningCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -25340,12 +25340,12 @@ func (c *Client) sendRevokeDiaryGrant(ctx context.Context, request *RevokeDiaryG
 // RevokeSigningCredential invokes revokeSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/revoke
-func (c *Client) RevokeSigningCredential(ctx context.Context, request OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error) {
+func (c *Client) RevokeSigningCredential(ctx context.Context, request *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (RevokeSigningCredentialRes, error) {
 	res, err := c.sendRevokeSigningCredential(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendRevokeSigningCredential(ctx context.Context, request OptRevokeSigningCredentialReq, params RevokeSigningCredentialParams) (res RevokeSigningCredentialRes, err error) {
+func (c *Client) sendRevokeSigningCredential(ctx context.Context, request *RevokeSigningCredentialReq, params RevokeSigningCredentialParams) (res RevokeSigningCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("revokeSigningCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -27226,12 +27226,12 @@ func (c *Client) sendSubmitSignature(ctx context.Context, request *SubmitSignatu
 // SuspendSigningCredential invokes suspendSigningCredential operation.
 //
 // POST /crypto/signing-credentials/{id}/suspend
-func (c *Client) SuspendSigningCredential(ctx context.Context, request OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error) {
+func (c *Client) SuspendSigningCredential(ctx context.Context, request *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (SuspendSigningCredentialRes, error) {
 	res, err := c.sendSuspendSigningCredential(ctx, request, params)
 	return res, err
 }
 
-func (c *Client) sendSuspendSigningCredential(ctx context.Context, request OptSuspendSigningCredentialReq, params SuspendSigningCredentialParams) (res SuspendSigningCredentialRes, err error) {
+func (c *Client) sendSuspendSigningCredential(ctx context.Context, request *SuspendSigningCredentialReq, params SuspendSigningCredentialParams) (res SuspendSigningCredentialRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("suspendSigningCredential"),
 		semconv.HTTPRequestMethodKey.String("POST"),

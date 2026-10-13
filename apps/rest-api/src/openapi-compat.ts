@@ -8,13 +8,7 @@ type Operation = {
     required?: boolean;
     schema?: Record<string, unknown>;
   }>;
-  requestBody?: { required?: boolean };
 };
-
-// These routes accept an omitted body because preValidation supplies `{}`.
-const optionalBodyPaths = ['approve', 'suspend', 'revoke'].map(
-  (action) => `/crypto/signing-credentials/{id}/${action}`,
-);
 
 // Swagger 9.9 treats a query property named `contentEncoding` as a JSON Schema
 // keyword and removes it while converting the query schema to parameters.
@@ -26,11 +20,6 @@ const artifactUploadPaths = [
 export const transformOpenApi: SwaggerTransformObject = (document) => {
   if (!('openapiObject' in document)) return document.swaggerObject;
   const openapi = document.openapiObject;
-
-  for (const path of optionalBodyPaths) {
-    const operation = openapi.paths?.[path]?.post as Operation | undefined;
-    if (operation?.requestBody) delete operation.requestBody.required;
-  }
 
   for (const path of artifactUploadPaths) {
     const operation = openapi.paths?.[path]?.put as Operation | undefined;

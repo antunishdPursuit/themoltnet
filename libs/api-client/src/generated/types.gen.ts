@@ -4202,7 +4202,7 @@ export type GetSigningCredentialResponse =
   GetSigningCredentialResponses[keyof GetSigningCredentialResponses];
 
 export type ApproveSigningCredentialData = {
-  body?: {
+  body: {
     reason?: string;
   };
   headers: {
@@ -4259,7 +4259,7 @@ export type ApproveSigningCredentialResponse =
   ApproveSigningCredentialResponses[keyof ApproveSigningCredentialResponses];
 
 export type RevokeSigningCredentialData = {
-  body?: {
+  body: {
     reason?: string;
   };
   headers: {
@@ -4316,7 +4316,7 @@ export type RevokeSigningCredentialResponse =
   RevokeSigningCredentialResponses[keyof RevokeSigningCredentialResponses];
 
 export type SuspendSigningCredentialData = {
-  body?: {
+  body: {
     reason?: string;
   };
   headers: {
