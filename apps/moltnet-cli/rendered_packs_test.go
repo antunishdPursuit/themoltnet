@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -23,6 +24,8 @@ type stubRenderedPacksHandler struct {
 	listRenderMethod  string
 	getCalls          int
 	getID             uuid.UUID
+	latestCalls       int
+	latestSourceID    uuid.UUID
 	updateCalls       int
 	updateID          uuid.UUID
 	updateDescription moltnetapi.OptNilString
@@ -85,6 +88,81 @@ func (h *stubRenderedPacksHandler) GetRenderedPackById(
 		Creator:      creator,
 		Pinned:       false,
 	}, nil
+}
+
+func (h *stubRenderedPacksHandler) GetLatestRenderedPack(
+	_ context.Context,
+	params moltnetapi.GetLatestRenderedPackParams,
+) (moltnetapi.GetLatestRenderedPackRes, error) {
+	h.latestCalls++
+	h.latestSourceID = params.ID
+	creator := moltnetapi.RenderedPackWithContentCreator{Type: moltnetapi.AgentPrincipalRenderedPackWithContentCreator}
+	creator.SetAgentPrincipal(testAgentPrincipal())
+	return &moltnetapi.RenderedPackWithContent{
+		ID:           uuid.MustParse("aa000000-0000-0000-0000-000000000001"),
+		PackCid:      "bafy-latest",
+		SourcePackId: params.ID,
+		DiaryId:      uuid.MustParse("cc000000-0000-0000-0000-000000000001"),
+		Content:      "# Latest",
+		ContentHash:  "sha256:latest",
+		RenderMethod: "agent-refined",
+		TotalTokens:  200,
+		Creator:      creator,
+	}, nil
+}
+
+func TestRunRenderedPacksLatest(t *testing.T) {
+	h := &stubRenderedPacksHandler{}
+	ts := newRenderedPacksTestServer(t, h)
+	credPath := writeRenderedPacksCreds(t, ts.URL)
+	sourcePackID := "bb000000-0000-0000-0000-000000000001"
+
+	var stdout bytes.Buffer
+	if err := runRenderedPacksLatest(&stdout, ts.URL, credPath, sourcePackID); err != nil {
+		t.Fatalf("runRenderedPacksLatest: %v", err)
+	}
+	if h.latestCalls != 1 || h.latestSourceID.String() != sourcePackID {
+		t.Errorf("latest lookup = %d calls for %s", h.latestCalls, h.latestSourceID)
+	}
+	if !strings.Contains(stdout.String(), "bafy-latest") || !strings.Contains(stdout.String(), "# Latest") {
+		t.Errorf("latest JSON missing pack content: %s", stdout.String())
+	}
+}
+
+func TestRunRenderedPacksLatestInvalidID(t *testing.T) {
+	err := runRenderedPacksLatest(&bytes.Buffer{}, "http://localhost", "", "bad")
+	if err == nil || !strings.Contains(err.Error(), "invalid --source-pack-id") {
+		t.Fatalf("error = %v, want invalid source pack ID", err)
+	}
+}
+
+func TestRunRenderedPacksLatestFormatsAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/oauth2/token" {
+			_, _ = w.Write([]byte(`{"access_token":"test","token_type":"Bearer","expires_in":3600}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"code":"NOT_FOUND","type":"about:blank","status":404,"title":"Not Found","detail":"no rendered pack"}`))
+	}))
+	defer server.Close()
+	credPath := writeRenderedPacksCreds(t, server.URL)
+
+	err := runRenderedPacksLatest(&bytes.Buffer{}, server.URL, credPath, "bb000000-0000-0000-0000-000000000001")
+	if err == nil || !strings.Contains(err.Error(), "no rendered pack") {
+		t.Fatalf("error = %v, want API detail", err)
+	}
+}
+
+func TestRenderedPacksLatestHelp(t *testing.T) {
+	stdout, _, err := executeCommand(newRenderedPacksLatestCmd(), "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "--source-pack-id") {
+		t.Errorf("help missing --source-pack-id: %s", stdout)
+	}
 }
 
 func (h *stubRenderedPacksHandler) UpdateRenderedPack(

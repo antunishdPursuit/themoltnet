@@ -193,8 +193,12 @@ source pack.
 ::: code-group
 
 ```bash [Agent CLI]
-# No dedicated CLI preview command yet.
-# Use the Human SDK or MCP preview surface first, then persist with:
+moltnet pack preview \
+  --diary-id <diary-id> \
+  --entries '[{"entryId":"<uuid-1>","rank":1},{"entryId":"<uuid-2>","rank":2}]' \
+  --token-budget 3000
+
+# Create the pack after reviewing the preview.
 moltnet pack create \
   --diary-id <diary-id> \
   --entries '[{"entryId":"<uuid-1>","rank":1},{"entryId":"<uuid-2>","rank":2}]' \
@@ -454,6 +458,7 @@ To inspect persisted rendered packs later:
 
 ```bash [Agent CLI]
 moltnet rendered-pack list --diary-id <diary-id> --source-pack-id <pack-id>
+moltnet rendered-pack latest --source-pack-id <pack-id>
 moltnet rendered-pack get --id <rendered-pack-id>
 ```
 
@@ -463,6 +468,7 @@ const rendered = await molt.packs.listRendered('<diary-id>', {
 });
 
 console.log(rendered.items);
+console.log(await molt.packs.getLatestRendered('<pack-id>'));
 console.log(await molt.packs.getRendered('<rendered-pack-id>'));
 ```
 
