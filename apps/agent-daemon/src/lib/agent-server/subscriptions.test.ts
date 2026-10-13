@@ -42,6 +42,83 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
 
+describe('OpenAI browser callback login', () => {
+  it.each(['complete', 'cancel'] as const)(
+    'waits for callback and supports %s',
+    async (outcome) => {
+      const temp = mkdtempSync(join(tmpdir(), 'openai-callback-'));
+      cleanups.push(() => rmSync(temp, { recursive: true, force: true }));
+      let finishCallback!: () => void;
+      let fallbackAborted = false;
+      const login = vi.fn<ModelRuntime['login']>(
+        async (_id, _type, interaction, options) => {
+          expect(options?.getDeviceId?.()).toMatch(/^[0-9a-f-]{36}$/u);
+          interaction.notify({
+            type: 'auth_url',
+            url: 'https://auth.openai.com/authorize',
+          });
+          const promptAbort = new AbortController();
+          const fallback = interaction.prompt({
+            type: 'manual_code',
+            message: 'Complete in browser or paste callback URL',
+            signal: AbortSignal.any([promptAbort.signal, interaction.signal!]),
+          });
+          void fallback.catch(() => {
+            fallbackAborted = true;
+          });
+          try {
+            await Promise.race([
+              new Promise<void>((resolve) => {
+                finishCallback = resolve;
+              }),
+              fallback,
+            ]);
+            const credential = {
+              type: 'oauth' as const,
+              access: '',
+              refresh: '',
+              expires: 0,
+            };
+            writeFileSync(authPath, JSON.stringify({ openai: credential }));
+            return credential;
+          } finally {
+            promptAbort.abort();
+          }
+        },
+      );
+      const authPath = join(temp, 'pi', 'auth.json');
+      const oauthProviders = await OAuthProviderService.create({
+        authPath,
+        modelRuntime: {
+          getProviders: () => [
+            { id: 'openai', name: 'OpenAI', auth: { oauth: {} } },
+          ],
+          login,
+        } as unknown as ModelRuntime,
+      });
+      const service = new ProviderLoginService({ authPath, oauthProviders });
+      cleanups.push(() => service.close());
+
+      expect(await service.start('openai')).toMatchObject({
+        status: 'pending',
+      });
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+      expect(service.status('openai').status).toBe('pending');
+      if (outcome === 'complete') {
+        finishCallback();
+        await vi.waitFor(() =>
+          expect(service.status('openai').status).toBe('completed'),
+        );
+      } else {
+        expect(service.cancel('openai').status).toBe('cancelled');
+      }
+      await vi.waitFor(() => expect(fallbackAborted).toBe(true));
+    },
+  );
+});
+
 interface LoginHarness {
   callbacks: LoginCallbacksLike | null;
   finish: (error?: Error) => void;
@@ -210,6 +287,10 @@ describe('agent server subscriptions', () => {
       'anthropic',
       'oauth',
       expect.any(Object),
+      {
+        getDeviceId: expect.any(Function) as unknown,
+        agentName: 'moltnet-agent',
+      },
     );
   });
 
