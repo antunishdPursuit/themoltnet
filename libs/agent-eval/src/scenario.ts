@@ -5,7 +5,7 @@
  *
  * - `prompt.md`   — the scenario prompt (free-form Markdown). Becomes
  *                   `RunEvalInput.scenario.prompt`.
- * - `eval.json`   — `{ mode, workspace, scoring?, contextRecipe?, fixtures? }`. A
+ * - `eval.json`   — `{ mode, workspace, scoring?, blocking?, contextRecipe?, fixtures? }`. A
  *                   context recipe injects versioned producer guidance;
  *                   fixtures may seed a shared workspace and/or bind
  *                   scenario-local files as staged task input artifacts.
@@ -191,6 +191,13 @@ export interface Scenario {
   taskType: ScenarioTaskType;
   /** Gate-only scenarios score 1 for a clean, valid submission and 0 otherwise. */
   scoring: 'judge' | 'gates_only';
+  /**
+   * Whether a gate failure in the per-PR live lane fails the build, from
+   * `eval.json`'s optional `blocking` (default `true`). A non-blocking scenario
+   * that never passes is reported as a warning instead, so its failure rate
+   * stays visible without gating merges on known model variance.
+   */
+  blocking: boolean;
   /** Optional freeform result contract advertised to the producer. */
   outputContract?: { version: 1; schema: Record<string, unknown> };
   /**
