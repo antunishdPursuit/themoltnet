@@ -874,7 +874,7 @@ export function createDurableTaskExecutor(options: {
         (connection?.signal.aborted && !reporter.cancelSignal.aborted)
       )
         throw new TaskExecutionInterrupted(
-          'Durable execution interrupted; attempt remains resumable',
+          'Durable execution interrupted; reconcile the attempt before resuming',
           { cause: error },
         );
       if (reporterOpen)

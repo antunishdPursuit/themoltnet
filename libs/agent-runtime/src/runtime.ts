@@ -136,6 +136,7 @@ export class AgentRuntime {
           : otelContext.active();
         const taskStart = Date.now();
         let output: TaskOutput;
+        let alreadyFinalized = false;
         try {
           output = await otelContext.with(taskCtx, () =>
             traceRuntimePhase(
@@ -170,32 +171,40 @@ export class AgentRuntime {
         } catch (err) {
           if (err instanceof TaskExecutionInterrupted) {
             await reporter.close();
-            taskLogger.warn(
-              { reason: err.message },
-              'agent-runtime.task_interrupted',
-            );
-            throw err;
+            const settled = await reporter
+              .reconcileAttempt?.()
+              .catch((cause: unknown) => {
+                taskLogger.warn(
+                  { err: cause },
+                  'agent-runtime.attempt_reconciliation_failed',
+                );
+                return null;
+              });
+            if (!settled) {
+              taskLogger.warn(
+                { err, reason: err.message },
+                'agent-runtime.task_interrupted',
+              );
+              throw err;
+            }
+            output = settled;
+            alreadyFinalized = true;
+          } else {
+            // Executor setup failures are ordinary failed outputs. An
+            // interrupted attempt above must first be reconciled with the API.
+            const message = err instanceof Error ? err.message : String(err);
+            const usage: TaskUsage = { inputTokens: 0, outputTokens: 0 };
+            output = {
+              taskId: claimedTask.task.id,
+              attemptN: claimedTask.attemptN,
+              status: 'failed',
+              output: null,
+              outputCid: null,
+              usage,
+              durationMs: Date.now() - taskStart,
+              error: { code: 'executor_threw', message, retryable: false },
+            };
           }
-          // Contract: executors resolve with `status: 'failed'` on agent
-          // failure, but they may still throw on unrecoverable setup errors
-          // (snapshot build, VM resume, unexpected bugs). Convert those into
-          // a structured failure so the loop drains the source predictably.
-          const message = err instanceof Error ? err.message : String(err);
-          const usage: TaskUsage = { inputTokens: 0, outputTokens: 0 };
-          output = {
-            taskId: claimedTask.task.id,
-            attemptN: claimedTask.attemptN,
-            status: 'failed',
-            output: null,
-            outputCid: null,
-            usage,
-            durationMs: Date.now() - taskStart,
-            error: {
-              code: 'executor_threw',
-              message,
-              retryable: false,
-            },
-          };
         }
 
         // If the reporter observed cancellation while the executor was
@@ -205,7 +214,11 @@ export class AgentRuntime {
         // executors that ignored the signal (or finished mid-flight
         // before noticing) so the runtime never reports `completed` for
         // a cancelled task (#938).
-        if (reporter.cancelSignal.aborted && output.status !== 'cancelled') {
+        if (
+          !alreadyFinalized &&
+          reporter.cancelSignal.aborted &&
+          output.status !== 'cancelled'
+        ) {
           output = {
             ...output,
             status: 'cancelled',
@@ -247,7 +260,7 @@ export class AgentRuntime {
         // every task because `start()` never returns. Errors are
         // logged but do not abort the drain loop: one task's wire-
         // finalize failure must not block the next claim.
-        if (this.opts.onTaskFinished) {
+        if (!alreadyFinalized && this.opts.onTaskFinished) {
           try {
             await this.opts.onTaskFinished(output, claimedTask);
           } catch (err) {

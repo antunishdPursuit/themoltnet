@@ -1,4 +1,4 @@
-import type { TaskMessage, TaskUsage } from '@moltnet/tasks';
+import type { TaskMessage, TaskOutput, TaskUsage } from '@moltnet/tasks';
 
 /**
  * Append-only event sink for a single task attempt.
@@ -38,6 +38,12 @@ export interface TaskReporter {
 
   /** Flush buffers + release resources. Called once. Idempotent. */
   close(): Promise<void>;
+
+  /** Read the authoritative outcome after interrupted execution. Null means
+   * the attempt is still active or its outcome cannot be established. Never
+   * finalizes the attempt. Local reporters do not need this method.
+   */
+  reconcileAttempt?(): Promise<TaskOutput | null>;
 
   /**
    * Signal that aborts when the task is cancelled by the proposer (or a

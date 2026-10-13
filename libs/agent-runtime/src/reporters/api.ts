@@ -1,4 +1,8 @@
-import { type TaskMessage, type TaskUsage } from '@moltnet/tasks';
+import {
+  type TaskMessage,
+  type TaskOutput,
+  type TaskUsage,
+} from '@moltnet/tasks';
 import type { TasksNamespace } from '@themoltnet/sdk';
 
 import { addActiveTaskEvent, traceRuntimePhase } from '../telemetry.js';
@@ -303,6 +307,51 @@ export class ApiTaskReporter implements TaskReporter {
         );
       }
     }
+  }
+
+  async reconcileAttempt(): Promise<TaskOutput | null> {
+    if (!this.taskId) return null;
+    const attempts = await this.opts.tasks.listAttempts(this.taskId, {
+      ...(this.opts.teamId ? { teamId: this.opts.teamId } : {}),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const attempt = attempts.find((item) => item.attemptN === this.attemptN);
+    if (
+      !attempt ||
+      attempt.status === 'claimed' ||
+      attempt.status === 'running'
+    )
+      return null;
+    const status =
+      attempt.status === 'completed'
+        ? 'completed'
+        : attempt.status === 'cancelled'
+          ? 'cancelled'
+          : 'failed';
+    return {
+      taskId: this.taskId,
+      attemptN: this.attemptN,
+      status,
+      output: attempt.output,
+      outputCid: attempt.outputCid,
+      usage: attempt.usage ?? { inputTokens: 0, outputTokens: 0 },
+      durationMs: Math.max(
+        0,
+        Date.parse(attempt.completedAt ?? attempt.claimedAt) -
+          Date.parse(attempt.startedAt ?? attempt.claimedAt),
+      ),
+      ...(attempt.error
+        ? { error: attempt.error }
+        : status === 'failed'
+          ? {
+              error: {
+                code: attempt.status,
+                message: `Attempt ${attempt.status}`,
+                retryable: false,
+              },
+            }
+          : {}),
+    };
   }
 
   private throwIfPendingError(): void {
