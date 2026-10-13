@@ -13,6 +13,7 @@ export type {
   ProblemsNamespace,
   PublicNamespace,
   RecoveryNamespace,
+  RelationsNamespace,
   RuntimeProfileRequestOptions,
   RuntimeProfilesNamespace,
   RuntimeSessionDownloadStream,
