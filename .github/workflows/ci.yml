@@ -740,6 +740,13 @@ jobs:
             # is genuinely broken; don't loop.
             if [ "$elapsed" -gt 30 ]; then
               echo "::error::nx-cloud start-agent failed after $elapsed s — not retrying"
+              # The agent may have died holding tasks (e.g. a 5xx while
+              # uploading results). Nx Cloud does not reassign them, so the
+              # orchestrator would wait out its job timeout. This job's failure
+              # already fails the run, so close the execution now and let the
+              # orchestrator fail fast.
+              pnpm exec nx-cloud complete-ci-run ||
+                echo "::warning::nx-cloud complete-ci-run failed; the orchestrator will wait for its timeout"
               exit 1
             fi
             echo "::warning::nx-cloud start-agent attempt $attempt failed early ($elapsed s), retrying in $((attempt * 10))s..."
