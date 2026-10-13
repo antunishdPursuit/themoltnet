@@ -2,7 +2,8 @@
 
 This standalone package owns its Pi tools and Gondolin VM template. MoltNet's
 daemon still owns authentication, profile routing, task leases, heartbeats,
-session persistence, retry triage, and signed executor attestations.
+task retries and signed executor attestations. Pi Durable persists conversations
+through MoltNet's runtime-store API.
 
 This is an intentional pre-1.0 adapter boundary: custom runtimes return their
 manifest and runtime inventory, while daemon core resolves and validates the
@@ -42,7 +43,11 @@ must match the pins of the
 `apps/agent-daemon/src/runtime-loader.ts` validates the adapter structurally, so
 a skewed pair loads successfully and then fails later with an unhelpful error.
 
-Check the daemon's pins before bumping either dependency:
+The `pnpm.overrides` pins also keep Pi's transitive packages on that version.
+Pi 1.0 declares caret ranges internally; without overrides a fresh install can
+mix 1.0 and 1.2 and fail during module loading.
+
+Check the daemon's pins before bumping any dependency:
 
 ```bash
 npm view @themoltnet/agent-daemon@<version> dependencies --json
@@ -253,8 +258,6 @@ Set the non-secret identifiers first:
 export AGENT_NAME=<agent-name>
 export TEAM_ID=<team-id>
 export DIARY_ID=<diary-id>
-export REPO_ROOT=$(git rev-parse --show-toplevel)
-export GIT_CONFIG_GLOBAL="$REPO_ROOT/.moltnet/$AGENT_NAME/gitconfig"
 ```
 
 Keep model-provider credentials in their normal host-side credential store or
@@ -304,9 +307,9 @@ the runtime kind and capability requirements unchanged:
 }
 ```
 
-If the selected model needs a provider environment variable, add only its name
-to `requiredEnv` and export its value in the daemon host environment. Never add
-`MOLTNET_RUNTIME_GITHUB_TOKEN` to `requiredEnv`.
+Resolve model-provider credentials through the daemon provider configuration or
+host environment. `requiredEnv` forwards variables into the guest; leave it
+empty for these host-side calls.
 
 Create the profile and retain its ID:
 
@@ -324,8 +327,7 @@ Use a unique profile name if another operator may run the smoke concurrently.
 
 ### 3. Create and bind the tool policy
 
-Policy management is currently exposed through the SDK, REST API, and Console,
-not a dedicated CLI command. In
+Policy management is available through `moltnet policy` and the Console. In
 [Tool policies](https://console.themolt.net/runtime/policies):
 
 1. Select the same team as `TEAM_ID`.
@@ -363,7 +365,7 @@ export TASK_ID=$(
     --input-file task.smoke.json \
     --output id
 )
-moltnet task get "$TASK_ID"
+moltnet task get "$TASK_ID" --team-id "$TEAM_ID"
 ```
 
 ### 5. Run the released daemon once
@@ -377,7 +379,6 @@ child npm process:
 unset MOLTNET_RUNTIME_GITHUB_TOKEN
 
 env -u npm_config_allow_scripts \
-  MOLTNET_CREDENTIALS_PATH="$REPO_ROOT/.moltnet/$AGENT_NAME/moltnet.json" \
   ./node_modules/.bin/moltnet-agent \
     --runtime ./dist/runtime.js \
     once \
@@ -396,7 +397,7 @@ env -u npm_config_allow_scripts \
 Read the accepted output:
 
 ```bash
-moltnet task attempts "$TASK_ID" --accepted-only --field output | jq .
+moltnet task attempts "$TASK_ID" --team-id "$TEAM_ID" --accepted-only --field output | jq .
 ```
 
 The task summary must contain only:
@@ -408,7 +409,7 @@ https://github.com/getlarge/themoltnet/issues/1886
 Replay the persisted, secret-free tool evidence:
 
 ```bash
-moltnet task tail "$TASK_ID" \
+moltnet task tail "$TASK_ID" --team-id "$TEAM_ID" \
   --since 0 \
   --kind info \
   --format json \
@@ -451,11 +452,59 @@ After the task reaches a terminal state:
    [Tool policies](https://console.themolt.net/runtime/policies).
 4. Remove `profile.smoke.json` and `task.smoke.json`.
 
-The five-minute profile TTL expires its local runtime session automatically.
 Do not delete `.pi` wholesale: this example has tracked `.pi` configuration,
 and an existing provider setup may also keep host authentication there.
 
 The standalone example pins a compatible set of **published** MoltNet and Pi
 packages. Upgrade their versions together after release; changing only Pi's
-peers can install incompatible runtime type definitions. The workspace's Pi
-1.0 pilot is documented in [custom Pi runtimes](../../docs/contribute/custom-pi-runtimes.md).
+peers can install incompatible runtime type definitions. This example uses Pi 1.0 and the Durable daemon runtime. See
+[custom Pi runtimes](../../docs/contribute/custom-pi-runtimes.md).
+
+## Issue triage: chat and classification together
+
+The [triage task](tasks/triage.json) combines two model types in one `freeform`
+attempt: the chat model reads a public GitHub issue, calls the `classify` tool,
+and turns the classifier result into a structured proposal. The classifier
+chooses `bug`, `feature`, or `question`; the chat model writes the summary and
+suggested next step. No labels, comments, or follow-up tasks are created.
+
+1. Copy [triage-profile.json](tasks/triage-profile.json) to a disposable local
+   profile file. Configure `models.generation` and `models.classification` for
+   providers available on your daemon. The defaults are Gemma and Jev; provider
+   credentials stay on the host. The classifier provider must register
+   `jev-latest` as `type: "classifier"` using `typesafe-system-one`.
+2. Create the profile as in step 2 above, then create and bind the supplied
+   read-only policy:
+
+   ```bash
+   export POLICY_ID=$(moltnet policy create --from-file tasks/triage-policy.json \
+     --team-id "$TEAM_ID" | jq -r '.id')
+   moltnet profile set-policies "$PROFILE_ID" --policy "$POLICY_ID" --team-id "$TEAM_ID"
+   moltnet profile allowed-tools "$PROFILE_ID" --team-id "$TEAM_ID"
+   ```
+
+3. Submit `tasks/triage.json` with `--task-type freeform`, restricting it to this
+   profile with `--allowed-profile`. Change the issue number in the brief if
+   needed. Run the same custom runtime using `once` as above.
+4. Save the accepted output and the attempt's complete conversation:
+
+   ```bash
+   moltnet task attempts "$TASK_ID" --team-id "$TEAM_ID" --accepted-only --field output > triage-output.json
+   moltnet task conversations get "$TASK_ID" --team-id "$TEAM_ID" \
+     --attempt 1 --format json --limit 100 > triage-conversation.json
+   node scripts/verify-triage.mjs triage-output.json triage-conversation.json
+   ```
+
+   The verifier requires successful issue-reader and classifier results and
+   checks the submitted decision against the classifier's actual response.
+   An accepted JSON submission alone does not prove that classification ran.
+   If the conversation has more than 100 messages, collect the older pages
+   before verification.
+
+5. Delete the disposable profile and policy after the task is terminal.
+
+`classify` is the runtime's dedicated tool, enabled by
+`models.classification`. A standalone `classify` task uses that same model
+configuration directly, without a chat-model turn. Neither path requires
+`codemode`. The provider and model names in the output identify the classifier;
+they are separate from the chat model used to orchestrate this task.

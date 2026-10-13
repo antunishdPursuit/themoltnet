@@ -1,0 +1,24 @@
+{
+  "allowedWorkspaceModes": ["none"],
+  "defaultWorkspaceMode": "none",
+  "maxTurns": 8,
+  "models": {
+    "classification": {
+      "model": "jev-latest",
+      "provider": "typesafe"
+    },
+    "generation": {
+      "maxOutputTokens": 2048,
+      "model": "gemma4:31b",
+      "provider": "ollama-cloud",
+      "thinkingLevel": "off"
+    }
+  },
+  "name": "custom-pi-issue-triage",
+  "requiredEnv": [],
+  "requiredExecutables": ["git", "node", "npm"],
+  "requiredTools": ["github_issue_read", "classify"],
+  "runtimeKind": "example_pi",
+  "sandbox": {},
+  "toolEnforcement": "enforce"
+}

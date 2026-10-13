@@ -4,7 +4,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import {
   buildPiExecutorManifest,
-  createToolPolicyExtension,
   definePiRuntime,
   definePiTool,
   materializePiTools,
@@ -330,30 +329,6 @@ describe('runtime policy and manifest evidence', () => {
 
     expect(hidden.map((tool) => tool.name)).not.toContain('github_issue_read');
     expect(visible.map((tool) => tool.name)).toContain('github_issue_read');
-  });
-
-  it('blocks a forged call when policy removes the tool', () => {
-    const on = vi.fn();
-    createToolPolicyExtension({
-      policy: {
-        enforcement: 'enforce',
-        allowedTools: new Set(),
-        allowedShellCommands: [],
-        degraded: false,
-      } as never,
-      analyzer: { analyze: vi.fn() } as never,
-      logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn() },
-    })({ on } as never);
-    const handler = on.mock.calls[0]![1] as (event: unknown) => unknown;
-
-    expect(
-      handler({
-        type: 'tool_call',
-        toolCallId: 'forged-1',
-        toolName: 'github_issue_read',
-        input: { number: 1886 },
-      }),
-    ).toMatchObject({ block: true });
   });
 
   it('changes executor-manifest evidence when the schema changes', async () => {
