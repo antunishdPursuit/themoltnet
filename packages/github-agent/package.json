@@ -54,6 +54,9 @@
       "type:client",
       "scope:identity",
       "platform:cli"
-    ]
+    ],
+    "targets": {
+      "check:externals": {}
+    }
   }
 }

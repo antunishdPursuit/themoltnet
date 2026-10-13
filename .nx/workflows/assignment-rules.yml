@@ -5,8 +5,9 @@
 # GitHub-hosted runner label is wired into ci.yml.
 
 assignment-rules:
-  # Lint, secretlint and typecheck are CPU-light; pack them densely.
-  - targets: [lint, secretlint, typecheck]
+  # Lint, secretlint, typecheck and the bundle externals check are CPU-light;
+  # pack them densely.
+  - targets: [lint, secretlint, typecheck, 'check:externals']
     run-on:
       - agent: linux-medium
         parallelism: 3

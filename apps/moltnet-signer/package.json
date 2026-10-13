@@ -44,7 +44,10 @@
       "type:app",
       "scope:identity",
       "platform:server"
-    ]
+    ],
+    "targets": {
+      "check:externals": {}
+    }
   },
   "dependencies": {
     "@fastify/cors": "catalog:",

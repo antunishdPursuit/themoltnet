@@ -404,6 +404,17 @@ tag. Release builds never move the CI-only `:ci-main` tag.
 
 > **Bootstrap:** every e2e image needs a `:ci-main` tag before PRs can fall back to unaffected images. Seed all five once with a full main image build when initializing a new registry; normal main runs then update only images affected by that change.
 
+### Bundle externals must be declared
+
+The image installs only what the app declares (`pnpm deploy --prod`), while
+Vite decides which imports stay external in `dist/`. Adding a package to the
+root manifest can change that decision. Every Vite-bundled app or published
+bundle opts into `check:externals` (`"check:externals": {}` under
+`package.json#nx.targets`; the definition lives in `nx.json` `targetDefaults`).
+It runs `tools/check-bundle-externals.mjs` on the build output and fails when a
+bare import is missing from `dependencies`. `@nx/dependency-checks` cannot do
+this: it reads source imports, not the bundle.
+
 ### Two env-var skip switches the build relies on
 
 `pnpm install --prod` in the build stage triggers the root `postinstall` and `prepare` scripts, neither of which makes sense in a Docker layer:

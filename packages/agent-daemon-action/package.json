@@ -60,7 +60,8 @@
           "cwd": "{workspaceRoot}",
           "command": "node --import tsx tools/src/release/github-action-publisher.ts --project @themoltnet/agent-daemon-action --entries main.js"
         }
-      }
+      },
+      "check:externals": {}
     },
     "tags": [
       "type:client",
