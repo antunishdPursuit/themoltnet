@@ -29,6 +29,14 @@ export function createRuntimeStoreRepository(db: Database) {
   return {
     async lockAuthority(input: RuntimeStoreAuthority) {
       transactionRequired();
+      // A joined locking SELECT alone lets the query plan choose lock order.
+      // Lifecycle writes lock task then attempt; fence the task first here too.
+      const [task] = await getExecutor(db)
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(and(eq(tasks.id, input.taskId), eq(tasks.teamId, input.teamId)))
+        .for('no key update');
+      if (!task) return null;
       const [row] = await getExecutor(db)
         .select({ task: tasks, attempt: taskAttempts })
         .from(tasks)

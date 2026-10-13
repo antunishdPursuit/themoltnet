@@ -458,3 +458,57 @@ describe('startAttemptWorkflow — failed attempt retry policy', () => {
     );
   });
 });
+
+describe('lifecycle transaction lock ordering', () => {
+  it.each([
+    [null],
+    [{ kind: 'started' }, null],
+    [{ kind: 'started' }, { kind: 'completed' }],
+    [{ kind: 'started' }, { kind: 'failed' }],
+  ])('updates tasks before attempts for events %j', async (...events) => {
+    vi.clearAllMocks();
+    _resetTaskWorkflowsForTesting();
+    const transactions: string[][] = [];
+    let writes: string[] = [];
+    const deps = makeDeps({
+      transactionRunner: {
+        runInTransaction: async (fn) => {
+          writes = [];
+          const result = await fn();
+          transactions.push(writes);
+          return result;
+        },
+      },
+      updateTaskStatus: async () => {
+        writes.push('task');
+        return null;
+      },
+      updateTaskStatusIfNotIn: async () => {
+        writes.push('task');
+        return null;
+      },
+      updateAttempt: async () => {
+        writes.push('attempt');
+        return null;
+      },
+    });
+    setTaskWorkflowDeps(deps);
+    initTaskWorkflows();
+    vi.mocked(DBOS.recv).mockReset();
+    for (const event of events)
+      vi.mocked(DBOS.recv).mockResolvedValueOnce(event);
+    await taskWorkflows.startAttemptWorkflow(
+      TASK_ID,
+      ATTEMPT_N,
+      AGENT_ID,
+      WORKFLOW_ID,
+      LEASE_TTL_SEC,
+      null,
+      null,
+      3600,
+    );
+    expect(transactions.length).toBeGreaterThan(0);
+    for (const transaction of transactions)
+      expect(transaction).toEqual(['task', 'attempt']);
+  });
+});

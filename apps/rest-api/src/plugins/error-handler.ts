@@ -119,6 +119,19 @@ export function extractPgErrorFields(
   return null;
 }
 
+function mapTransactionContention(error: ProblemError): ProblemError {
+  const code = extractPgErrorFields(error)?.pg_code;
+  if (code !== '40P01' && code !== '40001') return error;
+  const mapped = createProblem(
+    'service-unavailable',
+    'Database transaction aborted due to concurrent updates. Retry the operation.',
+    { retryAfter: 1 },
+  ) as ProblemError;
+  mapped.exposeServerDetail = true;
+  mapped.cause = error;
+  return mapped;
+}
+
 async function errorHandler(fastify: FastifyInstance) {
   // Tag errors without a statusCode as unexpected — these become 500s and
   // should be visible in observability dashboards as "unintentional".
@@ -162,7 +175,7 @@ async function errorHandler(fastify: FastifyInstance) {
         ? mapRemoteAuthenticationError(remoteError)
         : error instanceof PermissionCheckUnavailableError
           ? mapPermissionCheckUnavailableError(error)
-          : error;
+          : mapTransactionContention(error);
       const status = handledError.statusCode ?? 500;
       const isServerError = status >= 500;
       const validationContext = (
