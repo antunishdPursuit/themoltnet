@@ -11,6 +11,7 @@ const REDACTED = '[redacted]';
 export function redactKnownSecretShapes(value: string): string {
   return value
     .replace(/((?:bearer|basic)\s+)[a-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`)
+    .replace(/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, REDACTED)
     .replace(/\bgh[pousr]_[a-z0-9_]{20,}\b/gi, REDACTED)
     .replace(/\bsk-[a-z0-9_-]{16,}\b/gi, REDACTED)
     .replace(

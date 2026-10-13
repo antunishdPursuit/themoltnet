@@ -34,7 +34,8 @@ describe('pi retry triage prompt', () => {
       },
       error: {
         code: 'executor_unexpected_error',
-        message: 'failed with token ghp_abcdefghijklmnopqrstuvwxyz',
+        message:
+          'failed with token ghp_abcdefghijklmnopqrstuvwxyz and AWS key AKIAIOSFODNN7EXAMPLE',
       },
       recentMessages: [
         {
@@ -51,6 +52,7 @@ describe('pi retry triage prompt', () => {
     expect(prompt).not.toContain('sk-secret-value');
     expect(prompt).not.toContain('super-secret');
     expect(prompt).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz');
+    expect(prompt).not.toContain('AKIAIOSFODNN7EXAMPLE');
   });
 
   it('bounds large triage prompt payloads', () => {
