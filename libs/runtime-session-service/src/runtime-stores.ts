@@ -31,9 +31,12 @@ export function createRuntimeStoreService(deps: {
   storage: RuntimeSessionStorage;
   permissionChecker: PermissionChecker;
   maxBytes: number;
+  /** Object fetches in flight per read page. Buffered commit bytes stay below (readConcurrency + 1) × maxBytes. */
+  readConcurrency?: number;
   now?: () => number;
 }) {
   const repo = deps.repository;
+  const readConcurrency = Math.max(1, deps.readConcurrency ?? 8);
   const now = deps.now ?? Date.now;
   // Cache provenance, never authorization. Commit history is append-only, so a
   // captured head identifies its contributors even if another writer advances.
@@ -390,46 +393,86 @@ export function createRuntimeStoreService(deps: {
         ...(await commitTaskIds(store)),
         ...rows.map((row) => row.taskId),
       ]);
-      async function* items(): AsyncGenerator<RuntimeStoreCommit> {
-        for (const row of rows) {
-          input.signal?.throwIfAborted();
-          const object = await deps.storage.getObject(
-            row.objectKey,
-            input.signal,
-          );
-          if (input.signal) addAbortSignal(input.signal, object.body);
-          const chunks: Buffer[] = [];
-          let size = 0;
-          for await (const chunk of object.body) {
-            const bytes = Buffer.from(chunk as Uint8Array);
-            size += bytes.length;
-            if (size > deps.maxBytes) {
-              object.body.destroy();
-              throw createProblem(
-                'service-unavailable',
-                'Stored runtime commit exceeds size limit',
-              );
-            }
-            chunks.push(bytes);
-          }
-          const bytes = Buffer.concat(chunks);
-          if (createHash('sha256').update(bytes).digest('hex') !== row.sha256)
+      async function fetchCommit(
+        row: (typeof rows)[number],
+        signal: AbortSignal,
+      ): Promise<RuntimeStoreCommit> {
+        const object = await deps.storage.getObject(row.objectKey, signal);
+        addAbortSignal(signal, object.body);
+        const chunks: Buffer[] = [];
+        let size = 0;
+        // Leaving the loop early (limit, abort) destroys the body stream.
+        for await (const chunk of object.body) {
+          const bytes = Buffer.from(chunk as Uint8Array);
+          size += bytes.length;
+          if (size > deps.maxBytes)
             throw createProblem(
               'service-unavailable',
-              'Runtime commit checksum mismatch',
+              'Stored runtime commit exceeds size limit',
             );
-          const payload = JSON.parse(bytes.toString()) as {
-            format: string;
-            writes: RuntimeStoreCommit['writes'];
-          };
-          if (payload.format !== FORMAT)
-            throw createProblem('conflict', 'Unsupported runtime store format');
-          yield {
-            seq: row.seq,
-            commitId: row.commitId,
-            sha256: row.sha256,
-            writes: payload.writes,
-          };
+          chunks.push(bytes);
+        }
+        const bytes = Buffer.concat(chunks);
+        if (createHash('sha256').update(bytes).digest('hex') !== row.sha256)
+          throw createProblem(
+            'service-unavailable',
+            'Runtime commit checksum mismatch',
+          );
+        const payload = JSON.parse(bytes.toString()) as {
+          format: string;
+          writes: RuntimeStoreCommit['writes'];
+        };
+        if (payload.format !== FORMAT)
+          throw createProblem('conflict', 'Unsupported runtime store format');
+        return {
+          seq: row.seq,
+          commitId: row.commitId,
+          sha256: row.sha256,
+          writes: payload.writes,
+        };
+      }
+      // Fetches start only once the caller iterates, i.e. after authorization.
+      // At most `readConcurrency` verified commits are buffered ahead of the
+      // consumer; they are yielded strictly in sequence order.
+      async function* items(): AsyncGenerator<RuntimeStoreCommit> {
+        const stop = new AbortController();
+        const signal = input.signal
+          ? AbortSignal.any([input.signal, stop.signal])
+          : stop.signal;
+        const pending: Promise<RuntimeStoreCommit>[] = [];
+        let failure: { error: unknown } | undefined;
+        let next = 0;
+        const fill = () => {
+          while (next < rows.length && pending.length < readConcurrency) {
+            const fetched = fetchCommit(rows[next++], signal);
+            // The first real failure cancels siblings and is reported instead
+            // of the abort errors it causes; the consumer surfaces it.
+            fetched.catch((error: unknown) => {
+              if (signal.aborted) return;
+              failure = { error };
+              stop.abort(error);
+            });
+            pending.push(fetched);
+          }
+        };
+        try {
+          fill();
+          while (pending.length) {
+            input.signal?.throwIfAborted();
+            let commit: RuntimeStoreCommit;
+            try {
+              commit = await pending.shift()!;
+            } catch (error) {
+              input.signal?.throwIfAborted();
+              throw failure ? failure.error : error;
+            }
+            fill();
+            yield commit;
+          }
+        } finally {
+          // Early return, failure or cancellation: release every open body.
+          stop.abort();
+          await Promise.allSettled(pending);
         }
       }
       return {

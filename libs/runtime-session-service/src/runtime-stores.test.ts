@@ -16,7 +16,7 @@ const authority = {
   leaseId: 'lease',
   executorFingerprint: 'fingerprint',
 };
-function setup() {
+function setup(options: { readConcurrency?: number } = {}) {
   let now = Date.now();
   const objects = new Map<string, Buffer>();
   const row = {
@@ -77,7 +77,7 @@ function setup() {
         bytes.push(Buffer.from(chunk as Uint8Array));
       objects.set(object.key, Buffer.concat(bytes));
     }),
-    getObject: vi.fn(async (key: string) => ({
+    getObject: vi.fn(async (key: string, _signal?: AbortSignal) => ({
       body: Readable.from([objects.get(key)!]),
     })),
     deleteObject: vi.fn(),
@@ -96,6 +96,7 @@ function setup() {
     storage,
     permissionChecker,
     maxBytes: 100_000,
+    ...options,
     now: () => now,
     transactionRunner: {
       runInTransaction: async (fn: () => Promise<unknown>) => fn(),
@@ -355,31 +356,74 @@ describe('runtime store publication', () => {
     await expect(collect(page.items)).rejects.toThrow('checksum');
     expect(f.repository.listCommits).toHaveBeenCalledWith('store', 0, 50, 1);
   });
-  it('fetches one verified commit at a time and stops on early return', async () => {
-    const f = setup();
-    const handle = await f.service.open(authority);
-    for (let i = 0; i < 3; i++)
-      await f.service.append({
-        ...authority,
-        ...handle,
-        commitId: `commit-${i}`,
-        expectedSeq: i,
-        writes,
-      });
-    const page = await f.service.read({
-      ...authority,
-      storeId: handle.storeId,
-    });
-    expect(page.count).toBe(3);
+  it('stops prefetching on early return and releases every in-flight object', async () => {
+    const f = setup({ readConcurrency: 2 });
+    await seed(f, 5);
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    expect(page.count).toBe(5);
     expect(f.storage.getObject).not.toHaveBeenCalled();
     for await (const commit of page.items) {
       expect(commit.seq).toBe(1);
       expect(commit.writes).toEqual(writes);
       break;
     }
-    expect(f.storage.getObject).toHaveBeenCalledTimes(1);
+    // One consumed + at most `readConcurrency` prefetched; nothing after return.
+    expect(f.storage.getObject).toHaveBeenCalledTimes(3);
+    for (const [, signal] of f.storage.getObject.mock.calls)
+      expect((signal as AbortSignal).aborted).toBe(true);
   });
 });
+
+async function seed(f: ReturnType<typeof setup>, count: number) {
+  const handle = await f.service.open(authority);
+  for (let i = 0; i < count; i++)
+    await f.service.append({
+      ...authority,
+      ...handle,
+      commitId: `commit-${i}`,
+      expectedSeq: i,
+      writes: [{ ...writes[0], value: { ...writes[0].value, id: 10 + i } }],
+    });
+  // Keys in sequence order, for per-object storage behaviour.
+  return [...f.objects.keys()];
+}
+
+/** Storage whose object fetches complete only when the test releases them. */
+function gatedStorage(f: ReturnType<typeof setup>) {
+  const gates = new Map<string, () => void>();
+  const bodies: Readable[] = [];
+  let inflight = 0;
+  let maxInflight = 0;
+  f.storage.getObject.mockImplementation(
+    async (key: string, signal?: AbortSignal) => {
+      inflight++;
+      maxInflight = Math.max(maxInflight, inflight);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          gates.set(key, resolve);
+          signal?.addEventListener(
+            'abort',
+            () => reject(new Error('aborted', { cause: signal.reason })),
+            { once: true },
+          );
+        });
+      } finally {
+        inflight--;
+      }
+      const body = Readable.from([f.objects.get(key)!]);
+      bodies.push(body);
+      return { body };
+    },
+  );
+  return {
+    release: (key: string) => gates.get(key)?.(),
+    started: (key: string) => gates.has(key),
+    bodies,
+    get maxInflight() {
+      return maxInflight;
+    },
+  };
+}
 
 async function collect<T>(items: AsyncIterable<T>): Promise<T[]> {
   const result: T[] = [];
@@ -481,4 +525,107 @@ it('does not retain oversized contributor lists', async () => {
   await f.service.read({ ...authority, storeId: 'store' });
   await f.service.read({ ...authority, storeId: 'store' });
   expect(f.repository.listCommitTaskIds).toHaveBeenCalledTimes(2);
+});
+
+describe('concurrent ordered object reads', () => {
+  it('yields commits in sequence order when objects complete out of order', async () => {
+    const f = setup({ readConcurrency: 4 });
+    const keys = await seed(f, 4);
+    const gate = gatedStorage(f);
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    const result = collect(page.items);
+    await vi.waitFor(() => expect(gate.started(keys[3])).toBe(true));
+    for (const key of [...keys].reverse()) gate.release(key);
+    const commits = await result;
+    expect(commits.map((commit) => commit.seq)).toEqual([1, 2, 3, 4]);
+    expect(commits.map((commit) => commit.writes[0].value)).toEqual(
+      [10, 11, 12, 13].map((id): unknown => expect.objectContaining({ id })),
+    );
+  });
+
+  it('never exceeds the configured number of in-flight object fetches', async () => {
+    const f = setup({ readConcurrency: 3 });
+    const keys = await seed(f, 10);
+    const gate = gatedStorage(f);
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    const result = collect(page.items);
+    for (const key of keys) {
+      await vi.waitFor(() => expect(gate.started(key)).toBe(true));
+      gate.release(key);
+    }
+    expect((await result).map((commit) => commit.seq)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+    expect(gate.maxInflight).toBe(3);
+    expect(f.storage.getObject).toHaveBeenCalledTimes(10);
+  });
+
+  it('cancels every in-flight fetch when the caller aborts mid-page', async () => {
+    const f = setup({ readConcurrency: 3 });
+    const keys = await seed(f, 6);
+    const gate = gatedStorage(f);
+    const controller = new AbortController();
+    const page = await f.service.read({
+      ...authority,
+      storeId: 'store',
+      signal: controller.signal,
+    });
+    const result = collect(page.items);
+    const rejected = expect(result).rejects.toThrow();
+    await vi.waitFor(() => expect(gate.started(keys[2])).toBe(true));
+    gate.release(keys[0]);
+    await vi.waitFor(() => expect(gate.started(keys[3])).toBe(true));
+    controller.abort();
+    await rejected;
+    expect(f.storage.getObject).toHaveBeenCalledTimes(4);
+    for (const [, signal] of f.storage.getObject.mock.calls)
+      expect((signal as AbortSignal).aborted).toBe(true);
+    expect(gate.bodies.every((body) => body.destroyed)).toBe(true);
+  });
+
+  it('reports a failed later object instead of the aborts it causes', async () => {
+    const f = setup({ readConcurrency: 3 });
+    const keys = await seed(f, 5);
+    gatedStorage(f);
+    const missing = new Error('Runtime session object is missing');
+    const gated = f.storage.getObject.getMockImplementation()!;
+    f.storage.getObject.mockImplementation(async (key: string, signal) => {
+      if (key === keys[2]) throw missing;
+      return gated(key, signal);
+    });
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    // The head object is still pending; the failure must not wait for it.
+    await expect(collect(page.items)).rejects.toBe(missing);
+    for (const [, signal] of f.storage.getObject.mock.calls)
+      expect((signal as AbortSignal).aborted).toBe(true);
+    expect(f.storage.getObject).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects a corrupt or oversized object among concurrent fetches', async () => {
+    const f = setup({ readConcurrency: 4 });
+    const keys = await seed(f, 4);
+    f.objects.set(keys[2], Buffer.from('corrupt'));
+    await expect(
+      collect((await f.service.read({ ...authority, storeId: 'store' })).items),
+    ).rejects.toThrow('checksum');
+    const oversized = new Readable({ read() {} });
+    oversized.push(Buffer.alloc(100_001));
+    f.storage.getObject.mockResolvedValueOnce({ body: oversized });
+    await expect(
+      collect((await f.service.read({ ...authority, storeId: 'store' })).items),
+    ).rejects.toThrow('exceeds size limit');
+    expect(oversized.destroyed).toBe(true);
+  });
+
+  it('does not fetch objects before authorization succeeds', async () => {
+    const f = setup({ readConcurrency: 4 });
+    await seed(f, 3);
+    f.permissionChecker.canViewTasks.mockResolvedValueOnce(
+      new Map([['task', false]]),
+    );
+    await expect(
+      f.service.read({ ...authority, storeId: 'store' }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(f.storage.getObject).not.toHaveBeenCalled();
+  });
 });
