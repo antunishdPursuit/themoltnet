@@ -497,38 +497,28 @@ export function initMaintenanceWorkflows(
     }
   };
 
-  const forceReleaseAttemptStep = DBOS.registerStep(
-    async (input: {
-      taskId: string;
-      attemptN: number;
-      claimedByAgentId: string;
-    }): Promise<void> => {
-      const { transactionRunner, taskRepository, relationshipWriter, logger } =
-        getDeps();
-      // Mirror the in-workflow timeout transaction shape: write the
-      // attempt as timed_out + decide task fate based on retry budget.
-      const now = new Date();
-      const [attemptCount, maxAttempts] = await Promise.all([
-        taskRepository.countAttempts(input.taskId),
-        taskRepository.getMaxAttempts(input.taskId),
-      ]);
-      const canRetry = attemptCount < maxAttempts;
+  const forceReleaseAttempt = async (
+    input: { taskId: string; attemptN: number },
+    now: Date,
+  ): Promise<void> => {
+    const { transactionRunner, taskRepository } = getDeps();
+    // Call from the workflow body: the production runner opens a DBOS
+    // transaction, which cannot be nested inside a registered step.
+    await transactionRunner.runInTransaction(
+      async () => {
+        const [attemptCount, maxAttempts, taskNow] = await Promise.all([
+          taskRepository.countAttempts(input.taskId),
+          taskRepository.getMaxAttempts(input.taskId),
+          taskRepository.findById(input.taskId),
+        ]);
+        const canRetry = attemptCount < maxAttempts;
+        const externalTerminal =
+          taskNow !== null &&
+          (taskNow.status === 'cancelled' ||
+            taskNow.status === 'completed' ||
+            taskNow.status === 'failed' ||
+            taskNow.status === 'expired');
 
-      // External terminal status guard — same defence the in-workflow
-      // timeout branches use.
-      const taskNow = await taskRepository.findById(input.taskId);
-      const externalTerminal =
-        taskNow !== null &&
-        (taskNow.status === 'cancelled' ||
-          taskNow.status === 'completed' ||
-          taskNow.status === 'failed' ||
-          taskNow.status === 'expired');
-
-      // DBOS rejects nested `runTransaction()` calls from inside a
-      // registered step. Use a plain Drizzle transaction here instead:
-      // repositories join it through AsyncLocalStorage, and the DBOS
-      // step wrapper still gives us per-orphan retry semantics.
-      await transactionRunner.runInTransaction(async () => {
         await taskRepository.updateAttempt(input.taskId, input.attemptN, {
           status: 'timed_out',
           completedAt: now,
@@ -538,20 +528,22 @@ export function initMaintenanceWorkflows(
               'Workflow process did not resume; row force-released by orphan sweeper.',
           } as unknown,
         });
-        if (!externalTerminal) {
-          await taskRepository.updateStatus(
-            input.taskId,
-            canRetry ? 'queued' : 'failed',
-            { claimAgentId: null, claimExpiresAt: null },
-          );
-        } else {
-          await taskRepository.updateStatus(input.taskId, taskNow.status, {
-            claimAgentId: null,
-            claimExpiresAt: null,
-          });
-        }
-      });
+        await taskRepository.updateStatus(
+          input.taskId,
+          externalTerminal ? taskNow.status : canRetry ? 'queued' : 'failed',
+          { claimAgentId: null, claimExpiresAt: null },
+        );
+      },
+      { name: 'maintenance.taskOrphanSweeper.forceRelease' },
+    );
+  };
 
+  const cleanupOrphanClaimStep = DBOS.registerStep(
+    async (input: {
+      taskId: string;
+      claimedByAgentId: string;
+    }): Promise<void> => {
+      const { relationshipWriter, logger, notifyTaskStatusChanged } = getDeps();
       await relationshipWriter
         .removeTaskClaimant(input.taskId, input.claimedByAgentId)
         .catch((err: unknown) => {
@@ -564,8 +556,9 @@ export function initMaintenanceWorkflows(
             'maintenance: task orphan — Keto cleanup failed (orphaned tuple is harmless)',
           );
         });
+      await notifyTaskStatusChanged?.(input.taskId);
     },
-    { name: 'maintenance.taskOrphanSweeper.forceRelease' },
+    { name: 'maintenance.taskOrphanSweeper.cleanupClaim' },
   );
 
   const taskOrphanSweeperWorkflow = DBOS.registerWorkflow(
@@ -650,18 +643,20 @@ export function initMaintenanceWorkflows(
           }
         }
         // Fall back to row-level force-release. Per-iteration try/catch:
-        // if force-release on one orphan fails after step retries, we
+        // if force-release on one orphan fails, we
         // still want to process the remaining batch and emit the
         // summary log. Otherwise the scheduler silently records a
         // workflow failure and every subsequent orphan in the batch
         // is skipped.
         try {
-          await forceReleaseAttemptStep({
+          await forceReleaseAttempt(
+            { taskId: task.id, attemptN: attempt.attemptN },
+            new Date(sweepNowMs),
+          );
+          await cleanupOrphanClaimStep({
             taskId: task.id,
-            attemptN: attempt.attemptN,
             claimedByAgentId: attempt.claimedByAgentId,
           });
-          await getDeps().notifyTaskStatusChanged?.(task.id);
           forceReleased += 1;
         } catch (err) {
           logger.error(
