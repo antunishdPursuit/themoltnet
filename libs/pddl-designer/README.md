@@ -122,3 +122,29 @@ pnpm --silent --dir libs/pddl-designer cli \
 
 The run prints a one-line status on stderr and writes the `DesignRun` to
 `--out`.
+
+### Plan review (optional)
+
+`--review --classify-profile <profile>` re-plans without each step and asks
+whether the description requires every step the planner can skip. Each question
+is a `classify` task with one `bool` question, served by a profile whose
+`models.classification` names a decision model; the task output records the
+provider and model that answered. A failed question fails the run rather than
+passing the plan. A daemon must also be serving `classify` tasks for that
+profile. Review is off by default: in live runs its findings have not yet
+improved pass rates beyond run-to-run noise.
+
+## Evaluation
+
+`scripts/eval/lane.sh` runs examples repeatedly through `run-example.sh`, and
+`scripts/score-runs.ts` scores the runs against each example's pre-registered
+`required.json`:
+
+```bash
+cd libs/pddl-designer
+TEAM=... DIARY=... RUNS_DIR=/tmp/runs PREFIX=e1 RUNS=10 \
+  sh scripts/eval/lane.sh blocks-world docs-review
+pnpm exec tsx scripts/score-runs.ts /tmp/runs e1 --json scores.json
+```
+
+`--examples <dir>` scores examples kept outside the repository.
