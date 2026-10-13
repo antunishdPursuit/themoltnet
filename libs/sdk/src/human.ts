@@ -1,45 +1,11 @@
 import type { Client, Config, Whoami } from '@moltnet/api-client';
 import { createClient } from '@moltnet/api-client';
 
-import type {
-  AgentKeysNamespace,
-  CryptoNamespace,
-  DiariesNamespace,
-  DiaryGrantsNamespace,
-  EntriesNamespace,
-  GroupsNamespace,
-  LegreffierNamespace,
-  PacksNamespace,
-  ProblemsNamespace,
-  PublicNamespace,
-  RelationsNamespace,
-  RuntimeProfilesNamespace,
-  TasksNamespace,
-  TeamsNamespace,
-} from './agent.js';
 import type { AgentContext } from './agent-context.js';
 import { normalizeApiUrl } from './api-url.js';
-import { createAgentKeysNamespace } from './namespaces/agent-keys.js';
-import { createCryptoNamespace } from './namespaces/crypto.js';
-import { createDiariesNamespace } from './namespaces/diaries.js';
-import { createDiaryGrantsNamespace } from './namespaces/diary-grants.js';
-import { createEntriesNamespace } from './namespaces/entries.js';
-import { createGroupsNamespace } from './namespaces/groups.js';
-import { createLegreffierNamespace } from './namespaces/legreffier.js';
-import { createPacksNamespace } from './namespaces/packs.js';
-import { createProblemsNamespace } from './namespaces/problems.js';
-import {
-  createProjectsNamespace,
-  type ProjectsNamespace,
-} from './namespaces/projects.js';
-import { createPublicNamespace } from './namespaces/public.js';
-import { createRelationsNamespace } from './namespaces/relations.js';
-import { createRuntimeProfilesNamespace } from './namespaces/runtime-profiles.js';
-import { createSigningCredentialsNamespace } from './namespaces/signing-credentials.js';
-import { createSigningRequestsNamespace } from './namespaces/signing-requests.js';
-import { createTasksNamespace } from './namespaces/tasks.js';
-import { createTeamsNamespace } from './namespaces/teams.js';
 import { createWhoami } from './namespaces/whoami.js';
+import type { SharedNamespaces } from './shared-namespaces.js';
+import { createSharedNamespaces } from './shared-namespaces.js';
 
 export type {
   BeginPreviewSignCredentialRegistration,
@@ -70,23 +36,8 @@ export {
   type ValidatePreviewSignChallengeOptions,
 } from './preview-sign.js';
 
-export interface HumanClient {
+export interface HumanClient extends SharedNamespaces {
   readonly kind: 'human';
-  agentKeys: AgentKeysNamespace;
-  diaries: DiariesNamespace;
-  diaryGrants: DiaryGrantsNamespace;
-  runtimeProfiles: RuntimeProfilesNamespace;
-  packs: PacksNamespace;
-  entries: EntriesNamespace;
-  relations: RelationsNamespace;
-  public: PublicNamespace;
-  legreffier: LegreffierNamespace;
-  problems: ProblemsNamespace;
-  teams: TeamsNamespace;
-  groups: GroupsNamespace;
-  projects: ProjectsNamespace;
-  tasks: TasksNamespace;
-  crypto: CryptoNamespace;
 
   /** Return this human's identity and context (subject type, current team). */
   whoami(): Promise<Whoami>;
@@ -141,32 +92,11 @@ export function connectHuman(options: ConnectHumanOptions = {}): HumanClient {
 
   const auth = createHumanAuth(options);
   const context: AgentContext = { client, auth };
-  const signingRequests = createSigningRequestsNamespace(context);
-  const signingCredentials = createSigningCredentialsNamespace(context);
-  const crypto = createCryptoNamespace(
-    context,
-    signingRequests,
-    signingCredentials,
-  );
 
   return {
     kind: 'human',
-    agentKeys: createAgentKeysNamespace(context),
-    diaries: createDiariesNamespace(context),
-    diaryGrants: createDiaryGrantsNamespace(context),
-    runtimeProfiles: createRuntimeProfilesNamespace(context),
-    packs: createPacksNamespace(context),
-    entries: createEntriesNamespace(context),
-    relations: createRelationsNamespace(context),
-    public: createPublicNamespace(context),
-    legreffier: createLegreffierNamespace(context),
-    problems: createProblemsNamespace(context),
-    teams: createTeamsNamespace(context),
-    groups: createGroupsNamespace(context),
-    projects: createProjectsNamespace(context),
-    tasks: createTasksNamespace(context),
+    ...createSharedNamespaces(context),
     whoami: createWhoami(context),
-    crypto,
     client,
   };
 }
