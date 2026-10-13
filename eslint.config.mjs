@@ -4,6 +4,7 @@ import jsoncParser from 'jsonc-eslint-parser';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
+import globals from 'globals';
 
 export const moduleBoundaryOptions = {
   enforceBuildableLibDependency: false,
@@ -206,26 +207,29 @@ export default tseslint.config(
       '**/.node-red-dev/**',
       '**/src/generated/**',
       'infra/ory/permissions.ts',
-      // Standalone node script invoked from a Dockerfile; not part of the
-      // typed source graph and lacks the Node globals declared for src/.
-      'tools/download-embedding-model.mjs',
       // Standalone node dev script (spins up a local Node-RED for the
-      // node-red-contrib-core nodes); same rationale as above.
+      // node-red-contrib-core nodes); not part of the typed source graph.
       '**/scripts/dev.mjs',
       // Standalone node dev scripts that regenerate the vendored GTFOBins
       // dataset and refresh the grammar wasm; not part of the typed source
-      // graph, same rationale as above.
+      // graph.
       '**/scripts/generate-gtfobins.mjs',
       '**/scripts/sync-wasm.mjs',
-      // Standalone node release script that assembles the moltnet-agent
-      // bundle (#2063); same rationale as above.
-      'tools/release/agent-bundle/build.mjs',
     ],
   },
 
   // Base recommended rules
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+
+  // Plain JavaScript files are Node scripts and configs; TypeScript resolves
+  // globals itself, but JS needs them declared for no-undef.
+  {
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 
   // Workspace boundary rules — driven by Nx project tags declared in each
   // package.json `nx.tags` block. Tag dimensions:
