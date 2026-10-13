@@ -100,7 +100,7 @@ func newProjectsCmd() *cobra.Command {
 				if cmd.Flags().Changed("description") {
 					body.Description = moltnetapi.NewOptNilString(description)
 				}
-				res, e := client.UpdateProject(cmd.Context(), moltnetapi.NewOptUpdateProjectReq(*body), moltnetapi.UpdateProjectParams{XMoltnetTeamID: moltnetapi.NewOptUUID(team), ProjectId: project})
+				res, e := client.UpdateProject(cmd.Context(), body, moltnetapi.UpdateProjectParams{XMoltnetTeamID: moltnetapi.NewOptUUID(team), ProjectId: project})
 				return printProjectResponse[*moltnetapi.UpdateProjectOK](cmd, res, e)
 			}
 			return fmt.Errorf("unsupported project action %q", action)

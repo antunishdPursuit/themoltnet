@@ -165,7 +165,7 @@ export function createPacksNamespace(context: AgentContext): PacksNamespace {
           client,
           auth,
           path: { id },
-          body,
+          body: body ?? {},
         }),
       );
     },

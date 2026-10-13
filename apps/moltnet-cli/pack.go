@@ -494,7 +494,7 @@ func runPackUpdateCmd(stdout io.Writer, apiURL, credPath, packID string, pinned 
 
 	res, err := client.UpdateContextPack(
 		context.Background(),
-		moltnetapi.OptUpdateContextPackReq{Value: req, Set: true},
+		&req,
 		moltnetapi.UpdateContextPackParams{ID: packUUID},
 	)
 	if err != nil {

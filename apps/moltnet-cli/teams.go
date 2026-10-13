@@ -107,18 +107,18 @@ func runTeamsInviteCreateCmd(apiURL, credPath, teamID, role string, expiresInHou
 		return err
 	}
 
-	req := moltnetapi.OptCreateTeamInviteReq{Set: true}
+	req := moltnetapi.CreateTeamInviteReq{}
 	if role != "" {
-		req.Value.Role = moltnetapi.OptCreateTeamInviteReqRole{
+		req.Role = moltnetapi.OptCreateTeamInviteReqRole{
 			Value: moltnetapi.CreateTeamInviteReqRole(role),
 			Set:   true,
 		}
 	}
 	if expiresInHours > 0 {
-		req.Value.ExpiresInHours = moltnetapi.OptInt{Value: expiresInHours, Set: true}
+		req.ExpiresInHours = moltnetapi.OptInt{Value: expiresInHours, Set: true}
 	}
 
-	res, err := client.CreateTeamInvite(context.Background(), req, moltnetapi.CreateTeamInviteParams{ID: teamUUID})
+	res, err := client.CreateTeamInvite(context.Background(), &req, moltnetapi.CreateTeamInviteParams{ID: teamUUID})
 	if err != nil {
 		return fmt.Errorf("teams invite create: %w", formatTransportError(err))
 	}

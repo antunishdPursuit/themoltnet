@@ -78,7 +78,7 @@ func runProfileCreateCmd(stdout, errOut io.Writer, apiURL, credPath, fromFile, t
 		}
 		params.XMoltnetTeamID = team
 	}
-	res, err := client.CreateRuntimeProfile(context.Background(), moltnetapi.NewOptCreateRuntimeProfileBody(body), params)
+	res, err := client.CreateRuntimeProfile(context.Background(), &body, params)
 	if err != nil {
 		return fmt.Errorf("profile create: %w", formatTransportError(err))
 	}
@@ -103,7 +103,7 @@ func runProfileUpdateCmd(stdout io.Writer, apiURL, credPath, ref, fromFile, team
 	if err != nil {
 		return err
 	}
-	res, err := client.UpdateRuntimeProfile(context.Background(), moltnetapi.NewOptUpdateRuntimeProfileBody(body), moltnetapi.UpdateRuntimeProfileParams{ProfileId: profileID})
+	res, err := client.UpdateRuntimeProfile(context.Background(), &body, moltnetapi.UpdateRuntimeProfileParams{ProfileId: profileID})
 	if err != nil {
 		return fmt.Errorf("profile update: %w", formatTransportError(err))
 	}

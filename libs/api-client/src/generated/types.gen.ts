@@ -3319,7 +3319,7 @@ export type CreateAgentKeyResponse =
   CreateAgentKeyResponses[keyof CreateAgentKeyResponses];
 
 export type RevokeAgentKeyData = {
-  body?:
+  body:
     | {
         reason: 'key_compromise';
       }
@@ -3677,7 +3677,7 @@ export type VerifyAgentSignatureResponse =
   VerifyAgentSignatureResponses[keyof VerifyAgentSignatureResponses];
 
 export type EnrollAgentData = {
-  body?: {
+  body: {
     credentialType: 'oauth2' | 'agent_key';
     /**
      * Base64-encoded Ed25519 signature of the registration message
@@ -3806,7 +3806,7 @@ export type RegisterAgentResponse =
   RegisterAgentResponses[keyof RegisterAgentResponses];
 
 export type RotateIdentityKeyData = {
-  body?: RotateIdentityKeyRequest;
+  body: RotateIdentityKeyRequest;
   path?: never;
   query?: never;
   url: '/auth/rotate-identity-key';
@@ -3951,7 +3951,7 @@ export type GetCryptoIdentityResponse =
   GetCryptoIdentityResponses[keyof GetCryptoIdentityResponses];
 
 export type ValidatePreviewSignChallengeData = {
-  body?: ValidatePreviewSignChallenge;
+  body: ValidatePreviewSignChallenge;
   path?: never;
   query?: never;
   url: '/crypto/preview-sign/challenges/validate';
@@ -4665,7 +4665,7 @@ export type CompleteSigningRequestResponse =
   CompleteSigningRequestResponses[keyof CompleteSigningRequestResponses];
 
 export type RejectSigningRequestData = {
-  body?: {
+  body: {
     reason?: string;
   };
   headers: {
@@ -4909,7 +4909,7 @@ export type CreateDiaryResponse =
   CreateDiaryResponses[keyof CreateDiaryResponses];
 
 export type SearchDiaryData = {
-  body?: {
+  body: {
     diaryId?: string;
     entryTypes?: Array<'episodic' | 'semantic' | 'procedural' | 'reflection'>;
     excludeSuperseded?: boolean;
@@ -5288,7 +5288,7 @@ export type UpdateDiaryData = {
   /**
    * At least one of name or visibility must be provided.
    */
-  body?: {
+  body: {
     name?: string;
     visibility?: 'private' | 'moltnet' | 'public';
   };
@@ -6077,7 +6077,7 @@ export type UpdateDiaryEntryByIdData = {
   /**
    * At least one of title, content, tags, importance, or entryType must be provided.
    */
-  body?: {
+  body: {
     content?: string;
     entryType?: 'episodic' | 'semantic' | 'procedural' | 'reflection';
     importance?: number;
@@ -6729,7 +6729,7 @@ export type GetLlmsTxtResponses = {
 export type GetLlmsTxtResponse = GetLlmsTxtResponses[keyof GetLlmsTxtResponses];
 
 export type ProvisionAgentCredentialData = {
-  body?: {
+  body: {
     agentProof?: string;
   };
   path?: never;
@@ -7383,7 +7383,7 @@ export type UpdateContextPackData = {
   /**
    * At least one of pinned or expiresAt must be provided. See route handler for field-combination constraints.
    */
-  body?: {
+  body: {
     /**
      * Explicit GC deadline. Must be in the future and cannot be set on a pinned pack. Optional when unpinning: omit it to let the server apply its retention window.
      */
@@ -8105,7 +8105,7 @@ export type GetProjectResponses = {
 export type GetProjectResponse = GetProjectResponses[keyof GetProjectResponses];
 
 export type UpdateProjectData = {
-  body?: {
+  body: {
     archived?: boolean;
     defaultDiaryId?: string | null;
     description?: string | null;
@@ -8669,7 +8669,7 @@ export type UpdateRenderedPackData = {
   /**
    * At least one field must be provided. See route handler for field-combination constraints.
    */
-  body?: {
+  body: {
     description?: string | null;
     /**
      * Explicit GC deadline. Must be in the future and cannot be set on a pinned pack. Optional when unpinning: omit it to let the server apply its retention window.
@@ -8783,7 +8783,7 @@ export type ListRuntimeModelsResponse =
   ListRuntimeModelsResponses[keyof ListRuntimeModelsResponses];
 
 export type CreateRuntimeModelData = {
-  body?: CreateRuntimeModelBody;
+  body: CreateRuntimeModelBody;
   headers?: {
     /**
      * Team ID (UUID) for scoping the request. Optional.
@@ -8926,7 +8926,7 @@ export type GetRuntimeModelResponse =
   GetRuntimeModelResponses[keyof GetRuntimeModelResponses];
 
 export type UpdateRuntimeModelData = {
-  body?: UpdateRuntimeModelBody;
+  body: UpdateRuntimeModelBody;
   path: {
     modelId: string;
   };
@@ -9024,7 +9024,7 @@ export type ListRuntimePoliciesResponse =
   ListRuntimePoliciesResponses[keyof ListRuntimePoliciesResponses];
 
 export type CreateRuntimePolicyData = {
-  body?: CreateRuntimePolicyBody;
+  body: CreateRuntimePolicyBody;
   headers: {
     /**
      * Team ID (UUID) that will own the resource. Required.
@@ -9179,7 +9179,7 @@ export type GetRuntimePolicyResponse =
   GetRuntimePolicyResponses[keyof GetRuntimePolicyResponses];
 
 export type UpdateRuntimePolicyData = {
-  body?: UpdateRuntimePolicyBody;
+  body: UpdateRuntimePolicyBody;
   headers: {
     /**
      * Team ID (UUID) that will own the resource. Required.
@@ -9287,7 +9287,7 @@ export type ListRuntimeProfilesResponse =
   ListRuntimeProfilesResponses[keyof ListRuntimeProfilesResponses];
 
 export type CreateRuntimeProfileData = {
-  body?: CreateRuntimeProfileBody;
+  body: CreateRuntimeProfileBody;
   headers?: {
     /**
      * Team ID (UUID) for scoping the request. Optional.
@@ -9430,7 +9430,7 @@ export type GetRuntimeProfileResponse =
   GetRuntimeProfileResponses[keyof GetRuntimeProfileResponses];
 
 export type UpdateRuntimeProfileData = {
-  body?: UpdateRuntimeProfileBody;
+  body: UpdateRuntimeProfileBody;
   path: {
     profileId: string;
   };
@@ -9585,7 +9585,7 @@ export type GetRuntimeProfilePoliciesResponse =
   GetRuntimeProfilePoliciesResponses[keyof GetRuntimeProfilePoliciesResponses];
 
 export type SetRuntimeProfilePoliciesData = {
-  body?: SetProfilePoliciesBody;
+  body: SetProfilePoliciesBody;
   headers: {
     /**
      * Team ID (UUID) that will own the resource. Required.
@@ -10613,7 +10613,7 @@ export type UploadRuntimeSessionData = {
   /**
    * Runtime session content stream.
    */
-  body?: Blob | File;
+  body: Blob | File;
   headers: {
     /**
      * Team ID (UUID) that will own the resource. Required.
@@ -12047,7 +12047,7 @@ export type StageTaskArtifactData = {
   /**
    * Task artifact content stream.
    */
-  body?: Blob | File;
+  body: Blob | File;
   headers: {
     /**
      * Team ID (UUID) that will own the resource. Required.
@@ -12678,7 +12678,7 @@ export type GetTaskResponses = {
 export type GetTaskResponse = GetTaskResponses[keyof GetTaskResponses];
 
 export type UpdateTaskMetadataData = {
-  body?: {
+  body: {
     tags?: Array<string>;
     title?: string | null;
   };
@@ -12787,7 +12787,7 @@ export type ListTaskAttemptsResponse =
   ListTaskAttemptsResponses[keyof ListTaskAttemptsResponses];
 
 export type AbortTaskAttemptData = {
-  body?: {
+  body: {
     reason?: string;
   };
   headers?: {
@@ -13209,7 +13209,7 @@ export type FailTaskAttemptResponse =
   FailTaskAttemptResponses[keyof FailTaskAttemptResponses];
 
 export type TaskHeartbeatData = {
-  body?: {
+  body: {
     leaseTtlSec?: number;
   };
   headers?: {
@@ -13447,7 +13447,7 @@ export type CancelTaskResponses = {
 export type CancelTaskResponse = CancelTaskResponses[keyof CancelTaskResponses];
 
 export type ClaimTaskData = {
-  body?: {
+  body: {
     executorFingerprint?: string;
     executorManifest?: {
       [key: string]: unknown;
@@ -14209,7 +14209,7 @@ export type UploadTaskArtifactData = {
   /**
    * Task artifact content stream.
    */
-  body?: Blob | File;
+  body: Blob | File;
   headers: {
     /**
      * Team ID (UUID) that will own the resource. Required.
@@ -15079,7 +15079,7 @@ export type GetTeamResponses = {
 export type GetTeamResponse = GetTeamResponses[keyof GetTeamResponses];
 
 export type AcceptTeamFoundingData = {
-  body?: {
+  body: {
     [key: string]: unknown;
   };
   path: {
@@ -15325,7 +15325,7 @@ export type ListTeamInvitesResponse =
   ListTeamInvitesResponses[keyof ListTeamInvitesResponses];
 
 export type CreateTeamInviteData = {
-  body?: {
+  body: {
     expiresInHours?: number;
     role?: 'manager' | 'executor' | 'member';
   };

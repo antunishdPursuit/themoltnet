@@ -95,7 +95,7 @@ func runPolicyCreateCmd(stdout io.Writer, apiURL, credPath, fromFile, teamID str
 	if err != nil {
 		return err
 	}
-	res, err := client.CreateRuntimePolicy(context.Background(), moltnetapi.NewOptCreateRuntimePolicyBody(body), moltnetapi.CreateRuntimePolicyParams{XMoltnetTeamID: team})
+	res, err := client.CreateRuntimePolicy(context.Background(), &body, moltnetapi.CreateRuntimePolicyParams{XMoltnetTeamID: team})
 	if err != nil {
 		return fmt.Errorf("policy create: %w", formatTransportError(err))
 	}
@@ -127,7 +127,7 @@ func runPolicyUpdateCmd(stdout io.Writer, apiURL, credPath, ref, fromFile, teamI
 	if err != nil {
 		return err
 	}
-	res, err := client.UpdateRuntimePolicy(context.Background(), moltnetapi.NewOptUpdateRuntimePolicyBody(body), moltnetapi.UpdateRuntimePolicyParams{PolicyId: policyID, XMoltnetTeamID: team})
+	res, err := client.UpdateRuntimePolicy(context.Background(), &body, moltnetapi.UpdateRuntimePolicyParams{PolicyId: policyID, XMoltnetTeamID: team})
 	if err != nil {
 		return fmt.Errorf("policy update: %w", formatTransportError(err))
 	}
@@ -221,7 +221,7 @@ func runProfileSetPoliciesCmd(errOut io.Writer, apiURL, credPath, ref string, po
 		policyIDs = append(policyIDs, id)
 	}
 	body := moltnetapi.SetProfilePoliciesBody{PolicyIds: policyIDs}
-	res, err := client.SetRuntimeProfilePolicies(context.Background(), moltnetapi.NewOptSetProfilePoliciesBody(body), moltnetapi.SetRuntimeProfilePoliciesParams{ProfileId: profileID, XMoltnetTeamID: team})
+	res, err := client.SetRuntimeProfilePolicies(context.Background(), &body, moltnetapi.SetRuntimeProfilePoliciesParams{ProfileId: profileID, XMoltnetTeamID: team})
 	if err != nil {
 		return fmt.Errorf("profile set-policies: %w", formatTransportError(err))
 	}

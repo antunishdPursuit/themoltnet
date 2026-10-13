@@ -89,7 +89,7 @@ export function createTeamsNamespace(context: AgentContext): TeamsNamespace {
             client,
             auth,
             path: { id: teamId },
-            body,
+            body: body ?? {},
           }),
         );
       },

@@ -22,7 +22,7 @@ import Fastify, {
   type FastifyServerOptions,
 } from 'fastify';
 import type { Redis } from 'ioredis';
-import { Type } from 'typebox';
+import { IsOptional, type TSchema, Type } from 'typebox';
 
 import pkg from '../package.json' with { type: 'json' };
 import { loadOperatorOAuthClients, type PackGcConfig } from './config.js';
@@ -258,6 +258,23 @@ export async function registerApiRoutes(
   app: FastifyInstance,
   options: Omit<AppOptions, 'logger'>,
 ): Promise<void> {
+  const optionalRequestBodies = new Set<string>();
+  const contentEncodingQueries = new Map<string, Record<string, unknown>>();
+  app.addHook('onRoute', ({ schema }) => {
+    const operationId = schema?.operationId;
+    if (!schema || typeof operationId !== 'string') return;
+    if (schema.body && IsOptional(schema.body as TSchema)) {
+      optionalRequestBodies.add(operationId);
+    }
+    const query = schema.querystring as
+      | { properties?: Record<string, Record<string, unknown>> }
+      | undefined;
+    const contentEncoding = query?.properties?.contentEncoding;
+    if (contentEncoding) {
+      contentEncodingQueries.set(operationId, { ...contentEncoding });
+    }
+  });
+
   // Register security plugins first (order matters)
   // 1. Security headers (helmet)
   await app.register(securityHeadersPlugin);
@@ -269,6 +286,59 @@ export async function registerApiRoutes(
 
   // Register OpenAPI spec generation
   await app.register(swagger, {
+    transformObject: (document) => {
+      if (!('openapiObject' in document)) return document.swaggerObject;
+      const openapi = document.openapiObject;
+      type Parameter = {
+        in?: string;
+        name?: string;
+        required?: boolean;
+        schema?: Record<string, unknown>;
+      };
+      type Operation = {
+        operationId?: string;
+        parameters?: Parameter[];
+        requestBody?: { required?: boolean };
+      };
+      const paths = openapi.paths as
+        | Record<string, Record<string, Operation>>
+        | undefined;
+      for (const path of Object.values(paths ?? {})) {
+        for (const operation of Object.values(path)) {
+          const operationId = operation?.operationId;
+          if (!operationId) continue;
+          // Swagger 9.9 marks even Type.Optional bodies as required.
+          if (optionalRequestBodies.has(operationId) && operation.requestBody) {
+            delete operation.requestBody.required;
+          }
+          // Swagger's second conversion pass treats this query field name as
+          // a JSON Schema keyword and drops it from the generated parameters.
+          const schema = contentEncodingQueries.get(operationId);
+          if (!schema) continue;
+          const parameters = (operation.parameters ??= []);
+          if (
+            parameters.some(
+              (parameter) =>
+                parameter.in === 'query' &&
+                parameter.name === 'contentEncoding',
+            )
+          ) {
+            continue;
+          }
+          const contentTypeIndex = parameters.findIndex(
+            (parameter) =>
+              parameter.in === 'query' && parameter.name === 'contentType',
+          );
+          parameters.splice(contentTypeIndex + 1, 0, {
+            in: 'query',
+            name: 'contentEncoding',
+            required: false,
+            schema,
+          });
+        }
+      }
+      return openapi;
+    },
     openapi: {
       openapi: '3.1.0',
       info: {

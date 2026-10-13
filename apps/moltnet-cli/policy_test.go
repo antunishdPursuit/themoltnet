@@ -31,13 +31,13 @@ type stubPolicyHandler struct {
 	moltnetapi.UnimplementedHandler
 	listParams         moltnetapi.ListRuntimePoliciesParams
 	getParams          moltnetapi.GetRuntimePolicyParams
-	createBody         moltnetapi.OptCreateRuntimePolicyBody
+	createBody         *moltnetapi.CreateRuntimePolicyBody
 	createParams       moltnetapi.CreateRuntimePolicyParams
-	updateBody         moltnetapi.OptUpdateRuntimePolicyBody
+	updateBody         *moltnetapi.UpdateRuntimePolicyBody
 	updateParams       moltnetapi.UpdateRuntimePolicyParams
 	deleteParams       moltnetapi.DeleteRuntimePolicyParams
 	boundParams        moltnetapi.GetRuntimeProfilePoliciesParams
-	setPoliciesBody    moltnetapi.OptSetProfilePoliciesBody
+	setPoliciesBody    *moltnetapi.SetProfilePoliciesBody
 	setPoliciesParams  moltnetapi.SetRuntimeProfilePoliciesParams
 	allowedToolsParams moltnetapi.GetRuntimeProfileAllowedToolsParams
 	// getPolicy overrides the policy a get returns. Nil uses the default.
@@ -89,13 +89,13 @@ func (h *stubPolicyHandler) GetRuntimePolicy(_ context.Context, params moltnetap
 	return p, nil
 }
 
-func (h *stubPolicyHandler) CreateRuntimePolicy(_ context.Context, req moltnetapi.OptCreateRuntimePolicyBody, params moltnetapi.CreateRuntimePolicyParams) (moltnetapi.CreateRuntimePolicyRes, error) {
+func (h *stubPolicyHandler) CreateRuntimePolicy(_ context.Context, req *moltnetapi.CreateRuntimePolicyBody, params moltnetapi.CreateRuntimePolicyParams) (moltnetapi.CreateRuntimePolicyRes, error) {
 	h.createBody = req
 	h.createParams = params
-	return newTestRuntimePolicy(req.Value.Name), nil
+	return newTestRuntimePolicy(req.Name), nil
 }
 
-func (h *stubPolicyHandler) UpdateRuntimePolicy(_ context.Context, req moltnetapi.OptUpdateRuntimePolicyBody, params moltnetapi.UpdateRuntimePolicyParams) (moltnetapi.UpdateRuntimePolicyRes, error) {
+func (h *stubPolicyHandler) UpdateRuntimePolicy(_ context.Context, req *moltnetapi.UpdateRuntimePolicyBody, params moltnetapi.UpdateRuntimePolicyParams) (moltnetapi.UpdateRuntimePolicyRes, error) {
 	h.updateBody = req
 	h.updateParams = params
 	p := newTestRuntimePolicy("patched")
@@ -113,7 +113,7 @@ func (h *stubPolicyHandler) GetRuntimeProfilePolicies(_ context.Context, params 
 	return &moltnetapi.RuntimeProfilePoliciesResponse{PolicyIds: []uuid.UUID{testPolicyID}}, nil
 }
 
-func (h *stubPolicyHandler) SetRuntimeProfilePolicies(_ context.Context, req moltnetapi.OptSetProfilePoliciesBody, params moltnetapi.SetRuntimeProfilePoliciesParams) (moltnetapi.SetRuntimeProfilePoliciesRes, error) {
+func (h *stubPolicyHandler) SetRuntimeProfilePolicies(_ context.Context, req *moltnetapi.SetProfilePoliciesBody, params moltnetapi.SetRuntimeProfilePoliciesParams) (moltnetapi.SetRuntimeProfilePoliciesRes, error) {
 	h.setPoliciesBody = req
 	h.setPoliciesParams = params
 	return &moltnetapi.SetRuntimeProfilePoliciesNoContent{}, nil
@@ -297,7 +297,7 @@ func TestPolicyCreateSendsDefinition(t *testing.T) {
 	if handler.createParams.XMoltnetTeamID != testPolicyTeam {
 		t.Fatalf("expected team header %s, got %s", testPolicyTeam, handler.createParams.XMoltnetTeamID)
 	}
-	body := handler.createBody.Value
+	body := handler.createBody
 	if body.Name != testPolicyName {
 		t.Fatalf("expected name %q, got %q", testPolicyName, body.Name)
 	}
@@ -326,7 +326,7 @@ func TestPolicyCreateSendsOneTokenShellCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runPolicyCreateCmd() error: %v", err)
 	}
-	body := handler.createBody.Value
+	body := handler.createBody
 	if len(body.ShellCommands) != 1 || len(body.ShellCommands[0].ArgvPrefix) != 1 ||
 		body.ShellCommands[0].ArgvPrefix[0] != "git" {
 		t.Fatalf("expected one [git] argv prefix, got %v", body.ShellCommands)
@@ -349,8 +349,8 @@ func TestPolicyCreateRejectsEmptyShellCommand(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error for an empty argv prefix")
 	}
-	if handler.createBody.Value.Name != "" {
-		t.Fatalf("expected no request to reach the API, got %v", handler.createBody.Value)
+	if handler.createBody != nil {
+		t.Fatalf("expected no request to reach the API, got %v", handler.createBody)
 	}
 }
 
@@ -373,7 +373,7 @@ func TestPolicyUpdateSendsAddRemovePatch(t *testing.T) {
 	if handler.updateParams.XMoltnetTeamID != testPolicyTeam {
 		t.Fatalf("expected team header %s, got %s", testPolicyTeam, handler.updateParams.XMoltnetTeamID)
 	}
-	body := handler.updateBody.Value
+	body := handler.updateBody
 	if len(body.AddTools) != 1 || body.AddTools[0] != "glob" {
 		t.Fatalf("expected addTools [glob], got %v", body.AddTools)
 	}
@@ -421,7 +421,7 @@ func TestProfileSetPoliciesResolvesEveryPolicyName(t *testing.T) {
 	if handler.setPoliciesParams.XMoltnetTeamID != testPolicyTeam {
 		t.Fatalf("expected team header %s, got %s", testPolicyTeam, handler.setPoliciesParams.XMoltnetTeamID)
 	}
-	ids := handler.setPoliciesBody.Value.PolicyIds
+	ids := handler.setPoliciesBody.PolicyIds
 	if len(ids) != 2 || ids[0] != testPolicyID || ids[1] != testPolicyOtherID {
 		t.Fatalf("expected [%s %s], got %v", testPolicyID, testPolicyOtherID, ids)
 	}
@@ -444,8 +444,8 @@ func TestProfileSetPoliciesRequiresExplicitClear(t *testing.T) {
 	if !strings.Contains(err.Error(), "--clear") {
 		t.Fatalf("expected the error to point at --clear, got: %v", err)
 	}
-	if handler.setPoliciesBody.Set {
-		t.Fatalf("expected no request to be sent, got %#v", handler.setPoliciesBody.Value)
+	if handler.setPoliciesBody != nil {
+		t.Fatalf("expected no request to be sent, got %#v", handler.setPoliciesBody)
 	}
 }
 
@@ -461,8 +461,8 @@ func TestProfileSetPoliciesClearSendsEmptySet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runProfileSetPoliciesCmd() error: %v", err)
 	}
-	if len(handler.setPoliciesBody.Value.PolicyIds) != 0 {
-		t.Fatalf("expected an empty policy set, got %v", handler.setPoliciesBody.Value.PolicyIds)
+	if len(handler.setPoliciesBody.PolicyIds) != 0 {
+		t.Fatalf("expected an empty policy set, got %v", handler.setPoliciesBody.PolicyIds)
 	}
 }
 
@@ -479,8 +479,8 @@ func TestProfileSetPoliciesRejectsClearWithPolicy(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error when --clear is combined with --policy")
 	}
-	if handler.setPoliciesBody.Set {
-		t.Fatalf("expected no request to be sent, got %#v", handler.setPoliciesBody.Value)
+	if handler.setPoliciesBody != nil {
+		t.Fatalf("expected no request to be sent, got %#v", handler.setPoliciesBody)
 	}
 }
 

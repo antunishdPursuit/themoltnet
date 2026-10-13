@@ -323,11 +323,8 @@ func TestBuildRevokeReason(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if !body.Set {
-				t.Fatal("expected body to be set")
-			}
-			if body.Value.Type != tc.want {
-				t.Errorf("type = %q, want %q", body.Value.Type, tc.want)
+			if body.Type != tc.want {
+				t.Errorf("type = %q, want %q", body.Type, tc.want)
 			}
 		})
 	}
@@ -362,7 +359,7 @@ func TestBuildRevokeReason(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		desc, ok := body.Value.ProvenanceGraphPrivilegeWithdrawnNode.Description.Get()
+		desc, ok := body.ProvenanceGraphPrivilegeWithdrawnNode.Description.Get()
 		if !ok || desc != "contract ended" {
 			t.Errorf("description = %q (set=%v), want 'contract ended'", desc, ok)
 		}
@@ -429,7 +426,7 @@ type agentKeysStubHandler struct {
 	create func(*moltnetapi.CreateAgentKeyReq, moltnetapi.CreateAgentKeyParams) moltnetapi.CreateAgentKeyRes
 	list   func(moltnetapi.ListAgentKeysParams) moltnetapi.ListAgentKeysRes
 	rotate func(moltnetapi.RotateAgentKeyParams) moltnetapi.RotateAgentKeyRes
-	revoke func(moltnetapi.OptRevokeAgentKeyReq, moltnetapi.RevokeAgentKeyParams) moltnetapi.RevokeAgentKeyRes
+	revoke func(moltnetapi.RevokeAgentKeyReq, moltnetapi.RevokeAgentKeyParams) moltnetapi.RevokeAgentKeyRes
 	whoami func() moltnetapi.GetWhoamiRes
 }
 
@@ -452,7 +449,7 @@ func (h agentKeysStubHandler) RotateAgentKey(_ context.Context, params moltnetap
 	return h.rotate(params), nil
 }
 
-func (h agentKeysStubHandler) RevokeAgentKey(_ context.Context, req moltnetapi.OptRevokeAgentKeyReq, params moltnetapi.RevokeAgentKeyParams) (moltnetapi.RevokeAgentKeyRes, error) {
+func (h agentKeysStubHandler) RevokeAgentKey(_ context.Context, req moltnetapi.RevokeAgentKeyReq, params moltnetapi.RevokeAgentKeyParams) (moltnetapi.RevokeAgentKeyRes, error) {
 	return h.revoke(req, params), nil
 }
 
@@ -735,9 +732,9 @@ func TestRunAgentsKeysRevoke_NoContentPrintsConfirmation(t *testing.T) {
 	t.Parallel()
 
 	handler := agentKeysStubHandler{
-		revoke: func(req moltnetapi.OptRevokeAgentKeyReq, _ moltnetapi.RevokeAgentKeyParams) moltnetapi.RevokeAgentKeyRes {
-			if !req.Set {
-				t.Error("revoke should send a reason body")
+		revoke: func(req moltnetapi.RevokeAgentKeyReq, _ moltnetapi.RevokeAgentKeyParams) moltnetapi.RevokeAgentKeyRes {
+			if !req.IsProvenanceGraphKeyCompromiseNode() {
+				t.Error("revoke should send a key_compromise reason body")
 			}
 			return &moltnetapi.RevokeAgentKeyNoContent{}
 		},

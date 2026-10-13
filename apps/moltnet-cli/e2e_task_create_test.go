@@ -469,7 +469,7 @@ func TestE2E_CLI_TaskCreate_ProjectScoped_RoundTrip(t *testing.T) {
 	generalClaim.SetToNull()
 	generalRes, err := e2eClient.ClaimTask(
 		context.Background(),
-		moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{ProjectId: generalClaim}),
+		&moltnetapi.ClaimTaskReq{ProjectId: generalClaim},
 		moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(e2ePersonalTeamID)},
 	)
 	if err != nil {
@@ -481,7 +481,7 @@ func TestE2E_CLI_TaskCreate_ProjectScoped_RoundTrip(t *testing.T) {
 
 	matchedRes, err := e2eClient.ClaimTask(
 		context.Background(),
-		moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{ProjectId: moltnetapi.NewOptNilUUID(projectID)}),
+		&moltnetapi.ClaimTaskReq{ProjectId: moltnetapi.NewOptNilUUID(projectID)},
 		moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(e2ePersonalTeamID)},
 	)
 	if err != nil {

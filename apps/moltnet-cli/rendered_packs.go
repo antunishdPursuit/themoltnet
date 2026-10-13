@@ -135,7 +135,7 @@ func runRenderedPacksUpdate(apiURL, credPath, id string, pinned *bool, expiresAt
 
 	res, err := client.UpdateRenderedPack(
 		context.Background(),
-		moltnetapi.OptUpdateRenderedPackReq{Value: req, Set: true},
+		&req,
 		moltnetapi.UpdateRenderedPackParams{ID: renderedPackID},
 	)
 	if err != nil {

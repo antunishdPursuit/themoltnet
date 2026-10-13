@@ -59,7 +59,7 @@ catalog:
   '@fastify/helmet': '^13.1.2'
   '@fastify/otel': '^0.21.2'
   '@fastify/rate-limit': '^10.3.0'
-  '@fastify/swagger': '9.6.1'
+  '@fastify/swagger': '^9.9.2'
   '@fastify/type-provider-typebox': '^6.3.0'
   '@getlarge/fastify-mcp': '^1.3.0-getlarge.6'
   '@hey-api/openapi-ts': '0.99.0'

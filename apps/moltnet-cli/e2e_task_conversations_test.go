@@ -100,7 +100,7 @@ func seedDurableConversation(t *testing.T) durableConversation {
 	ctx := context.Background()
 	team := moltnetapi.NewOptUUID(e2ePersonalTeamID)
 
-	profileRes, err := e2eClient.CreateRuntimeProfile(ctx, moltnetapi.NewOptCreateRuntimeProfileBody(moltnetapi.CreateRuntimeProfileBody{
+	profileRes, err := e2eClient.CreateRuntimeProfile(ctx, &moltnetapi.CreateRuntimeProfileBody{
 		Name: "cli-conversations-" + uuid.NewString(),
 		Models: moltnetapi.CreateRuntimeProfileBodyModels{
 			Generation: moltnetapi.NewOptCreateRuntimeProfileBodyModelsGeneration(moltnetapi.CreateRuntimeProfileBodyModelsGeneration{
@@ -115,7 +115,7 @@ func seedDurableConversation(t *testing.T) durableConversation {
 				Cpus: moltnetapi.NewOptInt(2), Memory: moltnetapi.NewOptString("2G"),
 			}),
 		},
-	}), moltnetapi.CreateRuntimeProfileParams{XMoltnetTeamID: team})
+	}, moltnetapi.CreateRuntimeProfileParams{XMoltnetTeamID: team})
 	profile := expectRes[*moltnetapi.RuntimeProfile](t, "create runtime profile", profileRes, err)
 
 	taskID := createE2ETask(t, "CLI conversation read", profile.ID)
@@ -151,11 +151,11 @@ func seedDurableConversation(t *testing.T) durableConversation {
 	})
 	expectRes[*moltnetapi.RegisterExecutorManifestOK](t, "register executor manifest", registerRes, err)
 
-	claimRes, err := e2eClient.ClaimTask(ctx, moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{
+	claimRes, err := e2eClient.ClaimTask(ctx, &moltnetapi.ClaimTaskReq{
 		LeaseTtlSec:         moltnetapi.NewOptInt(seedClaimLeaseTTLSec),
 		ProfileId:           moltnetapi.NewOptUUID(profile.ID),
 		ExecutorFingerprint: moltnetapi.NewOptString(fingerprint),
-	}), moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: team})
+	}, moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: team})
 	attempt := expectRes[*moltnetapi.ClaimTaskResponseHeaders](t, "claim task", claimRes, err).Response.Attempt
 	leaseID, ok := attempt.LeaseId.Get()
 	if !ok {
@@ -335,7 +335,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 	t.Run("explains attempts without a Durable conversation", func(t *testing.T) {
 		taskID := createE2ETask(t, "CLI conversation absent")
 		claimRes, err := e2eClient.ClaimTask(context.Background(),
-			moltnetapi.NewOptClaimTaskReq(moltnetapi.ClaimTaskReq{LeaseTtlSec: moltnetapi.NewOptInt(seedClaimLeaseTTLSec)}),
+			&moltnetapi.ClaimTaskReq{LeaseTtlSec: moltnetapi.NewOptInt(seedClaimLeaseTTLSec)},
 			moltnetapi.ClaimTaskParams{ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(e2ePersonalTeamID)})
 		expectRes[*moltnetapi.ClaimTaskResponseHeaders](t, "claim task", claimRes, err)
 
@@ -385,7 +385,7 @@ func TestE2E_CLI_TaskConversations(t *testing.T) {
 		// An attempt can only fail once a heartbeat has started it.
 		ctx := context.Background()
 		team := moltnetapi.NewOptUUID(e2ePersonalTeamID)
-		heartbeatRes, err := e2eClient.TaskHeartbeat(ctx, moltnetapi.NewOptTaskHeartbeatReq(moltnetapi.TaskHeartbeatReq{}),
+		heartbeatRes, err := e2eClient.TaskHeartbeat(ctx, &moltnetapi.TaskHeartbeatReq{},
 			moltnetapi.TaskHeartbeatParams{ID: seeded.taskID, N: seeded.attemptN, XMoltnetTeamID: team})
 		expectRes[*moltnetapi.HeartbeatResponse](t, "heartbeat", heartbeatRes, err)
 		failRes, err := e2eClient.FailTaskAttempt(ctx, &moltnetapi.FailTaskAttemptReq{Error: moltnetapi.TaskError{
