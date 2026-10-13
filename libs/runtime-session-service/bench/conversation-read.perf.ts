@@ -40,6 +40,8 @@ const env = (name: string, fallback: number) =>
 const S3_MS = env('BENCH_S3_MS', 35);
 const KETO_MS = env('BENCH_KETO_MS', 25);
 const DB_MS = env('BENCH_DB_MS', 3);
+// Extra KB per tool result: ~0 for chat-sized commits, ~900 for near-limit ones.
+const TOOL_KB = env('BENCH_TOOL_KB', 0);
 const Attempts = defineDocFamily({
   kind: 'moltnet.attempt',
   version: 1,
@@ -109,7 +111,11 @@ async function history(turns: number) {
       await tx.appendEntry(root, {
         kind: 'pi.tool',
         model: [
-          { role: 'toolResult', content: text(150), timestamp: 2 } as never,
+          {
+            role: 'toolResult',
+            content: text(150) + 'x'.repeat(TOOL_KB * 1024),
+            timestamp: 2,
+          } as never,
         ],
       });
     }, context);
@@ -185,6 +191,7 @@ async function setup(commits: StorageWrite[][], readConcurrency: number) {
       commitId: `c${index}`,
       sha256,
       objectKey,
+      sizeBytes: bytes.length,
       taskId: 'task',
     });
   }
@@ -230,10 +237,15 @@ describe('conversation read benchmark', () => {
           if (!gc) throw new Error('Run with NODE_OPTIONS=--expose-gc');
           gc();
           const heapBefore = process.memoryUsage().heapUsed;
+          let peakHeap = heapBefore;
+          const sampler = setInterval(() => {
+            peakHeap = Math.max(peakHeap, process.memoryUsage().heapUsed);
+          }, 2);
           let t = performance.now();
           const cold = await f.service.open(input);
           const coldList = cold.list();
           const coldMs = performance.now() - t;
+          clearInterval(sampler);
           // Heap still reachable after the cold read (the replayed reader), not
           // the peak during it.
           gc();
@@ -252,9 +264,8 @@ describe('conversation read benchmark', () => {
           await warm.close();
           await f.service.close();
           const stats = f.stats();
-          expect(stats.maxInflight).toBe(
-            Math.min(readConcurrency, commits.length),
-          );
+          // The byte budget may hold large commits below the concurrency limit.
+          expect(stats.maxInflight).toBeLessThanOrEqual(readConcurrency);
           console.log(
             JSON.stringify({
               turns,
@@ -266,6 +277,8 @@ describe('conversation read benchmark', () => {
               dbMs: DB_MS,
               coldMs: Math.round(coldMs),
               warmMs: Math.round(warmMs),
+              toolKb: TOOL_KB,
+              peakHeapDeltaMiB: +((peakHeap - heapBefore) / 2 ** 20).toFixed(1),
               retainedHeapMiB: +((heapAfter - heapBefore) / 2 ** 20).toFixed(1),
               ...stats,
             }),

@@ -33,17 +33,24 @@ export function createRuntimeStoreService(deps: {
   maxBytes: number;
   /**
    * Object fetches in flight per read page; a positive integer (default 1:
-   * sequential, no read-ahead). Up to readConcurrency + 1 commits are held at once (in flight
-   * plus the one the consumer holds), each transiently about three times its
-   * stored size while it is verified and parsed.
+   * sequential, no read-ahead). Fetches beyond each read's next commit are
+   * also limited by `readAheadBytes`.
    */
   readConcurrency?: number;
+  /**
+   * Bytes all reads of this service may hold in read-ahead at once (default
+   * 16 MiB). Only fetches beyond each read's next commit count against it.
+   */
+  readAheadBytes?: number;
   now?: () => number;
 }) {
   const repo = deps.repository;
   const readConcurrency = deps.readConcurrency ?? 1;
   if (!Number.isSafeInteger(readConcurrency) || readConcurrency < 1)
     throw new RangeError('readConcurrency must be a positive integer');
+  const readAhead = new ReadAheadBudget(
+    deps.readAheadBytes ?? 16 * 1024 * 1024,
+  );
   const now = deps.now ?? Date.now;
   // Cache provenance, never authorization. Commit history is append-only, so a
   // captured head identifies its contributors even if another writer advances.
@@ -407,7 +414,15 @@ export function createRuntimeStoreService(deps: {
         // happen after the authorization above has passed.
         items: prefetchInOrder(
           rows,
-          readConcurrency,
+          {
+            concurrency: readConcurrency,
+            budget: readAhead,
+            // Rows record their stored size; assume the maximum if absent.
+            cost: (row: CommitRow) =>
+              (Number.isSafeInteger(row.sizeBytes)
+                ? Math.min(row.sizeBytes!, deps.maxBytes)
+                : deps.maxBytes) * READ_EXPANSION,
+          },
           (row, signal) => readCommit(deps.storage, deps.maxBytes, row, signal),
           input.signal,
         ),
@@ -421,7 +436,35 @@ type CommitRow = {
   commitId: string;
   sha256: string;
   objectKey: string;
+  sizeBytes?: number;
 };
+
+/**
+ * Bytes a commit occupies while it is read and parsed: the body chunks, the
+ * decoded string and the parsed writes. Conservative, so the budget errs low.
+ */
+const READ_EXPANSION = 4;
+
+/** A byte budget shared by every read of one store service. */
+export class ReadAheadBudget {
+  #available: number;
+  constructor(readonly limitBytes: number) {
+    if (!Number.isSafeInteger(limitBytes) || limitBytes < 0)
+      throw new RangeError('readAheadBytes must be a non-negative integer');
+    this.#available = limitBytes;
+  }
+  get availableBytes() {
+    return this.#available;
+  }
+  tryAcquire(bytes: number) {
+    if (bytes > this.#available) return false;
+    this.#available -= bytes;
+    return true;
+  }
+  release(bytes: number) {
+    this.#available = Math.min(this.limitBytes, this.#available + bytes);
+  }
+}
 
 async function readCommit(
   storage: RuntimeSessionStorage,
@@ -431,6 +474,8 @@ async function readCommit(
 ): Promise<RuntimeStoreCommit> {
   const object = await storage.getObject(row.objectKey, signal);
   addAbortSignal(signal, object.body);
+  // Hash while streaming; the chunks are the only copy until the final decode.
+  const hash = createHash('sha256');
   const chunks: Buffer[] = [];
   let size = 0;
   // Leaving the loop early (limit, abort) destroys the body stream.
@@ -442,15 +487,16 @@ async function readCommit(
         'service-unavailable',
         `Stored runtime commit ${row.seq} exceeds size limit`,
       );
+    hash.update(bytes);
     chunks.push(bytes);
   }
-  const bytes = Buffer.concat(chunks);
-  if (createHash('sha256').update(bytes).digest('hex') !== row.sha256)
+  // Nothing is decoded, let alone applied, before the checksum matches.
+  if (hash.digest('hex') !== row.sha256)
     throw createProblem(
       'service-unavailable',
       `Runtime commit ${row.seq} checksum mismatch`,
     );
-  const payload = JSON.parse(bytes.toString()) as {
+  const payload = JSON.parse(Buffer.concat(chunks, size).toString()) as {
     format: string;
     writes: RuntimeStoreCommit['writes'];
   };
@@ -468,16 +514,28 @@ async function readCommit(
 }
 
 /**
- * Runs `fetch` over `items` with at most `concurrency` calls in flight and
- * yields results strictly in input order, refilling only when the consumer
- * asks for the next result. The first real failure aborts the other fetches
- * and is thrown in place of the abort errors it causes. Early return, failure
- * or caller abort aborts every in-flight fetch and waits for it to settle, so
- * `fetch` must honour its signal or closing will wait for it.
+ * Runs `fetch` over `items` and yields results strictly in input order,
+ * refilling only when the consumer asks for the next result.
+ *
+ * Memory is bounded by bytes, not by item count: the next item in order is
+ * always fetched (a plain sequential read), and every fetch beyond it must
+ * first reserve `cost(item)` from the shared `budget`. When the budget is
+ * exhausted, reads degrade to sequential instead of buffering more. A
+ * reservation is released once the consumer takes the result, or when the
+ * fetch is abandoned.
+ *
+ * The first real failure aborts the other fetches and is thrown in place of
+ * the abort errors it causes. Early return, failure or caller abort aborts
+ * every in-flight fetch and waits for it to settle, so `fetch` must honour its
+ * signal or closing will wait for it.
  */
 async function* prefetchInOrder<T, R>(
   items: readonly T[],
-  concurrency: number,
+  options: {
+    concurrency: number;
+    budget?: ReadAheadBudget;
+    cost: (item: T) => number;
+  },
   fetch: (item: T, signal: AbortSignal) => Promise<R>,
   callerSignal?: AbortSignal,
 ): AsyncGenerator<R> {
@@ -485,7 +543,7 @@ async function* prefetchInOrder<T, R>(
   const signal = callerSignal
     ? AbortSignal.any([callerSignal, stop.signal])
     : stop.signal;
-  const pending: Promise<R>[] = [];
+  const pending: { result: Promise<R>; reserved: number }[] = [];
   // Boxed: a thrown value may itself be falsy.
   let failure: { error: unknown } | undefined;
   let next = 0;
@@ -493,29 +551,42 @@ async function* prefetchInOrder<T, R>(
     while (
       !signal.aborted &&
       next < items.length &&
-      pending.length < concurrency
+      pending.length < options.concurrency
     ) {
-      const fetched = fetch(items[next++], signal);
-      fetched.catch((error: unknown) => {
+      let reserved = 0;
+      if (pending.length > 0) {
+        // Read-ahead: only within the shared byte budget.
+        const cost = options.cost(items[next]);
+        if (!options.budget?.tryAcquire(cost)) return;
+        reserved = cost;
+      }
+      const result = fetch(items[next++], signal);
+      result.catch((error: unknown) => {
         if (signal.aborted) return;
         failure = { error };
         stop.abort(error);
       });
-      pending.push(fetched);
+      pending.push({ result, reserved });
     }
   };
   try {
     callerSignal?.throwIfAborted();
     fill();
     while (pending.length) {
-      let result: R;
+      const head = pending[0];
+      let value: R;
       try {
-        result = await pending.shift()!;
+        value = await head.result;
       } catch (error) {
         callerSignal?.throwIfAborted();
         throw failure ? failure.error : error;
       }
-      yield result;
+      pending.shift();
+      try {
+        yield value;
+      } finally {
+        options.budget?.release(head.reserved);
+      }
       // Refill only when the consumer asks for more, so concurrency 1 is
       // strictly sequential and a stalled consumer stops further fetches.
       callerSignal?.throwIfAborted();
@@ -525,6 +596,7 @@ async function* prefetchInOrder<T, R>(
     callerSignal?.throwIfAborted();
   } finally {
     stop.abort();
-    await Promise.allSettled(pending);
+    await Promise.allSettled(pending.map((entry) => entry.result));
+    for (const entry of pending) options.budget?.release(entry.reserved);
   }
 }

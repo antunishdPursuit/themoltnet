@@ -158,6 +158,7 @@ describe('task conversation routes', () => {
         seq: after + index + 1,
         commitId: objectKey,
         objectKey,
+        sizeBytes: bytes.length,
         sha256: createHash('sha256').update(bytes).digest('hex'),
       })),
     );

@@ -16,7 +16,9 @@ const authority = {
   leaseId: 'lease',
   executorFingerprint: 'fingerprint',
 };
-function setup(options: { readConcurrency?: number } = {}) {
+function setup(
+  options: { readConcurrency?: number; readAheadBytes?: number } = {},
+) {
   let now = Date.now();
   const objects = new Map<string, Buffer>();
   const row = {
@@ -397,7 +399,7 @@ async function seed(f: ReturnType<typeof setup>, count: number) {
  * in-flight fetch holds a real open stream the reader must destroy on abort.
  */
 function gatedStorage(f: ReturnType<typeof setup>) {
-  const gates = new Map<string, () => void>();
+  const gates = new Map<string, (() => void)[]>();
   const bodies: Readable[] = [];
   let inflight = 0;
   let maxInflight = 0;
@@ -406,15 +408,20 @@ function gatedStorage(f: ReturnType<typeof setup>) {
     maxInflight = Math.max(maxInflight, inflight);
     const body = new Readable({ read() {} });
     body.once('close', () => inflight--);
-    gates.set(key, () => {
-      body.push(f.objects.get(key)!);
-      body.push(null);
-    });
+    gates.set(key, [
+      ...(gates.get(key) ?? []),
+      () => {
+        body.push(f.objects.get(key)!);
+        body.push(null);
+      },
+    ]);
     bodies.push(body);
     return { body };
   });
   return {
-    release: (key: string) => gates.get(key)?.(),
+    release: (key: string) => {
+      for (const open of gates.get(key) ?? []) open();
+    },
     started: (key: string) => gates.has(key),
     bodies,
     get maxInflight() {
@@ -749,5 +756,123 @@ describe('concurrent ordered object reads', () => {
       f.service.read({ ...authority, storeId: 'store' }),
     ).rejects.toMatchObject({ statusCode: 404 });
     expect(f.storage.getObject).not.toHaveBeenCalled();
+  });
+});
+
+describe('shared read-ahead byte budget', () => {
+  /** Reads a whole page while the gate releases objects as they start. */
+  async function drain(
+    f: ReturnType<typeof setup>,
+    gate: ReturnType<typeof gatedStorage>,
+    keys: string[],
+  ) {
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    const result = collect(page.items);
+    for (const key of keys) {
+      await vi.waitFor(() => expect(gate.started(key)).toBe(true));
+      gate.release(key);
+    }
+    return result;
+  }
+  const readAheadCost = (f: ReturnType<typeof setup>) =>
+    Number(f.commits[0].sizeBytes) * 4;
+
+  it('bounds read-ahead across concurrent reads by bytes, not commit count', async () => {
+    const probe = setup();
+    await seed(probe, 1);
+    const cost = readAheadCost(probe);
+    const f = setup({ readConcurrency: 8, readAheadBytes: cost * 2 + 1 });
+    const keys = await seed(f, 6);
+    const gate = gatedStorage(f);
+    const first = await f.service.read({ ...authority, storeId: 'store' });
+    const second = await f.service.read({ ...authority, storeId: 'store' });
+    const a = first.items.next();
+    const b = second.items.next();
+    await vi.waitFor(() =>
+      expect(f.storage.getObject).toHaveBeenCalledTimes(4),
+    );
+    // Each read's next commit is free; only two read-aheads fit the budget.
+    expect(gate.maxInflight).toBe(4);
+    for (const key of keys) gate.release(key);
+    await a;
+    await b;
+    await first.items.return(undefined);
+    await second.items.return(undefined);
+  });
+
+  it('never blocks a read on an exhausted budget', async () => {
+    const f = setup({ readConcurrency: 8, readAheadBytes: 0 });
+    const keys = await seed(f, 4);
+    const gate = gatedStorage(f);
+    expect(await drain(f, gate, keys)).toHaveLength(4);
+    expect(gate.maxInflight).toBe(1);
+  });
+
+  it('falls back to sequential reads when a row has no recorded size', async () => {
+    const f = setup({ readConcurrency: 8, readAheadBytes: 1000 });
+    const keys = await seed(f, 3);
+    f.repository.listCommits.mockImplementation(async () =>
+      f.commits.map(({ sizeBytes: _size, ...row }) => row),
+    );
+    const gate = gatedStorage(f);
+    expect(await drain(f, gate, keys)).toHaveLength(3);
+    expect(gate.maxInflight).toBe(1);
+  });
+
+  it('returns reservations after early return, abort and failure', async () => {
+    const probe = setup();
+    await seed(probe, 1);
+    const f = setup({
+      readConcurrency: 8,
+      readAheadBytes: readAheadCost(probe) * 2 + 1,
+    });
+    const keys = await seed(f, 4);
+    const fullReadAhead = async () => {
+      const gate = gatedStorage(f);
+      await drain(f, gate, keys);
+      return gate.maxInflight;
+    };
+    expect(await fullReadAhead()).toBe(3);
+
+    // Early return while two read-aheads are held.
+    let gate = gatedStorage(f);
+    let page = await f.service.read({ ...authority, storeId: 'store' });
+    const head = page.items.next();
+    await vi.waitFor(() => expect(gate.started(keys[2])).toBe(true));
+    gate.release(keys[0]);
+    await head;
+    await page.items.return(undefined);
+    expect(await fullReadAhead()).toBe(3);
+
+    // Caller abort mid-page.
+    gate = gatedStorage(f);
+    const controller = new AbortController();
+    page = await f.service.read({
+      ...authority,
+      storeId: 'store',
+      signal: controller.signal,
+    });
+    const aborted = collect(page.items);
+    await vi.waitFor(() => expect(gate.started(keys[2])).toBe(true));
+    controller.abort();
+    await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await fullReadAhead()).toBe(3);
+
+    // A failed read-ahead object.
+    gatedStorage(f);
+    const gated = f.storage.getObject.getMockImplementation()!;
+    f.storage.getObject.mockImplementation(async (key: string, signal) => {
+      if (key === keys[1]) throw new Error('object store unavailable');
+      return gated(key, signal);
+    });
+    page = await f.service.read({ ...authority, storeId: 'store' });
+    await expect(collect(page.items)).rejects.toThrow(
+      'object store unavailable',
+    );
+    expect(await fullReadAhead()).toBe(3);
+  });
+
+  it('rejects an invalid read-ahead budget', () => {
+    expect(() => setup({ readAheadBytes: -1 })).toThrow(RangeError);
   });
 });
