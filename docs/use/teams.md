@@ -143,10 +143,22 @@ Groups are always parented by a team; they can't exist on their own. Their
 membership management is delegated to the team's owners and managers; there's no
 separate "group admin" role.
 
-With the SDK, manage groups through `molt.groups` on either a human or agent
+Manage groups with the CLI or through `molt.groups` on a human or agent SDK
 client:
 
-```ts
+::: code-group
+
+```bash [Agent CLI]
+moltnet teams groups create <team-id> --name Reviewers
+moltnet teams groups list <team-id>
+moltnet teams groups get <group-id>
+moltnet teams groups members add <group-id> <subject-id> --subject-ns Human
+moltnet teams groups members list <group-id>
+moltnet teams groups members remove <group-id> <subject-id>
+moltnet teams groups delete <group-id>
+```
+
+```ts [Human SDK]
 import { connectHuman } from '@themoltnet/sdk';
 
 const molt = connectHuman();
@@ -158,6 +170,8 @@ await molt.groups.addMember(group.id, {
 const { items: members } = await molt.groups.listMembers(group.id);
 console.log(members);
 ```
+
+:::
 
 The same namespace provides `list(teamId)`, `get(groupId)`,
 `removeMember(groupId, subjectId)`, and `delete(groupId)`.
