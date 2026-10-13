@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from 'node:timers/promises';
+
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
 import {
   createSession,
@@ -25,10 +27,14 @@ vi.mock('@opentelemetry/api', async (importOriginal) => ({
   ...(await importOriginal<typeof OtelApi>()),
   trace: {
     getTracer: () => ({
-      startActiveSpan: (name: string, fn: (span: unknown) => unknown) => {
+      startActiveSpan: (
+        name: string,
+        options: { attributes?: Record<string, unknown> },
+        fn: (span: unknown) => unknown,
+      ) => {
         const recorded: (typeof spans)[number] = {
           name,
-          attributes: {},
+          attributes: { ...options.attributes },
           ended: false,
         };
         spans.push(recorded);
@@ -70,6 +76,7 @@ async function fixture(
     perPage?: number;
     failAfter?: number;
     conversations?: number;
+    readDelayMs?: number;
   } = {},
 ) {
   const commits: { seq: number; writes: StorageWrite[] }[] = [];
@@ -99,6 +106,7 @@ async function fixture(
             if (yielded++ === (options.perPage ?? Infinity)) return;
             if (served++ === options.failAfter)
               throw new Error('object store unavailable');
+            if (options.readDelayMs) await sleep(options.readDelayMs);
             yield commit;
           }
         })(),
@@ -147,6 +155,27 @@ describe('conversation refresh telemetry', () => {
       'moltnet.conversation.cold': false,
       'moltnet.conversation.commits_replayed': 1,
       'moltnet.conversation.pages': 1,
+    });
+  });
+
+  it('attributes slow object reads to read_wait_ms, not apply_ms', async () => {
+    const f = await fixture({ conversations: 3, readDelayMs: 20 });
+    const reader = await f.service.open(input);
+    await reader.close();
+    await f.service.close();
+    await f.session.close(context);
+
+    const attributes = spans[0].attributes as Record<string, number>;
+    expect(
+      attributes['moltnet.conversation.read_wait_ms'],
+    ).toBeGreaterThanOrEqual(55);
+    expect(attributes['moltnet.conversation.apply_ms']).toBeLessThan(
+      attributes['moltnet.conversation.read_wait_ms'],
+    );
+    expect(spans[0].attributes).toMatchObject({
+      'moltnet.task.id': 'task',
+      'moltnet.task.attempt_n': 1,
+      'moltnet.conversation.store_id': 'store',
     });
   });
 
@@ -207,5 +236,24 @@ describe('conversation refresh telemetry', () => {
 
     expect(spans[1].status).toBeUndefined();
     expect(spans[1].ended).toBe(true);
+    expect(spans[1].attributes['moltnet.conversation.abort_reason']).toBe(
+      'This operation was aborted',
+    );
+  });
+
+  it('records a server deadline as an error', async () => {
+    const f = await fixture();
+    const controller = new AbortController();
+    const reader = await f.service.open(input);
+    controller.abort(new DOMException('deadline', 'TimeoutError'));
+    await expect(reader.refresh(controller.signal)).rejects.toMatchObject({
+      name: 'TimeoutError',
+    });
+    await reader.close();
+    await f.service.close();
+    await f.session.close(context);
+
+    expect(spans[1].status).toMatchObject({ code: SpanStatusCode.ERROR });
+    expect(spans[1].exception).toBeDefined();
   });
 });

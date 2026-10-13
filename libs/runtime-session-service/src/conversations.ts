@@ -142,14 +142,30 @@ export function createConversationService(deps: {
     function refresh(signal?: AbortSignal) {
       return tracer.startActiveSpan(
         'moltnet.conversation.refresh',
+        {
+          attributes: {
+            'moltnet.task.id': input.taskId,
+            'moltnet.task.attempt_n': input.attemptN,
+          },
+        },
         async (span) => {
           try {
             const result = await replay(span, signal);
             span.setStatus({ code: SpanStatusCode.OK });
             return result;
           } catch (error) {
-            // A client disconnect is not a server failure.
-            if (!signal?.aborted) {
+            const reason: unknown = signal?.aborted ? signal.reason : undefined;
+            if (signal?.aborted)
+              span.setAttribute(
+                'moltnet.conversation.abort_reason',
+                reason instanceof Error ? reason.message : String(reason),
+              );
+            // A client disconnect or shutdown is not a read failure; a
+            // deadline (TimeoutError) is the slow read this span exists for.
+            if (
+              !signal?.aborted ||
+              (reason instanceof Error && reason.name === 'TimeoutError')
+            ) {
               const message =
                 error instanceof Error ? error.message : String(error);
               span.recordException(
@@ -176,6 +192,7 @@ export function createConversationService(deps: {
       if (storeId && attached.storeId !== storeId)
         throw createProblem('conflict', 'Attempt store changed');
       storeId = attached.storeId;
+      span.setAttribute('moltnet.conversation.store_id', storeId);
       const attempt = await deps.tasks.findAttempt(
         input.taskId,
         input.attemptN,
@@ -267,8 +284,9 @@ export function createConversationService(deps: {
           'moltnet.conversation.commits_replayed': seq - replayedFrom,
           'moltnet.conversation.replay_bytes': bytes - bytesBefore,
           'moltnet.conversation.pages': pages,
-          // Everything in the replay loop except applying commits: object
-          // fetches, later-page authorization, and reader eviction.
+          // read_wait_ms: the replay loop minus apply_ms, i.e. object fetches,
+          // later-page authorization, the per-commit size pass and reader
+          // eviction. apply_ms: ancestry validation plus applying the commit.
           'moltnet.conversation.read_wait_ms': Math.round(loopMs - applyMs),
           'moltnet.conversation.apply_ms': Math.round(applyMs),
         });

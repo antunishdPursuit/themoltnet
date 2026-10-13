@@ -7,7 +7,12 @@
  * conversation services. Storage, Keto and Postgres are simulated with fixed
  * latencies so the I/O shape, not the hardware, dominates.
  *
- *   pnpm --dir libs/runtime-session-service run bench:conversation-read
+ * Best case, not a production prediction: every fetch takes exactly the same
+ * time and objects are a few KB, so neither event-loop CPU (hashing, parsing)
+ * nor head-of-line blocking from ordered delivery shows up here. Production
+ * numbers come from the `moltnet.conversation.refresh` span.
+ *
+ *   pnpm exec nx run @moltnet/runtime-session-service:bench:conversation-read
  *
  * Tunables (env): BENCH_TURNS, BENCH_S3_MS, BENCH_KETO_MS, BENCH_DB_MS.
  */
@@ -221,19 +226,26 @@ describe('conversation read benchmark', () => {
         async () => {
           const commits = await history(turns);
           const f = await setup(commits, readConcurrency);
-          global.gc?.();
+          const gc = global.gc;
+          if (!gc) throw new Error('Run with NODE_OPTIONS=--expose-gc');
+          gc();
           const heapBefore = process.memoryUsage().heapUsed;
           let t = performance.now();
           const cold = await f.service.open(input);
-          cold.list();
+          const coldList = cold.list();
           const coldMs = performance.now() - t;
           // Heap still reachable after the cold read (the replayed reader), not
           // the peak during it.
+          gc();
           const heapAfter = process.memoryUsage().heapUsed;
           await cold.close();
           t = performance.now();
           const warm = await f.service.open(input);
-          warm.list();
+          // Replay under concurrency must reconstruct the same state.
+          expect(warm.list()).toEqual(coldList);
+          expect(coldList.items).toEqual([
+            expect.objectContaining({ kind: 'main' }),
+          ]);
           const warmMs = performance.now() - t;
           await warm.close();
           await f.service.close();

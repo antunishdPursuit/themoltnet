@@ -32,9 +32,10 @@ export function createRuntimeStoreService(deps: {
   permissionChecker: PermissionChecker;
   maxBytes: number;
   /**
-   * Object fetches in flight per read page (default 1: sequential). Up to
-   * readConcurrency + 1 commits are held at once, each transiently about three
-   * times its stored size while it is verified and parsed.
+   * Object fetches in flight per read page (default 1: sequential, no
+   * read-ahead). Up to readConcurrency + 1 commits are held at once (in flight
+   * plus the one the consumer holds), each transiently about three times its
+   * stored size while it is verified and parsed.
    */
   readConcurrency?: number;
   now?: () => number;
@@ -470,7 +471,8 @@ async function readCommit(
 
 /**
  * Runs `fetch` over `items` with at most `concurrency` calls in flight and
- * yields results strictly in input order. The first real failure aborts the
+ * yields results strictly in input order, refilling only when the consumer
+ * asks for the next result. The first real failure aborts the
  * other fetches and is thrown in place of the abort errors it causes. Early
  * return, failure or caller abort aborts every in-flight fetch and waits for
  * it to settle, so `fetch` must honour its signal or closing will wait for it.
@@ -505,9 +507,9 @@ async function* prefetchInOrder<T, R>(
     }
   };
   try {
+    callerSignal?.throwIfAborted();
     fill();
     while (pending.length) {
-      callerSignal?.throwIfAborted();
       let result: R;
       try {
         result = await pending.shift()!;
@@ -515,9 +517,14 @@ async function* prefetchInOrder<T, R>(
         callerSignal?.throwIfAborted();
         throw failure ? failure.error : error;
       }
-      fill();
       yield result;
+      // Refill only when the consumer asks for more, so concurrency 1 is
+      // strictly sequential and a stalled consumer stops further fetches.
+      callerSignal?.throwIfAborted();
+      fill();
     }
+    // An abort must never surface as a normal, short page.
+    callerSignal?.throwIfAborted();
   } finally {
     stop.abort();
     await Promise.allSettled(pending);

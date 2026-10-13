@@ -367,8 +367,8 @@ describe('runtime store publication', () => {
       expect(commit.writes).toEqual(writes);
       break;
     }
-    // One consumed + at most `readConcurrency` prefetched; nothing after return.
-    expect(f.storage.getObject).toHaveBeenCalledTimes(3);
+    // The window is refilled only when the consumer asks for more.
+    expect(f.storage.getObject).toHaveBeenCalledTimes(2);
     for (const [, signal] of f.storage.getObject.mock.calls)
       expect((signal as AbortSignal).aborted).toBe(true);
   });
@@ -580,7 +580,7 @@ describe('concurrent ordered object reads', () => {
     expect(f.storage.getObject).toHaveBeenCalledTimes(4);
     for (const [, signal] of f.storage.getObject.mock.calls)
       expect((signal as AbortSignal).aborted).toBe(true);
-    // Three bodies were still stalled mid-transfer when the caller aborted.
+    // keys[0] completed; keys[1..3] were stalled mid-transfer at the abort.
     expect(gate.bodies).toHaveLength(4);
     expect(gate.bodies.every((body) => body.destroyed)).toBe(true);
   });
@@ -629,7 +629,7 @@ describe('concurrent ordered object reads', () => {
     expect(oversized.destroyed).toBe(true);
   });
 
-  it('reads one object at a time unless a caller opts in', async () => {
+  it('reads one object at a time, without read-ahead, by default', async () => {
     const f = setup();
     const keys = await seed(f, 3);
     const gate = gatedStorage(f);
@@ -642,6 +642,64 @@ describe('concurrent ordered object reads', () => {
     expect(await result).toHaveLength(3);
     expect(gate.maxInflight).toBe(1);
   });
+
+  it('does not fetch ahead while the consumer holds a commit at concurrency 1', async () => {
+    const f = setup();
+    await seed(f, 3);
+    const page = await f.service.read({ ...authority, storeId: 'store' });
+    expect((await page.items.next()).value).toMatchObject({ seq: 1 });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(f.storage.getObject).toHaveBeenCalledTimes(1);
+    await page.items.return(undefined);
+  });
+
+  it('throws when the caller aborts between authorization and iteration', async () => {
+    const f = setup({ readConcurrency: 4 });
+    await seed(f, 3);
+    const controller = new AbortController();
+    const page = await f.service.read({
+      ...authority,
+      storeId: 'store',
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(collect(page.items)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(f.storage.getObject).not.toHaveBeenCalled();
+  });
+
+  it('throws when the caller aborts after the last pending fetch resolved', async () => {
+    const f = setup();
+    await seed(f, 2);
+    const controller = new AbortController();
+    const page = await f.service.read({
+      ...authority,
+      storeId: 'store',
+      signal: controller.signal,
+    });
+    await page.items.next();
+    controller.abort();
+    await expect(page.items.next()).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
+
+  it.each([undefined, 0, ''])(
+    'rethrows a falsy rejection unchanged: %j',
+    async (thrown) => {
+      const f = setup({ readConcurrency: 2 });
+      await seed(f, 2);
+      f.storage.getObject.mockImplementationOnce(() =>
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+        Promise.reject(thrown),
+      );
+      const page = await f.service.read({ ...authority, storeId: 'store' });
+      await expect(collect(page.items)).rejects.toBe(thrown);
+    },
+  );
 
   it.each([0, -1, 1.5, Number.NaN])(
     'rejects an invalid read concurrency: %s',
