@@ -1,24 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib';
+import { promisify } from 'node:util';
+import { brotliDecompress, gunzip, inflate } from 'node:zlib';
 
-import { lintSource } from '@secretlint/core';
-import { rules as recommendedRules } from '@secretlint/secretlint-rule-preset-recommend';
+import { containsSecretInText } from '@moltnet/secret-scanner';
 
-// Uploaded content is untrusted. A user-authored suppression comment must not
-// switch off the storage gate.
-const rules = recommendedRules
-  .filter(
-    (rule) => rule.meta.id !== '@secretlint/secretlint-rule-filter-comments',
-  )
-  .map((rule) => ({ id: rule.meta.id, rule }));
-
-// Secretlint leaves AWS ID scanning off by default because it also flags bare
-// account numbers; detect only the strongly shaped access key IDs here.
-const AWS_ACCESS_KEY_ID =
-  /\b(?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b/;
-// Secretlint validates some PEM types but can miss EC and Ed25519 keys.
-const PRIVATE_KEY_HEADER =
-  /-----BEGIN (?:ENCRYPTED )?(?:EC |RSA |OPENSSH )?PRIVATE KEY-----/i;
+const decompressBrotli = promisify(brotliDecompress);
+const decompressGzip = promisify(gunzip);
+const decompressDeflate = promisify(inflate);
 
 /** The staging layer enforces the byte limit before this bounded read. */
 export async function containsArtifactSecret(
@@ -43,13 +31,13 @@ export async function containsArtifactSecret(
     const options = { maxOutputLength: maxBytes };
     switch (encoding) {
       case 'gzip':
-        decoded = gunzipSync(bytes, options);
+        decoded = await decompressGzip(bytes, options);
         break;
       case 'br':
-        decoded = brotliDecompressSync(bytes, options);
+        decoded = await decompressBrotli(bytes, options);
         break;
       case 'deflate':
-        decoded = inflateSync(bytes, options);
+        decoded = await decompressDeflate(bytes, options);
         break;
       default:
         throw new InvalidArtifactEncodingError();
@@ -61,24 +49,3 @@ export async function containsArtifactSecret(
 }
 
 export class InvalidArtifactEncodingError extends Error {}
-
-async function containsSecretInText(content: string): Promise<boolean> {
-  if (AWS_ACCESS_KEY_ID.test(content) || PRIVATE_KEY_HEADER.test(content)) {
-    return true;
-  }
-
-  const result = await lintSource({
-    source: {
-      content,
-      contentType: 'text',
-      ext: '.txt',
-      filePath: 'artifact.txt',
-    },
-    options: {
-      config: { rules },
-      maskSecrets: true,
-      noPhysicFilePath: true,
-    },
-  });
-  return result.messages.some((message) => message.type === 'message');
-}

@@ -15,8 +15,7 @@
     "@moltnet/blob-storage": "workspace:*",
     "@moltnet/crypto-service": "workspace:*",
     "@moltnet/database": "workspace:*",
-    "@secretlint/core": "catalog:",
-    "@secretlint/secretlint-rule-preset-recommend": "catalog:"
+    "@moltnet/secret-scanner": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

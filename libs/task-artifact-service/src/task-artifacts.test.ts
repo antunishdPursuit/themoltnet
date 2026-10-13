@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method */
+import { generateKeyPairSync } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { brotliCompressSync, gzipSync } from 'node:zlib';
 
@@ -156,7 +157,7 @@ describe('createTaskArtifactService', () => {
   });
 
   it('rejects credential-like content before storing a task artifact', async () => {
-    const content = `${'a'.repeat(64 * 1024 - 5)} AKIAIOSFODNN7EXAMPLE`;
+    const content = `${'a'.repeat(64 * 1024 - 5)} AKIAABCDEFGHIJKL1234`;
 
     await expect(
       subject.upload({
@@ -181,9 +182,12 @@ describe('createTaskArtifactService', () => {
   });
 
   it('rejects credential-like content before staging a task input', async () => {
+    const privateKey = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+      .privateKey.export({ type: 'pkcs8', format: 'pem' })
+      .toString();
     await expect(
       subject.stageUpload({
-        body: Readable.from(['-----BEGIN PRIVATE KEY-----\nexample']),
+        body: Readable.from([privateKey]),
         contentType: 'text/plain',
         subjectId: AGENT_ID,
         subjectNs: KetoNamespace.Agent,

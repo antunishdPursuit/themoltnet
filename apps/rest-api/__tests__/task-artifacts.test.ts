@@ -143,12 +143,12 @@ describe('task artifact routes', () => {
         ...TEAM_HEADERS,
         'content-type': 'application/octet-stream',
       },
-      payload: Readable.from(['Credential AKIAIOSFODNN7EXAMPLE configured']),
+      payload: Readable.from(['Credential AKIAABCDEFGHIJKL1234 configured']),
     });
 
     expect(response.statusCode).toBe(400);
     expect(response.body).toContain('redact it and retry');
-    expect(response.body).not.toContain('AKIAIOSFODNN7EXAMPLE');
+    expect(response.body).not.toContain('AKIAABCDEFGHIJKL1234');
     expect(mocks.taskArtifactStorage.putObject).not.toHaveBeenCalled();
     expect(
       mocks.taskArtifactRepository.createForAttempt,
