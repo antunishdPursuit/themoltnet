@@ -246,6 +246,58 @@ describe('ProfilesPage context editor', () => {
     expect(screen.getByText(/No context entries yet\./)).toBeInTheDocument();
   });
 
+  it('suggests models by capability and narrows classification by provider', async () => {
+    queryState.models = [
+      { provider: 'team', model: 'legacy', capabilities: {} },
+      {
+        provider: 'team',
+        model: 'classifier',
+        capabilities: { classification: true },
+      },
+      {
+        provider: 'team',
+        model: 'both',
+        capabilities: { generation: true, classification: true },
+      },
+      {
+        provider: 'other',
+        model: 'other-classifier',
+        capabilities: { classification: true },
+      },
+    ];
+    const { container } = renderPage();
+    const values = (id: string) =>
+      Array.from(
+        container.querySelectorAll<HTMLDataListElement>(`#${id} option`),
+      ).map((option) => option.getAttribute('value'));
+    await waitFor(() =>
+      expect(values('runtime-profile-model-options')).toEqual([
+        'both',
+        'legacy',
+      ]),
+    );
+    expect(values('runtime-profile-classification-model-options')).toEqual([
+      'other-classifier',
+      'both',
+      'classifier',
+    ]);
+    fireEvent.change(screen.getByLabelText('Classification provider'), {
+      target: { value: 'team' },
+    });
+    expect(values('runtime-profile-classification-model-options')).toEqual([
+      'both',
+      'classifier',
+    ]);
+    expect(screen.getByLabelText('Classification model')).toHaveAttribute(
+      'list',
+      'runtime-profile-classification-model-options',
+    );
+    expect(screen.getByLabelText('Classification provider')).toHaveAttribute(
+      'list',
+      'runtime-profile-classification-provider-options',
+    );
+  });
+
   it('creates a classification-only profile without a generation model', async () => {
     createRuntimeProfile.mockImplementation(
       async ({ body }: { body: Record<string, unknown> }) => ({

@@ -1843,6 +1843,19 @@
                 }
               ]
             },
+            "properties": {
+              "classification": {
+                "type": "boolean"
+              },
+              "generation": {
+                "type": "boolean"
+              }
+            },
+            "propertyNames": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
             "type": "object"
           },
           "description": {
@@ -1857,7 +1870,7 @@
           "model": {
             "maxLength": 200,
             "minLength": 1,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$",
+            "pattern": "^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$",
             "type": "string"
           },
           "provider": {
@@ -8479,6 +8492,19 @@
                 }
               ]
             },
+            "properties": {
+              "classification": {
+                "type": "boolean"
+              },
+              "generation": {
+                "type": "boolean"
+              }
+            },
+            "propertyNames": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
             "type": "object"
           },
           "createdAt": {
@@ -8539,7 +8565,7 @@
           "model": {
             "maxLength": 200,
             "minLength": 1,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$",
+            "pattern": "^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$",
             "type": "string"
           },
           "provider": {
@@ -8601,6 +8627,19 @@
                       }
                     ]
                   },
+                  "properties": {
+                    "classification": {
+                      "type": "boolean"
+                    },
+                    "generation": {
+                      "type": "boolean"
+                    }
+                  },
+                  "propertyNames": {
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "type": "string"
+                  },
                   "type": "object"
                 },
                 "createdAt": {
@@ -8661,7 +8700,7 @@
                 "model": {
                   "maxLength": 200,
                   "minLength": 1,
-                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$",
+                  "pattern": "^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$",
                   "type": "string"
                 },
                 "provider": {
@@ -13996,6 +14035,19 @@
                 }
               ]
             },
+            "properties": {
+              "classification": {
+                "type": "boolean"
+              },
+              "generation": {
+                "type": "boolean"
+              }
+            },
+            "propertyNames": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
             "type": "object"
           },
           "description": {
@@ -14013,7 +14065,7 @@
           "model": {
             "maxLength": 200,
             "minLength": 1,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$",
+            "pattern": "^[a-zA-Z0-9~@][a-zA-Z0-9._:/~@-]{0,199}$",
             "type": "string"
           },
           "provider": {

@@ -381,6 +381,40 @@ describe('Runtime Models Catalog API', () => {
     });
   });
 
+  it('persists a qualified classifier model ID and capability metadata', async () => {
+    const capabilities = {
+      generation: false,
+      classification: true,
+      api: 'typesafe-system-one',
+      contextWindow: 8192,
+    };
+    const {
+      data: created,
+      error,
+      response,
+    } = await createRuntimeModel({
+      client,
+      auth: () => owner.accessToken,
+      headers: { 'x-moltnet-team-id': owner.personalTeamId },
+      body: {
+        ...createBody(suffix()),
+        model: 'typesafe/jev',
+        capabilities,
+      },
+    });
+    expect(response?.status).toBe(201);
+    expect(error).toBeUndefined();
+    expect(created).toMatchObject({ model: 'typesafe/jev', capabilities });
+
+    const { data: fetched, response: getResponse } = await getRuntimeModel({
+      client,
+      auth: () => owner.accessToken,
+      path: { modelId: created!.id },
+    });
+    expect(getResponse?.status).toBe(200);
+    expect(fetched).toMatchObject({ model: 'typesafe/jev', capabilities });
+  });
+
   describe('input validation', () => {
     it('rejects POST without a team header', async () => {
       const tag = suffix();
@@ -413,8 +447,8 @@ describe('Runtime Models Catalog API', () => {
         headers: { 'x-moltnet-team-id': owner.personalTeamId },
         body: {
           provider: 'e2e-ok',
-          // Slashes are outside the `^[a-zA-Z0-9._:-]` pattern.
-          model: 'a/b',
+          // Spaces remain invalid in provider-qualified model IDs.
+          model: 'bad model',
         },
       });
       expect(response?.status).toBe(400);

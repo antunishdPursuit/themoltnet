@@ -217,7 +217,7 @@ Usage:
   moltnet-agent providers set <id> [--base-url <url>] [--api <pi-api-kind>]
     [--supports-developer-role true|false]
     [--chat-model <id> ...] [--classifier-model <id>[=<context-window>] ...]
-    [--clear-models]
+    [--classifier-api <pi-classifier-api>] [--clear-models]
     [--model-input <id>=text,image ...]
     [--model-reasoning <id> ...]
     [--model-thinking-map <id>=off:none,low:low,... ...]
@@ -237,9 +237,14 @@ are stored separately and providers.json contains only a secret reference.
 with the input modalities it accepts, and is what makes a vision model usable:
 a model with no declared modalities is text-only to Pi, which drops image
 content parts before the request leaves the runtime.
---classifier-model declares a typesafe-system-one classifier. The optional
-positive context window defaults to 8192. A classifier can share a provider
-and credentials with chat models when the endpoint supports both APIs.
+--classifier-model declares a classifier. --classifier-api selects
+typesafe-system-one (default), cloudflare-workers-ai-system-one, or
+llama-cpp-classify for classifier models in this command. The optional positive
+context window defaults to 8192. A classifier can share a provider and
+credentials with chat models when the endpoint supports both APIs. Local
+Ollama v0.35+ supports typesafe-system-one at /v1/systemone with decision
+models such as nimble and tev1; Clef models require v0.35.1+. Local requests
+need no API key. Ollama Cloud currently does not support classification.
 --model-reasoning marks a model as supporting reasoning. --model-thinking-map
 sets its Pi thinking-level to provider effort mapping and implies reasoning.
 --model-strict-mode explicitly sets Pi's strict JSON-schema tool mode for an

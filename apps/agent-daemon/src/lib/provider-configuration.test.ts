@@ -351,6 +351,122 @@ describe('ProviderConfigurationService', () => {
     ]);
   });
 
+  it.each([true, false])(
+    'discovers mixed local Ollama chat and decision models (tags capabilities: %s)',
+    async (inline) => {
+      const fetchImpl = discoveryFetch({
+        models: { data: [{ id: 'nimble:latest' }, { id: 'chat' }] },
+        tags: {
+          models: [
+            {
+              name: 'nimble:latest',
+              ...(inline ? { capabilities: ['decision'] } : {}),
+            },
+            { name: 'chat' },
+          ],
+        },
+        show: (model: string) =>
+          model === 'nimble:latest'
+            ? {
+                capabilities: ['decision'],
+                model_info: {
+                  'general.architecture': 'qwen35',
+                  'qwen35.context_length': 262144,
+                },
+              }
+            : {
+                capabilities: ['completion', 'vision', 'thinking'],
+                thinking: { values: [false, 'low', 'high'] },
+              },
+      });
+      const { service } = fixture({ fetchImpl });
+      await service.set('ollama', {
+        baseUrl: 'http://localhost:11434/v1',
+        models: [
+          {
+            id: 'manual',
+            type: 'classifier',
+            api: 'llama-cpp-classify',
+            contextWindow: 4096,
+          },
+        ],
+      });
+      const result = await service.discover('ollama', { save: true });
+      expect(result.models).toEqual([
+        expect.objectContaining({
+          id: 'chat',
+          type: 'chat',
+          input: ['text', 'image'],
+          reasoning: true,
+        }),
+        {
+          id: 'nimble:latest',
+          type: 'classifier',
+          api: 'typesafe-system-one',
+          contextWindow: 262144,
+        },
+      ]);
+      expect(service.list().ollama.models).toEqual([
+        ...result.models,
+        {
+          id: 'manual',
+          type: 'classifier',
+          api: 'llama-cpp-classify',
+          contextWindow: 4096,
+        },
+      ]);
+      expect(service.list().ollama.hasApiKey).toBe(false);
+    },
+  );
+
+  it('enriches a manually entered Ollama decision id as a classifier', async () => {
+    const { service } = fixture({
+      fetchImpl: discoveryFetch({
+        show: {
+          capabilities: ['decision'],
+          model_info: { 'qwen35.context_length': 262144 },
+        },
+      }),
+    });
+    await service.set('ollama', {
+      baseUrl: 'http://localhost:11434/v1',
+      models: [{ id: 'nimble:latest' }],
+    });
+    expect(service.list().ollama.models).toEqual([
+      {
+        id: 'nimble:latest',
+        type: 'classifier',
+        api: 'typesafe-system-one',
+        contextWindow: 262144,
+      },
+    ]);
+  });
+
+  it('preserves explicit classifier API and context window across discovery', async () => {
+    const { service } = fixture({
+      fetchImpl: discoveryFetch({
+        models: { data: [{ id: 'decision' }] },
+        show: {
+          capabilities: ['decision'],
+          model_info: { 'qwen35.context_length': 262144 },
+        },
+      }),
+    });
+    const classifier = {
+      id: 'decision',
+      type: 'classifier' as const,
+      api: 'llama-cpp-classify',
+      contextWindow: 4096,
+    };
+    await service.set('ollama', {
+      baseUrl: 'http://localhost:11434/v1',
+      models: [classifier],
+    });
+    const result = await service.discover('ollama', { save: true });
+    expect(result.models).toEqual([classifier]);
+    expect(service.list().ollama.models).toEqual([classifier]);
+  });
+
   it('marks a model image-capable when Ollama reports vision', async () => {
     const fetchImpl = discoveryFetch({
       models: { data: [{ id: 'qwen3.5:397b' }] },

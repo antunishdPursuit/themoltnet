@@ -1,7 +1,15 @@
-import { ollamaCloudModels, ollamaModels } from './ollama-models.js';
+import {
+  ollamaClassifierModels,
+  ollamaCloudModels,
+  ollamaModels,
+} from './ollama-models.js';
 import { piRuntimeModels } from './pi-runtime-models.generated.js';
 
-export { ollamaCloudModels, ollamaModels } from './ollama-models.js';
+export {
+  ollamaClassifierModels,
+  ollamaCloudModels,
+  ollamaModels,
+} from './ollama-models.js';
 export { piRuntimeModels } from './pi-runtime-models.generated.js';
 export {
   getUnsupportedRequestOptions,
@@ -14,5 +22,6 @@ export type { RequestOptionName } from './types.js';
 export const globalRuntimeModelCatalog = [
   ...piRuntimeModels,
   ...ollamaModels,
+  ...ollamaClassifierModels,
   ...ollamaCloudModels,
 ] as const;
