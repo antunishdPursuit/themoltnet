@@ -239,6 +239,7 @@ export function createGondolinDurableTaskExecutor(
           },
           async prepare(previousEnvironment) {
             let policy = await resolveSessionToolPolicy({
+              signal: executionSignal,
               agent,
               profileId: runtimeProfileId,
               teamId: claimed.task.teamId,

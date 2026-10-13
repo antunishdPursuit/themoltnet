@@ -72,6 +72,7 @@ export function createRuntimeProfilesNamespace(
     async allowedTools(profileId, options) {
       return unwrapResult(
         await getRuntimeProfileAllowedTools({
+          signal: options.signal,
           client,
           auth,
           path: { profileId },
