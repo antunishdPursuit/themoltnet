@@ -443,9 +443,9 @@ func newTaskRuntimeSessionsDownloadCmd() *cobra.Command {
 func newTaskContinueCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "continue",
-		Short: "Continue a completed freeform task with warm Pi-session resume",
-		Long: `Create a freeform continuation of a prior freeform attempt via warm
-Pi-session resume (issue #1287).
+		Short: "Continue a completed freeform task from its persisted conversation",
+		Long: `Create a freeform continuation of a prior freeform attempt from its
+persisted Durable conversation. A fresh daemon can restore the history.
 
 This is client-side composition over POST /tasks: the CLI fetches the
 source task, builds a CreateTaskReq that points input.continueFrom at
@@ -458,12 +458,12 @@ The auto-injected claim condition is load-bearing: it closes the race
 between reading the source state and the server persisting the create,
 so a continuation cannot be claimed once the parent leaves 'completed'.
 
-Use --mode fork to request copy-on-write (sessionDir + worktree clone);
-v1 rejects this locally with a pointer to #1293.
+The default extend mode continues on the parent Git branch. Use --mode fork
+to create a new branch from the source when continuing a Git-backed task.
 
-Workspace mode is inherited from the parent slot (the daemon forces
-dedicated_worktree + the parent's worktreeBranch on continuations);
-there is no --execution-workspace override.`,
+Execution settings are inherited from the source attempt; there is no
+--execution-workspace override. Git workspaces recover the parent branch
+when applicable.`,
 		Example: `  # Continue attempt 1 of a completed freeform task
   moltnet task continue \
     --team-id <uuid> \

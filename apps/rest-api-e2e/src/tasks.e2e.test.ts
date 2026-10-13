@@ -534,6 +534,42 @@ describe('Tasks API', () => {
   // ── Create ───────────────────────────────────────────────────────────────────
 
   describe('POST /tasks', () => {
+    it.each([
+      {
+        type: 'object',
+        properties: {},
+        required: [],
+        additionalProperties: false,
+        $ref: '#/missing',
+      },
+      {
+        type: 'object',
+        properties: { sum: { type: 'integer', const: 42 } },
+        required: ['sum'],
+        additionalProperties: false,
+      },
+    ])(
+      'rejects unsupported output contracts before creating a task',
+      async (schema) => {
+        const { response, error, data } = await createTask({
+          client,
+          auth: () => proposer.accessToken,
+          headers: { 'x-moltnet-team-id': proposer.personalTeamId },
+          body: {
+            taskType: 'freeform',
+            diaryId: proposer.privateDiaryId,
+            input: {
+              brief: 'Calculate a sum.',
+              outputContract: { version: 1, schema },
+            },
+          },
+        });
+        expect(response?.status).toBe(400);
+        expect(data).toBeUndefined();
+        expect(JSON.stringify(error)).toContain('input/outputContract/schema');
+      },
+    );
+
     it('creates a task and returns queued status', async () => {
       const { data, error } = await propose();
       expect(error).toBeUndefined();

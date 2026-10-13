@@ -6,6 +6,7 @@ import {
   type TaskCreateSideEffect,
   type TaskValidationError,
 } from './async-validation.js';
+import { validateOutputContract } from './output-contract-validation.js';
 import type { Gate } from './success-criteria.js';
 import {
   BUILT_IN_TASK_TYPES,
@@ -214,7 +215,7 @@ export function validateTaskInput(
     }
   }
 
-  return [];
+  return validateOutputContract(taskType, input);
 }
 
 function checkVerificationInputCid(
