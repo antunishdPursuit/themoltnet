@@ -11,12 +11,13 @@ import {
   type StorageWrite,
 } from '@earendil-works/pi-durable';
 import type { RuntimeStoreRepository, TaskRepository } from '@moltnet/database';
+import { withActiveSpan } from '@moltnet/observability/span';
 import type {
   ConversationList,
   ConversationMessage,
   ConversationSnapshot,
 } from '@moltnet/runtime-profiles';
-import { type Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import { type Span, trace } from '@opentelemetry/api';
 
 import { createProblem } from './problems.js';
 import type { RuntimeSessionSubject } from './runtime-sessions.js';
@@ -58,12 +59,6 @@ function abortKind(
   return signal.reason instanceof Error && signal.reason.name === 'TimeoutError'
     ? 'deadline'
     : 'caller';
-}
-
-function recordFailure(span: Span, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  span.recordException(error instanceof Error ? error : new Error(message));
-  span.setStatus({ code: SpanStatusCode.ERROR, message });
 }
 
 /** An isolated read replica. Only Pi's public Storage methods run; no Harness, scheduler, models or writer lease. */
@@ -166,31 +161,24 @@ export function createConversationService(deps: {
     // between waiting on reads and applying commits. Counters are set even when
     // the refresh fails, so a failed cold read still shows how far it got.
     function refresh(signal?: AbortSignal) {
-      return tracer.startActiveSpan(
+      return withActiveSpan(
+        tracer,
         'moltnet.conversation.refresh',
         {
           attributes: {
             'moltnet.task.id': input.taskId,
             'moltnet.task.attempt_n': input.attemptN,
           },
-        },
-        async (span) => {
-          try {
-            const result = await replay(span, signal);
-            span.setStatus({ code: SpanStatusCode.OK });
-            return result;
-          } catch (error) {
+          isFailure: (error, span) => {
             const aborted = abortKind(error, signal);
             if (aborted)
               span.setAttribute('moltnet.conversation.aborted_by', aborted);
             // A client disconnect or shutdown is not a read failure; a
             // deadline is the slow read this span exists to expose.
-            if (aborted !== 'caller') recordFailure(span, error);
-            throw error;
-          } finally {
-            span.end();
-          }
+            return aborted !== 'caller';
+          },
         },
+        (span) => replay(span, signal),
       );
     }
     async function replay(span: Span, signal?: AbortSignal) {

@@ -12,6 +12,10 @@
     "./instrumentation": {
       "import": "./src/instrumentation.ts",
       "types": "./src/instrumentation.ts"
+    },
+    "./span": {
+      "import": "./src/span.ts",
+      "types": "./src/span.ts"
     }
   },
   "scripts": {},

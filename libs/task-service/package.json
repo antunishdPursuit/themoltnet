@@ -11,6 +11,7 @@
     }
   },
   "dependencies": {
+    "@moltnet/observability": "workspace:*",
     "@moltnet/auth": "workspace:*",
     "@moltnet/crypto-service": "workspace:*",
     "@moltnet/database": "workspace:*",

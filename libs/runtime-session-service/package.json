@@ -14,6 +14,7 @@
     "bench:conversation-read": "NODE_OPTIONS=--expose-gc vitest run --config bench/vitest.config.ts"
   },
   "dependencies": {
+    "@moltnet/observability": "workspace:*",
     "@moltnet/auth": "workspace:*",
     "@moltnet/blob-storage": "workspace:*",
     "@moltnet/database": "workspace:*",

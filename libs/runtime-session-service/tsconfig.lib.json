@@ -32,6 +32,9 @@
       "path": "../blob-storage/tsconfig.lib.json"
     },
     {
+      "path": "../observability/tsconfig.lib.json"
+    },
+    {
       "path": "../auth/tsconfig.lib.json"
     }
   ]
