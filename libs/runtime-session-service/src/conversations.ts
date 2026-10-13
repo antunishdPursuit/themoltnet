@@ -137,15 +137,26 @@ export function createConversationService(deps: {
         : undefined;
     }
     // One span per refresh: cold vs incremental replay, and how its time splits
-    // between waiting on authorized object reads and applying commits.
+    // between waiting on reads and applying commits. Counters are set even when
+    // the refresh fails, so a failed cold read still shows how far it got.
     function refresh(signal?: AbortSignal) {
       return tracer.startActiveSpan(
-        'runtime.conversation.refresh',
+        'moltnet.conversation.refresh',
         async (span) => {
           try {
-            return await replay(span, signal);
+            const result = await replay(span, signal);
+            span.setStatus({ code: SpanStatusCode.OK });
+            return result;
           } catch (error) {
-            span.setStatus({ code: SpanStatusCode.ERROR });
+            // A client disconnect is not a server failure.
+            if (!signal?.aborted) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              span.recordException(
+                error instanceof Error ? error : new Error(message),
+              );
+              span.setStatus({ code: SpanStatusCode.ERROR, message });
+            }
             throw error;
           } finally {
             span.end();
@@ -192,72 +203,76 @@ export function createConversationService(deps: {
       const replayedFrom = seq;
       const bytesBefore = bytes;
       let applyMs = 0;
-      let pages = 1;
-      while (seq < bounds.lastSeq) {
-        const previous = seq;
-        for await (const commit of page.items) {
-          signal?.throwIfAborted();
-          if (commit.seq !== seq + 1)
+      let pages = 0;
+      try {
+        while (seq < bounds.lastSeq) {
+          pages++;
+          const previous = seq;
+          for await (const commit of page.items) {
+            signal?.throwIfAborted();
+            if (commit.seq !== seq + 1)
+              throw createProblem(
+                'service-unavailable',
+                'Incomplete conversation history',
+              );
+            const size = Buffer.byteLength(JSON.stringify(commit.writes));
+            if (bytes + size > MAX_REPLAY_BYTES)
+              throw createProblem(
+                'service-unavailable',
+                'Conversation replay exceeds the supported size',
+              );
+            while (totalBytes + size > MAX_TOTAL_REPLAY_BYTES) {
+              if (!(await evictOldest()))
+                throw createProblem(
+                  'service-unavailable',
+                  'Conversation reader capacity reached',
+                );
+            }
+            bytes += size;
+            totalBytes += size;
+            const applyStart = performance.now();
+            validateConversations(commit.writes);
+            storage
+              .prepareCommit(
+                commit.writes as unknown as StorageWrite[],
+                commit.seq as Seq,
+              )
+              .apply();
+            for (const write of commit.writes) {
+              if (write.type === 'conversation')
+                created.set(Number(record(write.value).id), commit.seq);
+            }
+            applyMs += performance.now() - applyStart;
+            seq = commit.seq;
+          }
+          if (seq === previous)
             throw createProblem(
               'service-unavailable',
               'Incomplete conversation history',
             );
-          const size = Buffer.byteLength(JSON.stringify(commit.writes));
-          if (bytes + size > MAX_REPLAY_BYTES)
-            throw createProblem(
-              'service-unavailable',
-              'Conversation replay exceeds the supported size',
-            );
-          while (totalBytes + size > MAX_TOTAL_REPLAY_BYTES) {
-            if (!(await evictOldest()))
-              throw createProblem(
-                'service-unavailable',
-                'Conversation reader capacity reached',
-              );
+          if (seq < bounds.lastSeq) {
+            page = await deps.stores.read({
+              ...input,
+              storeId,
+              afterSeq: seq,
+              signal,
+              throughSeq: bounds.lastSeq,
+              limit: 100,
+            });
           }
-          bytes += size;
-          totalBytes += size;
-          const applyStart = performance.now();
-          validateConversations(commit.writes);
-          storage
-            .prepareCommit(
-              commit.writes as unknown as StorageWrite[],
-              commit.seq as Seq,
-            )
-            .apply();
-          for (const write of commit.writes) {
-            if (write.type === 'conversation')
-              created.set(Number(record(write.value).id), commit.seq);
-          }
-          applyMs += performance.now() - applyStart;
-          seq = commit.seq;
         }
-        if (seq === previous)
-          throw createProblem(
-            'service-unavailable',
-            'Incomplete conversation history',
-          );
-        if (seq < bounds.lastSeq) {
-          pages++;
-          page = await deps.stores.read({
-            ...input,
-            storeId,
-            afterSeq: seq,
-            signal,
-            throughSeq: bounds.lastSeq,
-            limit: 100,
-          });
-        }
+      } finally {
+        const loopMs = performance.now() - replayStart;
+        span.setAttributes({
+          'moltnet.conversation.commits_replayed': seq - replayedFrom,
+          'moltnet.conversation.replay_bytes': bytes - bytesBefore,
+          'moltnet.conversation.pages': pages,
+          // Everything in the replay loop except applying commits: object
+          // fetches, later-page authorization, and reader eviction.
+          'moltnet.conversation.read_wait_ms': Math.round(loopMs - applyMs),
+          'moltnet.conversation.apply_ms': Math.round(applyMs),
+        });
       }
-      const loopMs = performance.now() - replayStart;
-      span.setAttributes({
-        'moltnet.conversation.commits_replayed': seq - replayedFrom,
-        'moltnet.conversation.replay_bytes': bytes - bytesBefore,
-        'moltnet.conversation.pages': pages,
-        // Object fetches plus later-page authorization vs. in-memory replay.
-        'moltnet.conversation.read_wait_ms': Math.round(loopMs - applyMs),
-        'moltnet.conversation.apply_ms': Math.round(applyMs),
-      });
       const store = await deps.repository.get(input.teamId, storeId);
       writerActive =
         !!store &&

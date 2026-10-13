@@ -7,8 +7,7 @@
  * conversation services. Storage, Keto and Postgres are simulated with fixed
  * latencies so the I/O shape, not the hardware, dominates.
  *
- *   cd libs/runtime-session-service
- *   NODE_OPTIONS=--expose-gc pnpm exec vitest run --config bench/vitest.config.ts
+ *   pnpm --dir libs/runtime-session-service run bench:conversation-read
  *
  * Tunables (env): BENCH_TURNS, BENCH_S3_MS, BENCH_KETO_MS, BENCH_DB_MS.
  */
@@ -25,7 +24,7 @@ import {
   type StorageWrite,
 } from '@earendil-works/pi-durable';
 import { KetoNamespace } from '@moltnet/auth';
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createConversationService } from '../src/conversations.js';
 import { createRuntimeStoreService } from '../src/runtime-stores.js';
@@ -114,7 +113,7 @@ async function history(turns: number) {
   return commits;
 }
 
-async function setup(commits: StorageWrite[][]) {
+async function setup(commits: StorageWrite[][], readConcurrency: number) {
   const objects = new Map<string, Buffer>();
   let gets = 0;
   let inflight = 0;
@@ -195,6 +194,7 @@ async function setup(commits: StorageWrite[][]) {
     storage,
     permissionChecker,
     maxBytes: 1024 * 1024,
+    readConcurrency,
     transactionRunner: { runInTransaction: (fn: () => unknown) => fn() },
   } as never);
   const service = createConversationService({
@@ -211,37 +211,51 @@ async function setup(commits: StorageWrite[][]) {
 
 describe('conversation read benchmark', () => {
   const sizes = (process.env.BENCH_TURNS ?? '10,40,120').split(',').map(Number);
+  // 1 is the sequential baseline (the store default); 8 is the conversation
+  // route's setting. Same history, same simulated latencies.
   for (const turns of sizes)
-    it(`cold vs warm list, ${turns} turns`, { timeout: 120_000 }, async () => {
-      const commits = await history(turns);
-      const f = await setup(commits);
-      global.gc?.();
-      const heapBefore = process.memoryUsage().heapUsed;
-      let t = performance.now();
-      const cold = await f.service.open(input);
-      cold.list();
-      const coldMs = performance.now() - t;
-      const heapAfter = process.memoryUsage().heapUsed;
-      await cold.close();
-      t = performance.now();
-      const warm = await f.service.open(input);
-      warm.list();
-      const warmMs = performance.now() - t;
-      await warm.close();
-      await f.service.close();
-      console.log(
-        JSON.stringify({
-          turns,
-          commits: commits.length,
-          storedBytes: f.totalBytes,
-          s3Ms: S3_MS,
-          ketoMs: KETO_MS,
-          dbMs: DB_MS,
-          coldMs: Math.round(coldMs),
-          warmMs: Math.round(warmMs),
-          heapDeltaMiB: +((heapAfter - heapBefore) / 2 ** 20).toFixed(1),
-          ...f.stats(),
-        }),
+    for (const readConcurrency of [1, 8])
+      it(
+        `cold vs warm list, ${turns} turns, concurrency ${readConcurrency}`,
+        { timeout: 120_000 },
+        async () => {
+          const commits = await history(turns);
+          const f = await setup(commits, readConcurrency);
+          global.gc?.();
+          const heapBefore = process.memoryUsage().heapUsed;
+          let t = performance.now();
+          const cold = await f.service.open(input);
+          cold.list();
+          const coldMs = performance.now() - t;
+          // Heap still reachable after the cold read (the replayed reader), not
+          // the peak during it.
+          const heapAfter = process.memoryUsage().heapUsed;
+          await cold.close();
+          t = performance.now();
+          const warm = await f.service.open(input);
+          warm.list();
+          const warmMs = performance.now() - t;
+          await warm.close();
+          await f.service.close();
+          const stats = f.stats();
+          expect(stats.maxInflight).toBe(
+            Math.min(readConcurrency, commits.length),
+          );
+          console.log(
+            JSON.stringify({
+              turns,
+              readConcurrency,
+              commits: commits.length,
+              storedBytes: f.totalBytes,
+              s3Ms: S3_MS,
+              ketoMs: KETO_MS,
+              dbMs: DB_MS,
+              coldMs: Math.round(coldMs),
+              warmMs: Math.round(warmMs),
+              retainedHeapMiB: +((heapAfter - heapBefore) / 2 ** 20).toFixed(1),
+              ...stats,
+            }),
+          );
+        },
       );
-    });
 });
