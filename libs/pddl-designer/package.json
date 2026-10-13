@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@moltnet/task-schemas": "workspace:*",
+    "@moltnet/tasks": "workspace:*",
     "@themoltnet/os-keyring": "workspace:*",
     "@themoltnet/sdk": "workspace:*",
     "@themoltnet/tasks-orchestrator": "workspace:*",
@@ -32,7 +33,6 @@
   },
   "devDependencies": {
     "@moltnet/runtime-profiles": "workspace:*",
-    "@moltnet/tasks": "workspace:*",
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",

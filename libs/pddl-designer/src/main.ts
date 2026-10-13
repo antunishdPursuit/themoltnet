@@ -5,14 +5,14 @@ import { parseArgs } from 'node:util';
 import { connect } from '@themoltnet/sdk/node';
 import { createSdkTaskClient } from '@themoltnet/tasks-orchestrator';
 
-import { createOllamaDecisionClient } from './decision.js';
+import { createClassifyDecisionClient } from './decision.js';
 import { buildTypesTask, type DesignInput } from './stages.js';
 import { runPddlDesign } from './workflow.js';
 
 const USAGE =
   'Usage: pddl-designer --description FILE --problem FILE [--domain-name NAME --problem-name NAME] ' +
   '[--team UUID --diary UUID --profile NAME|ID --correlation UUID --project UUID] [--out FILE] [--max-corrections N] ' +
-  '[--review [--decision-model nimble --ollama-url URL --review-threshold 0.9]] [--claim-timeout SEC] [--dry-run]';
+  '[--review --classify-profile NAME|ID [--review-threshold 0.9]] [--claim-timeout SEC] [--dry-run]';
 
 export async function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({
@@ -31,8 +31,7 @@ export async function main(argv = process.argv.slice(2)) {
       'max-corrections': { type: 'string', default: '1' },
       review: { type: 'boolean', default: false },
       'claim-timeout': { type: 'string', default: '600' },
-      'decision-model': { type: 'string', default: 'nimble' },
-      'ollama-url': { type: 'string', default: 'http://localhost:11434' },
+      'classify-profile': { type: 'string' },
       'review-threshold': { type: 'string', default: '0.9' },
       'dry-run': { type: 'boolean', default: false },
     },
@@ -65,11 +64,14 @@ export async function main(argv = process.argv.slice(2)) {
 
   const agent = await connect();
   const { items } = await agent.runtimeProfiles.list({ teamId: values.team });
-  const profile = items.find(
-    (item) => item.id === values.profile || item.name === values.profile,
-  );
-  if (!profile) throw new Error(`runtime profile ${values.profile} not found`);
-  input.profileId = profile.id;
+  const profileId = (ref: string) => {
+    const found = items.find((item) => item.id === ref || item.name === ref);
+    if (!found) throw new Error(`runtime profile ${ref} not found`);
+    return found.id;
+  };
+  input.profileId = profileId(values.profile);
+  if (values.review && !values['classify-profile'])
+    throw new Error('--review needs --classify-profile\n' + USAGE);
 
   const threshold = Number(values['review-threshold']);
   if (!(threshold > 0 && threshold < 1))
@@ -77,16 +79,21 @@ export async function main(argv = process.argv.slice(2)) {
   const claimTimeoutSec = Number(values['claim-timeout']);
   if (!Number.isInteger(claimTimeoutSec) || claimTimeoutSec < 0)
     throw new Error('--claim-timeout must be a non-negative integer (seconds)');
-  const run = await runPddlDesign(createSdkTaskClient(agent), input, {
+  const tasks = createSdkTaskClient(agent);
+  const run = await runPddlDesign(tasks, input, {
     maxCorrections,
     claimTimeoutSec,
     ...(values.review
       ? {
           review: {
             threshold,
-            decisions: createOllamaDecisionClient({
-              model: values['decision-model'],
-              baseUrl: values['ollama-url'],
+            decisions: createClassifyDecisionClient(tasks, {
+              teamId: input.teamId,
+              diaryId: input.diaryId,
+              ...(input.projectId ? { projectId: input.projectId } : {}),
+              correlationId: input.correlationId,
+              profileId: profileId(values['classify-profile'] ?? ''),
+              claimTimeoutSec,
             }),
           },
         }
