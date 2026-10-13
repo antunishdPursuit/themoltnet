@@ -2,6 +2,7 @@ import { metrics as metricsApi } from '@opentelemetry/api';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 
+import { HTTP_REQUEST_DURATION_BOUNDARIES_MS } from './metrics.js';
 import type { RequestMetrics } from './types.js';
 
 export interface ObservabilityPluginOptions {
@@ -32,6 +33,9 @@ const plugin: FastifyPluginAsync<ObservabilityPluginOptions> = async (
     duration: meter.createHistogram('http.server.request.duration', {
       description: 'Duration of inbound HTTP requests in milliseconds',
       unit: 'ms',
+      advice: {
+        explicitBucketBoundaries: HTTP_REQUEST_DURATION_BOUNDARIES_MS,
+      },
     }),
     total: meter.createCounter('http.server.request.total', {
       description: 'Total number of inbound HTTP requests',

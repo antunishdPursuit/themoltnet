@@ -8,7 +8,11 @@ import Fastify from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { observabilityPlugin } from '../src/fastify-plugin.js';
-import { createMeterProvider } from '../src/metrics.js';
+import {
+  createMeterProvider,
+  HTTP_REQUEST_DURATION_BOUNDARIES_MS,
+  SERVICE_INSTANCE_ID,
+} from '../src/metrics.js';
 import { TestMetricReader } from './test-metric-reader.js';
 
 describe('observabilityPlugin', () => {
@@ -40,6 +44,31 @@ describe('observabilityPlugin', () => {
     await app.ready();
     await app.close();
     expect(shutdownCalled).toBe(true);
+  });
+
+  it('exports request durations with alert-aligned buckets per process', async () => {
+    const reader = new TestMetricReader();
+    metricsApi.setGlobalMeterProvider(
+      createMeterProvider({ serviceName: 'test', reader }),
+    );
+    const app = Fastify();
+    await app.register(observabilityPlugin, { serviceName: 'test' });
+    app.get('/test', async () => ({ ok: true }));
+    await app.ready();
+    await app.inject({ method: 'GET', url: '/test' });
+
+    const { resourceMetrics } = await reader.collect();
+    expect(resourceMetrics.resource.attributes['service.instance.id']).toBe(
+      SERVICE_INSTANCE_ID,
+    );
+    const point = resourceMetrics.scopeMetrics[0]?.metrics.find(
+      (m) => m.descriptor.name === 'http.server.request.duration',
+    )?.dataPoints[0];
+    expect(
+      (point?.value as { buckets: { boundaries: number[] } }).buckets
+        .boundaries,
+    ).toEqual(HTTP_REQUEST_DURATION_BOUNDARIES_MS);
+    await app.close();
   });
 
   it('should track request duration metrics', async () => {

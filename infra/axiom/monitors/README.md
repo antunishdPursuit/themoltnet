@@ -19,6 +19,13 @@ Monitor policy:
   `NOTIFIER_IDS`.
 - Alert separately on REST route latency and MCP POST latency. Never aggregate
   long-lived MCP GET/SSE completion durations into request latency.
+- Keep latency thresholds on an `http.server.request.duration` bucket boundary
+  (`HTTP_REQUEST_DURATION_BOUNDARIES_MS` in `libs/observability`). Linear
+  in-bucket interpolation otherwise turns one request below the threshold into
+  a p95 above it (2752 ms read as 4875 ms with the default 2500/5000 buckets).
+- Cumulative metrics need a per-process `service.instance.id`. Without it,
+  replicas share one series and their interleaved totals read as counter
+  resets, which shows up as phantom traffic.
 - Alert on telemetry freshness so an empty error query cannot masquerade as a
   healthy service.
 - Treat a continuously full DBOS retention batch as backlog even while the
