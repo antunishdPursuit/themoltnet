@@ -1,5 +1,7 @@
 package main
 
+// secretlint-disable -- fake GitHub tokens exercise token-bearing insteadOf detection
+
 import (
 	"os"
 	"path/filepath"

@@ -1,5 +1,7 @@
 package main
 
+// secretlint-disable -- fake GitHub tokens exercise git config repair
+
 import (
 	"encoding/json"
 	"os"

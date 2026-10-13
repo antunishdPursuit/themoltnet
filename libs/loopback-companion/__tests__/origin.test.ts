@@ -33,6 +33,7 @@ describe('normalizeOrigin', () => {
     for (const value of [
       'https://console.themolt.net/',
       'https://console.themolt.net/path',
+      // secretlint-disable-next-line -- fake credentials in a URL fixture
       'https://user:pass@console.themolt.net',
       'console.themolt.net',
       'null',
