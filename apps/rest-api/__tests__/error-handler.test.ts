@@ -62,6 +62,35 @@ async function buildTestApp() {
 }
 
 describe('Error handler plugin', () => {
+  it.each(['40P01', '40001'])(
+    'reports transaction contention %s without exposing SQL',
+    async (code) => {
+      const app = await buildTestApp();
+      app.post('/transaction', async () => {
+        throw new Error('query contains private values', {
+          cause: Object.assign(new Error('private database detail'), { code }),
+        });
+      });
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/transaction',
+        });
+        expect(response.statusCode).toBe(503);
+        expect(response.headers['retry-after']).toBe('1');
+        expect(response.json()).toMatchObject({
+          code: 'SERVICE_UNAVAILABLE',
+          detail:
+            'Database transaction aborted due to concurrent updates. Retry the operation.',
+        });
+        expect(response.body).not.toContain('private');
+        expect(response.body).not.toContain(code);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
   it('returns RFC 9457 for problem errors', async () => {
     const app = await buildTestApp();
     const response = await app.inject({
