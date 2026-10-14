@@ -219,10 +219,7 @@ export function buildClassifierSpec(issue, repo, correlationId, criteria) {
 }
 
 export function parseClassification(output) {
-  if (
-    output?.version !== 1 ||
-    !output?.answers
-  ) {
+  if (output?.version !== 1 || !output?.answers) {
     throw new Error('classifier task returned an invalid output');
   }
   const answers = output.answers;
