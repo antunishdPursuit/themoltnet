@@ -29,8 +29,6 @@ minimumReleaseAgeExclude:
   - pnpm@10.34.5
   # Renovate security update: smol-toml@1.9.0
   - smol-toml@1.9.0
-  # Renovate security update: @modelcontextprotocol/sdk@1.31.0
-  - '@modelcontextprotocol/sdk@1.31.0'
 allowBuilds:
   '@github/keytar': true
   cpu-features: false
@@ -70,8 +68,8 @@ catalog:
   '@earendil-works/pi-ai': '1.2.0'
   '@earendil-works/pi-coding-agent': '1.2.0'
   '@ipld/dag-cbor': '^9.2.5'
-  '@modelcontextprotocol/sdk': '^1.29.0'
-  '@modelcontextprotocol/ext-apps': '^1.7.1'
+  '@modelcontextprotocol/sdk': '^1.32.1'
+  '@modelcontextprotocol/ext-apps': '^1.7.5'
   '@github/keytar': '7.10.6'
   '@noble/ciphers': '^1.2.0'
   '@noble/curves': '^2.0.0'
