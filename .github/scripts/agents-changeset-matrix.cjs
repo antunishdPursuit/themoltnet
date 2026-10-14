@@ -9,15 +9,14 @@
 //
 // Tiers map % of affected projects → agent count:
 //   none   : 0 affected   → 0 agents (skip DTE entirely)
-//   small  : 1–32%        → 4 agents
-//   medium : 33–66%       → 8 agents
-//   large  : 67–100%      → 12 agents
+//   small  : 1–32%        → 2 agents
+//   medium : 33–66%       → 4 agents
+//   large  : 67–100%      → 6 agents
 //
-// Counts bumped (#1498) now that distributed docker:build (build + push the app
-// images) shares this pool with lint/typecheck/test-ci/build. A wider pool lets
-// the heavy image builds run alongside the rest so e2e (which gates on the
-// orchestrator) is not delayed; the single largest image build is the only hard
-// floor. Tune from observed CI wall-time.
+// Trial smaller pools (#2742) to reduce runner contention across concurrent
+// workflows. Distributed docker:build still shares this pool with the quality
+// checks. Compare total PR turnaround, queue delay, runner time, and timeouts;
+// lower runner demand can increase task execution time on cold workloads.
 //
 // Agents are 1-indexed contiguous ranges. The matrix shape is
 // `{agent: [1, 2, 3]}` — GitHub Actions expands to one job per element.
@@ -41,12 +40,10 @@ function range(start, end) {
 }
 
 const tiers = [
-  // A single DTE agent leaves long-running affected slices underutilized.
-  // Counts bumped (#1498) to absorb distributed docker:build alongside the
-  // lint/typecheck/test-ci/build graph without delaying the e2e gate.
-  { name: 'small', max: 32, agents: 4 },
-  { name: 'medium', max: 66, agents: 8 },
-  { name: 'large', max: 100, agents: 12 },
+  // Keep at least two agents for any non-empty affected slice.
+  { name: 'small', max: 32, agents: 2 },
+  { name: 'medium', max: 66, agents: 4 },
+  { name: 'large', max: 100, agents: 6 },
 ];
 
 function pickTier(percent) {
