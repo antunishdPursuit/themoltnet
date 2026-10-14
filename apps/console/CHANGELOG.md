@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.22.2](https://github.com/getlarge/themoltnet/compare/console-v0.22.1...console-v0.22.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **openapi:** require signing transition request bodies ([a549c3d](https://github.com/getlarge/themoltnet/commit/a549c3ddf189992f4790b8fde857c2edcac4d441))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @themoltnet/sdk bumped to 0.152.0
+
 ## [0.22.1](https://github.com/getlarge/themoltnet/compare/console-v0.22.0...console-v0.22.1) (2026-10-13)
 
 

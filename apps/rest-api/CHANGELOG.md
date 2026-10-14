@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.67.2](https://github.com/getlarge/themoltnet/compare/rest-api-v0.67.1...rest-api-v0.67.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **openapi:** migrate Swagger 9.9 generated clients ([1dd4440](https://github.com/getlarge/themoltnet/commit/1dd444048814c5b1475d817a41c0f16a96b8f234))
+* **openapi:** require signing transition request bodies ([a549c3d](https://github.com/getlarge/themoltnet/commit/a549c3ddf189992f4790b8fde857c2edcac4d441))
+
 ## [0.67.1](https://github.com/getlarge/themoltnet/compare/rest-api-v0.67.0...rest-api-v0.67.1) (2026-10-13)
 
 

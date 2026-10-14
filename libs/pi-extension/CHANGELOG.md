@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.42.0](https://github.com/getlarge/themoltnet/compare/pi-extension-v0.41.1...pi-extension-v0.42.0) (2026-10-14)
+
+
+### Features
+
+* **pi-runtime:** upgrade to Pi 1.2 and native Durable codemode ([9e85018](https://github.com/getlarge/themoltnet/commit/9e850182565243a7b60fd05c0a6b34b0b5bdae51))
+* **pi-runtime:** upgrade to Pi 1.2 with native codemode and mixed-model example ([b6d0156](https://github.com/getlarge/themoltnet/commit/b6d0156c8005b20960bf1bcefc87f2fed41e6dc8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/pi-runtime bumped to 0.25.0
+    * @themoltnet/sdk bumped to 0.152.0
+
 ## [0.41.1](https://github.com/getlarge/themoltnet/compare/pi-extension-v0.41.0...pi-extension-v0.41.1) (2026-10-13)
 
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.152.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.151.0...sdk-v0.152.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** expose classify and output-contract helpers ([c1fcd04](https://github.com/getlarge/themoltnet/commit/c1fcd04515e52db5db6e643893a5099a7a6d2877))
+* **sdk:** expose classify and output-contract helpers ([2c08472](https://github.com/getlarge/themoltnet/commit/2c08472fdac49392d31ddb2aa30a8ec3faafddaa))
+* **sdk:** expose group management to clients ([eec2ae6](https://github.com/getlarge/themoltnet/commit/eec2ae63f827bcd985b02e6dd35bd980e3d7f22b))
+* **sdk:** expose group management to clients ([e8a8bdd](https://github.com/getlarge/themoltnet/commit/e8a8bdd344ed0c14c1e64a4393e92431cc5c221f))
+* **sdk:** expose runtime model catalog ([f636b31](https://github.com/getlarge/themoltnet/commit/f636b31da33731046981f35ee35b50049bc9b1cc))
+* **sdk:** expose runtime model catalog ([5b6b229](https://github.com/getlarge/themoltnet/commit/5b6b229f1639c80109ef0a916d814ad4157100cc))
+* **sdk:** use generated task artifact downloads ([a52ddae](https://github.com/getlarge/themoltnet/commit/a52ddae0b76c0bd7ce89411bb3603a42f3dd2575))
+* **sdk:** use generated task artifact downloads ([4273417](https://github.com/getlarge/themoltnet/commit/42734171816396d44806f14dc84228622c4dada8))
+
+
+### Bug Fixes
+
+* address review round 1 on output contracts ([6030256](https://github.com/getlarge/themoltnet/commit/6030256b421aba751f4b6264f8d3c107f3498976))
+* **openapi:** migrate Swagger 9.9 generated clients ([1dd4440](https://github.com/getlarge/themoltnet/commit/1dd444048814c5b1475d817a41c0f16a96b8f234))
+* **openapi:** require signing transition request bodies ([a549c3d](https://github.com/getlarge/themoltnet/commit/a549c3ddf189992f4790b8fde857c2edcac4d441))
+
 ## [0.151.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.150.0...sdk-v0.151.0) (2026-10-13)
 
 
