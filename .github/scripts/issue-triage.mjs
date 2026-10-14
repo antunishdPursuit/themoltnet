@@ -221,11 +221,7 @@ export function buildClassifierSpec(issue, repo, correlationId, criteria) {
 export function parseClassification(output) {
   if (
     output?.version !== 1 ||
-    !output?.answers ||
-    typeof output.provider !== 'string' ||
-    !output.provider ||
-    typeof output.model !== 'string' ||
-    !output.model
+    !output?.answers
   ) {
     throw new Error('classifier task returned an invalid output');
   }
@@ -271,8 +267,6 @@ export function parseClassification(output) {
     readiness[id] = answer.probability;
   }
   return {
-    provider: output.provider,
-    model: output.model,
     category: answers.category.choice,
     probabilities,
     readiness,

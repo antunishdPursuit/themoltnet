@@ -134,8 +134,6 @@ test('validates all classifier answers before publishing', () => {
   };
   const output = {
     version: 1,
-    provider: 'typesafe',
-    model: 'jev-latest',
     answers,
   };
   assert.equal(parseClassification(output).category, 'feature');
@@ -347,8 +345,6 @@ test('prepares the next task from the accepted attempt and preserves labels if c
     classifierPath,
     JSON.stringify({
       version: 1,
-      provider: 'typesafe',
-      model: 'jev-latest',
       answers,
     }),
   );
