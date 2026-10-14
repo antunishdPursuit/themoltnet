@@ -36,6 +36,7 @@ import {
   getRuntimeProfile,
   getSigningRequest,
   getTask,
+  getTaskActivityAnalytics,
   getTeam,
   getWhoami,
   initiateTransfer,
@@ -69,6 +70,7 @@ import {
   updateDiary,
   updateDiaryEntryById,
   updateRuntimeProfile,
+  updateTaskMetadata,
   updateTeamMemberRole,
   uploadTaskArtifact,
   verifyAgentSignature,
@@ -110,6 +112,8 @@ vi.mock('@moltnet/api-client', async (importOriginal) => {
     createSigningRequest: vi.fn(),
     getSigningRequest: vi.fn(),
     getTask: vi.fn(),
+    getTaskActivityAnalytics: vi.fn(),
+    updateTaskMetadata: vi.fn(),
     submitSignature: vi.fn(),
     claimSigningRequest: vi.fn(),
     completeSigningRequest: vi.fn(),
@@ -700,6 +704,68 @@ describe('Agent facade', () => {
           headers: { 'x-moltnet-team-id': 'team-1' },
           path: { id: 'task-1' },
           signal: controller.signal,
+        }),
+      );
+    });
+
+    it('updates task metadata through the generated operation and remembers its team', async () => {
+      const updated = { ...mockTask, title: 'Reviewed', tags: ['reviewed'] };
+      vi.mocked(updateTaskMetadata).mockResolvedValueOnce({
+        data: updated,
+        error: undefined,
+      } as any);
+      vi.mocked(getTask).mockResolvedValueOnce({
+        data: updated,
+        error: undefined,
+      } as any);
+
+      const agent = makeAgent();
+      await expect(
+        agent.tasks.updateMetadata(
+          'task-1',
+          { title: 'Reviewed', tags: ['reviewed'] },
+          { teamId: 'team-1' },
+        ),
+      ).resolves.toEqual(updated);
+      await agent.tasks.get('task-1');
+
+      expect(updateTaskMetadata).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client: mockClient,
+          auth: expect.any(Function),
+          headers: { 'x-moltnet-team-id': 'team-1' },
+          path: { id: 'task-1' },
+          body: { title: 'Reviewed', tags: ['reviewed'] },
+        }),
+      );
+      expect(getTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: { 'x-moltnet-team-id': 'team-1' },
+        }),
+      );
+    });
+
+    it('requests team-scoped task activity analytics with filters', async () => {
+      const analytics = { totals: { tasks: 2 }, groups: [] };
+      vi.mocked(getTaskActivityAnalytics).mockResolvedValueOnce({
+        data: analytics,
+        error: undefined,
+      } as any);
+
+      const agent = makeAgent();
+      await expect(
+        agent.tasks.getActivityAnalytics(
+          { teamId: 'team-1' },
+          { groupBy: 'taskType', tags: ['reviewed'] },
+        ),
+      ).resolves.toEqual(analytics);
+
+      expect(getTaskActivityAnalytics).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client: mockClient,
+          auth: expect.any(Function),
+          headers: { 'x-moltnet-team-id': 'team-1' },
+          query: { groupBy: 'taskType', tags: ['reviewed'] },
         }),
       );
     });

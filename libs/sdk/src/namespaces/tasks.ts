@@ -15,6 +15,7 @@ import {
   downloadTaskArtifactByCid,
   failTaskAttempt,
   getTask,
+  getTaskActivityAnalytics,
   getTaskConversation,
   listTaskArtifacts,
   listTaskAttempts,
@@ -25,6 +26,7 @@ import {
   registerExecutorManifest,
   stageTaskArtifact,
   taskHeartbeat,
+  updateTaskMetadata,
   uploadTaskArtifact,
   type UploadTaskArtifactData,
   watchTaskConversation,
@@ -364,6 +366,31 @@ export function createTasksNamespace(context: AgentContext): TasksNamespace {
             signal: options?.signal,
           }),
         ),
+      );
+    },
+
+    async updateMetadata(id, body, options) {
+      return rememberTask(
+        unwrapResult(
+          await updateTaskMetadata({
+            client,
+            auth,
+            headers: headersForTask(id, options),
+            path: { id },
+            body,
+          }),
+        ),
+      );
+    },
+
+    async getActivityAnalytics(options, query) {
+      return unwrapResult(
+        await getTaskActivityAnalytics({
+          client,
+          auth,
+          headers: requiredTeamHeaders(options),
+          query,
+        }),
       );
     },
 
