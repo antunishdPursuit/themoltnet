@@ -1,0 +1,6 @@
+Temporary review fixture for the released GitHub Action bundles.
+
+Verify that docs-impact and complexity reviewers load their released runtime
+commits, and that their workers load the bundled agent-daemon action.
+
+This pull request is a smoke test and will be closed without merging.
