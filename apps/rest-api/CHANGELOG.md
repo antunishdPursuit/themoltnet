@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.67.3](https://github.com/getlarge/themoltnet/compare/rest-api-v0.67.2...rest-api-v0.67.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **actions:** publish bundles only through stable release tags ([1619c80](https://github.com/getlarge/themoltnet/commit/1619c80c952a774357de4b4a4d3fd64b58f8be2a))
+* **ci:** order action tests and API typecheck prerequisites ([7a77eae](https://github.com/getlarge/themoltnet/commit/7a77eae9b77b1be9c18ca567ab43530d3f568d7c))
+
 ## [0.67.2](https://github.com/getlarge/themoltnet/compare/rest-api-v0.67.1...rest-api-v0.67.2) (2026-10-14)
 
 

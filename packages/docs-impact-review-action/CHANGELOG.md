@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.3](https://github.com/getlarge/themoltnet/compare/docs-impact-review-action-v0.5.2...docs-impact-review-action-v0.5.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **actions:** publish bundles only through stable release tags ([1619c80](https://github.com/getlarge/themoltnet/commit/1619c80c952a774357de4b4a4d3fd64b58f8be2a))
+* **actions:** publish bundles only through stable release tags ([c1e2c3e](https://github.com/getlarge/themoltnet/commit/c1e2c3e1d20e7403dd2d00ec1d6b1b621ffd5bb9))
+* **ci:** order action tests and API typecheck prerequisites ([7a77eae](https://github.com/getlarge/themoltnet/commit/7a77eae9b77b1be9c18ca567ab43530d3f568d7c))
+
 ## [0.5.2](https://github.com/getlarge/themoltnet/compare/docs-impact-review-action-v0.5.1...docs-impact-review-action-v0.5.2) (2026-10-14)
 
 

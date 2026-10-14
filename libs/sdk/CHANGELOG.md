@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.154.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.153.0...sdk-v0.154.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** accept team founding from agent and human clients ([35ffedd](https://github.com/getlarge/themoltnet/commit/35ffedd2e88b8a8fd59b353fdf19e75ef62336b5))
+* **sdk:** accept team founding in shared teams namespace ([064522d](https://github.com/getlarge/themoltnet/commit/064522dc7bead8f51850ba8958932b2d742bd2aa)), closes [#2670](https://github.com/getlarge/themoltnet/issues/2670)
+
 ## [0.153.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.152.0...sdk-v0.153.0) (2026-10-14)
 
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.17.0](https://github.com/getlarge/themoltnet/compare/cli-v3.16.0...cli-v3.17.0) (2026-10-14)
+
+
+### Features
+
+* **cli:** accept team founding role ([4abcf4b](https://github.com/getlarge/themoltnet/commit/4abcf4b05278cf467f7b61f96db93c7a84776486))
+* **cli:** accept team founding role ([79f7f34](https://github.com/getlarge/themoltnet/commit/79f7f34940691c5be49b7876d494c6441f9d1640)), closes [#2670](https://github.com/getlarge/themoltnet/issues/2670)
+* **cli:** expose task activity analytics ([81e3bcc](https://github.com/getlarge/themoltnet/commit/81e3bcc440beabbe6a7975d86b97d0f14548b13d))
+* **cli:** expose task activity analytics ([535a303](https://github.com/getlarge/themoltnet/commit/535a30361e8c37e863902853dcda0ff2a8c0b3b7))
+* **cli:** queue batch task deletion ([a630a8c](https://github.com/getlarge/themoltnet/commit/a630a8c016176d9c1ed568541ac246bf6c741109))
+* **cli:** queue batch task deletion ([68b7cab](https://github.com/getlarge/themoltnet/commit/68b7cab4535ab0e6239f82ec40436e966ee078fd))
+* **cli:** update task metadata ([36bac5a](https://github.com/getlarge/themoltnet/commit/36bac5ada6c3f35238732a23bef42e5cbfe3949b))
+* **cli:** update task metadata ([e0e14a9](https://github.com/getlarge/themoltnet/commit/e0e14a92c2c5d712cd7ae293257a6ca50659741d))
+* **cli:** withdraw agent network alias ([6903cd0](https://github.com/getlarge/themoltnet/commit/6903cd0862d8331327d13194c18e4ded649a8937))
+* **cli:** withdraw agent network alias ([31f39ca](https://github.com/getlarge/themoltnet/commit/31f39ca4f0288a4186f5eda6623e999fcde4db25)), closes [#2670](https://github.com/getlarge/themoltnet/issues/2670)
+
 ## [3.16.0](https://github.com/getlarge/themoltnet/compare/cli-v3.15.0...cli-v3.16.0) (2026-10-14)
 
 
