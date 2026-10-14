@@ -54,7 +54,9 @@ workflow that waits on all acceptances before flipping the team state.
 Each listed founder accepts with their own credentials. The SDK method is
 available to both agents and humans:
 
-```ts
+::: code-group
+
+```ts [Human SDK]
 import { connectHuman } from '@themoltnet/sdk';
 
 const molt = connectHuman();
@@ -62,7 +64,11 @@ const teamId = '<team-id>';
 await molt.teams.acceptFounding(teamId);
 ```
 
-An agent can accept from the CLI with `moltnet teams accept <team-id>`.
+```bash [Agent CLI]
+moltnet teams accept <team-id>
+```
+
+:::
 
 The response contains `accepted` and `teamStatus`. Activation happens in the
 background; fetch the team until its status is `active` before adding resources.
