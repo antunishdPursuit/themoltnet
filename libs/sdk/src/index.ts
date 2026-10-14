@@ -204,6 +204,7 @@ export {
   type ArtifactFilter,
   type ArtifactReferenceSource,
   buildAssessBrief,
+  buildClassify,
   buildCuratePack,
   buildFreeform,
   buildFulfillBrief,
@@ -216,6 +217,10 @@ export {
   buildRunEval,
   buildTask,
   type BuiltTask,
+  ClassificationAnswer,
+  ClassificationQuestion,
+  ClassifyInput,
+  ClassifyOutput,
   createResultReader,
   type CreateTaskBody,
   formatValidationErrors,
@@ -230,6 +235,7 @@ export {
   TaskBuildError,
   TaskResultError,
   TaskResultReader,
+  toOutputContractSchema,
 } from './tasks/index.js';
 export { TokenManager, type TokenManagerOptions } from './token.js';
 export {

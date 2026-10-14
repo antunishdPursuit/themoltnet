@@ -193,6 +193,7 @@ import type {
 } from '@moltnet/runtime-profiles';
 import type {
   AssessBriefInput,
+  ClassifyInput,
   CuratePackInput,
   FreeformInput,
   FulfillBriefInput,
@@ -904,6 +905,8 @@ export interface TasksNamespace {
   buildFreeform(
     input: Pick<FreeformInput, 'brief'> & Partial<FreeformInput>,
   ): TaskBuilder<FreeformInput>;
+  /** Typed builder for a `classify` task (`state` + at least one question). */
+  buildClassify(input: ClassifyInput): TaskBuilder<ClassifyInput>;
   /** Typed builder for a `fulfill_brief` task (`brief` required). */
   buildFulfillBrief(
     input: Pick<FulfillBriefInput, 'brief'> & Partial<FulfillBriefInput>,

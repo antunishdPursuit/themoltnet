@@ -2,6 +2,7 @@ import type { Task, TaskAttempt } from '@moltnet/api-client';
 import { Type } from 'typebox';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { ClassifyOutput } from '../../src/index.js';
 import { TaskResultError } from '../../src/tasks/errors.js';
 import { createResultReader } from '../../src/tasks/reader.js';
 
@@ -359,5 +360,78 @@ describe('TaskResultReader.result(schema)', () => {
 
     expect(() => r.result(Other)).toThrow(TaskResultError);
     expect(() => r.result(Other)).toThrow(/input\/outputContract\/schema/);
+  });
+
+  it('matches a schema whose constraints the contract cannot carry', () => {
+    // Arrange: created with `outputSchema(Rooms)`, which drops `pattern`.
+    const Strict = Type.Object(
+      {
+        rooms: Type.Array(
+          Type.Object(
+            { id: Type.String({ pattern: '^t[0-9]+$' }), m2: Type.Number() },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    );
+    const r = createResultReader(task, attempt);
+
+    // Act
+    const result = r.result(Strict);
+
+    // Assert
+    expect(result.rooms[0].id).toBe('t1');
+  });
+});
+
+describe('createResultReader (classify)', () => {
+  const input = {
+    version: 1,
+    state: { finding: 'Night consumption doubled.' },
+    questions: {
+      planned: {
+        type: 'bool',
+        instructions: 'Is the change attributed to a planned event?',
+        criteria: { true: 'planned', false: 'not attributed' },
+      },
+    },
+  };
+
+  it('validates the answers against the questions', () => {
+    // Arrange
+    const task = freeformTask({ taskType: 'classify', input });
+    const attempt = freeformAttempt({
+      version: 1,
+      provider: 'ollama',
+      model: 'nimble',
+      answers: { other: { type: 'bool', probability: 0.2 } },
+    });
+
+    // Act
+    const reading = () => createResultReader(task, attempt);
+
+    // Assert
+    expect(reading).toThrow(TaskResultError);
+  });
+
+  it('exposes a typed classify output', () => {
+    // Arrange
+    const task = freeformTask({ taskType: 'classify', input });
+    const attempt = freeformAttempt({
+      version: 1,
+      provider: 'ollama',
+      model: 'nimble',
+      answers: { planned: { type: 'bool', probability: 0.82 } },
+    });
+
+    // Act
+    const r = createResultReader<ClassifyOutput>(task, attempt);
+
+    // Assert
+    expect(r.output.answers.planned).toEqual({
+      type: 'bool',
+      probability: 0.82,
+    });
   });
 });

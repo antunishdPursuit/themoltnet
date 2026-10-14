@@ -1,7 +1,9 @@
 import type { CreateTaskData } from '@moltnet/api-client';
 import type { ContextBinding } from '@moltnet/runtime-profiles';
+import { toOutputContractSchema } from '@moltnet/task-schemas';
 import {
   type AssessBriefInput,
+  type ClassifyInput,
   type CuratePackInput,
   type FreeformInput,
   type FulfillBriefInput,
@@ -19,6 +21,7 @@ import {
   validateRubricWeights,
   validateTaskCreateRequest,
 } from '@moltnet/tasks';
+import type { TSchema } from 'typebox';
 
 import type { StagedTaskArtifactReference } from './artifacts.js';
 import { TaskBuildError } from './errors.js';
@@ -265,8 +268,22 @@ export class TaskBuilder<TInput extends Record<string, unknown>> {
     return this;
   }
 
-  /** Require a typed `output.result` for a freeform task. */
-  outputSchema(schema: Record<string, unknown>): this {
+  /**
+   * Require a typed `output.result` for a freeform task.
+   *
+   * Accepts a TypeBox schema or a plain JSON Schema. Either is projected onto
+   * the JSON Schema subset an output contract supports (see
+   * {@link toOutputContractSchema}): constraints outside it, such as string
+   * `pattern`, are dropped from the contract, so keep validating the result
+   * with the full schema. A plain schema already inside the subset is stored
+   * unchanged.
+   *
+   * @param schema - The result schema.
+   * @returns This builder, for chaining.
+   * @throws {TaskBuildError} for a non-freeform task, or a schema with no
+   *   contract projection (for example a union of objects).
+   */
+  outputSchema(schema: TSchema | Record<string, unknown>): this {
     if (this.taskType !== 'freeform') {
       throw new TaskBuildError([
         {
@@ -275,7 +292,18 @@ export class TaskBuilder<TInput extends Record<string, unknown>> {
         },
       ]);
     }
-    this.inputData.outputContract = { version: 1, schema };
+    let projected: Record<string, unknown>;
+    try {
+      projected = toOutputContractSchema(schema);
+    } catch (error) {
+      throw new TaskBuildError([
+        {
+          field: 'input/outputContract/schema',
+          message: (error as Error).message,
+        },
+      ]);
+    }
+    this.inputData.outputContract = { version: 1, schema: projected };
     return this;
   }
 
@@ -759,6 +787,36 @@ export function buildFreeform(
   input: WithRequired<FreeformInput, 'brief'>,
 ): TaskBuilder<FreeformInput> {
   return buildTask('freeform', input as FreeformInput);
+}
+
+/**
+ * Build a `classify` task: typed questions about a JSON `state`, answered by a
+ * decision model with probabilities instead of generated text. Each question
+ * is a `choice`, `score`, or `bool`; the accepted output is a
+ * {@link ClassifyOutput} with one answer per question key.
+ *
+ * The task is served by a runtime profile whose `models.classification` names
+ * the decision model; pin it with `.allowProfiles(...)`.
+ *
+ * @param input - Classify input; `state` and at least one question mandatory.
+ * @returns A typed {@link TaskBuilder}.
+ * @example
+ * agent.tasks.buildClassify({
+ *   version: 1,
+ *   state: { finding },
+ *   questions: {
+ *     planned: {
+ *       type: 'bool',
+ *       instructions: 'Do the operator notes attribute this to a planned event?',
+ *       criteria: { true: 'planned event', false: 'no such attribution' },
+ *     },
+ *   },
+ * }).team(teamId).diary(diaryId).build();
+ */
+export function buildClassify(
+  input: ClassifyInput,
+): TaskBuilder<ClassifyInput> {
+  return buildTask('classify', input);
 }
 
 /**

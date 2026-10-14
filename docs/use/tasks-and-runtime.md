@@ -462,6 +462,10 @@ must use a Pi-compatible model. This PR adds the contract and model selection;
 its daemon does not yet execute `classify`. PR #2659 adds the standalone
 classifier executor, and #2631 wires the final daemon cutover.
 
+In TypeScript, `buildClassify` from `@themoltnet/sdk` builds the task, and the
+SDK exports the `ClassifyInput` and `ClassifyOutput` schemas and types. A result
+reader validates each answer against its question.
+
 The
 [generation and classification workflow examples](https://github.com/getlarge/themoltnet/tree/main/examples/tasks/workflows)
 show both directions: draft then classify, and classify then draft. They use
@@ -985,7 +989,12 @@ declared types and limits. The daemon checks the same contract for tool
 submissions and output materialization. Invalid values return field-specific
 errors for correction. The contract is part of the task input and is pinned by
 its `inputCid`. The SDK builder offers `.outputSchema(schema)` for freeform
-tasks.
+tasks. It accepts a TypeBox schema or plain JSON Schema and stores its
+projection onto the supported subset; `toOutputContractSchema` performs the same
+projection for bodies built without the builder. Constraints outside the subset,
+such as string `pattern`, are dropped from the contract, so validate the result
+against the full schema as well. Pass the same schema to
+`TaskResultReader.result(schema)` to read the result typed.
 
 The executing agent passes `result` as an object in the `submit_freeform_output`
 tool arguments, alongside the usual fields:

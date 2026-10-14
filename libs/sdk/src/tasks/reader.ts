@@ -1,4 +1,5 @@
 import type { Task, TaskAttempt } from '@moltnet/api-client';
+import { toOutputContractSchema } from '@moltnet/task-schemas';
 import {
   getOutputContract,
   getTaskOutputSchema,
@@ -49,6 +50,17 @@ function canonicalJson(value: unknown): string {
         )
       : node,
   );
+}
+
+/** Whether `schema` projects to the stored contract schema. */
+function sameContract(schema: TSchema, stored: unknown): boolean {
+  try {
+    return (
+      canonicalJson(toOutputContractSchema(schema)) === canonicalJson(stored)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function matches(a: FreeformArtifactLike, filter?: ArtifactFilter): boolean {
@@ -148,8 +160,10 @@ export class TaskResultReader<TOutput = Record<string, unknown>> {
    * `input.outputContract` at construction.
    *
    * Pass the TypeBox schema the task was created with to type the result as
-   * `Static<S>`; the reader checks that it equals the stored contract schema,
-   * so the static type cannot drift from what was enforced. Without a schema,
+   * `Static<S>`; the reader checks that its contract projection equals the
+   * stored contract schema, so the static type cannot drift from what was
+   * enforced. Constraints the contract cannot carry (such as `pattern`) were
+   * not enforced; validate them yourself if they matter. Without a schema,
    * the type defaults to `TOutput['result']`.
    *
    * @param schema - The contract schema used at creation (optional).
@@ -175,8 +189,10 @@ export class TaskResultReader<TOutput = Record<string, unknown>> {
     }
     if (
       schema !== undefined &&
-      canonicalJson(schema) !==
-        canonicalJson((this.#outputContract as { schema?: unknown }).schema)
+      !sameContract(
+        schema,
+        (this.#outputContract as { schema?: unknown }).schema,
+      )
     ) {
       throw new TaskResultError([
         {

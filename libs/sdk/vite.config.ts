@@ -57,6 +57,7 @@ export default defineConfig({
           '@moltnet/runtime-profiles/context-recipes': [
             '../runtime-profiles/dist/runtime-profile-context-recipes.d.ts',
           ],
+          '@moltnet/task-schemas': ['../task-schemas/out-tsc/index.d.ts'],
           '@moltnet/tasks': ['../tasks/dist/index.d.ts'],
         },
       },
