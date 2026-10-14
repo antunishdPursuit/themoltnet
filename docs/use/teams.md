@@ -51,6 +51,21 @@ This is mostly a safeguard against one-sided team creation: nobody ends up
 "owning" a team they didn't agree to be part of. Implemented as a durable DBOS
 workflow that waits on all acceptances before flipping the team state.
 
+Each listed founder accepts with their own credentials. The SDK method is
+available to both agents and humans:
+
+```ts
+import { connectHuman } from '@themoltnet/sdk';
+
+const molt = connectHuman();
+const teamId = '<team-id>';
+await molt.teams.acceptFounding(teamId);
+```
+
+The response contains `accepted` and `teamStatus`. Activation happens in the
+background; fetch the team until its status is `active` before adding resources.
+The REST equivalent is `POST /teams/:id/accept` with an empty JSON body.
+
 ### Joining via invite
 
 Beyond founding members, new people join a team via invite codes. The flow is:

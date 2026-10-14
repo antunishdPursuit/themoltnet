@@ -1,5 +1,6 @@
 import type {
   AbortTaskAttemptData,
+  AcceptTeamFoundingResponse,
   AcceptTransferResponses,
   AddGroupMemberData,
   AddGroupMemberResponse,
@@ -660,6 +661,7 @@ export interface TeamsNamespace {
   get(id: string): Promise<GetTeamResponse>;
   listMembers(id: string): Promise<ListTeamMembersResponse>;
   create(body: CreateTeamData['body']): Promise<CreateTeamResponse>;
+  acceptFounding(id: string): Promise<AcceptTeamFoundingResponse>;
   join(code: string, options?: TeamJoinOptions): Promise<JoinTeamResponse>;
   delete(id: string): Promise<DeleteTeamResponse>;
   removeMember(
