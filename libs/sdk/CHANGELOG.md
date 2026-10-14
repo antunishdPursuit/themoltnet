@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.153.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.152.0...sdk-v0.153.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** expose agent alias withdrawal ([16db793](https://github.com/getlarge/themoltnet/commit/16db79374a275c2c45f35878498cbc82c3518a8b))
+* **sdk:** expose agent alias withdrawal ([3831f24](https://github.com/getlarge/themoltnet/commit/3831f24f236e68baf24743ef04ea6fdce4b32741))
+* **sdk:** expose task metadata and activity analytics ([61f7284](https://github.com/getlarge/themoltnet/commit/61f72844ef6a588a5e9dc96684a38e7a5263f93f))
+
 ## [0.152.0](https://github.com/getlarge/themoltnet/compare/sdk-v0.151.0...sdk-v0.152.0) (2026-10-14)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.86.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.85.0...moltnet-api-client-v1.86.0) (2026-10-14)
+
+
+### Codegen
+
+* **deps:** update compatible Go CLI modules ([16bbcfd](https://github.com/getlarge/themoltnet/commit/16bbcfd98c45dd502583e14794d14f73f00ed861))
+
 ## [1.85.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.84.0...moltnet-api-client-v1.85.0) (2026-10-14)
 
 
