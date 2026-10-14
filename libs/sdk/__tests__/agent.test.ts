@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 
 import type { Client } from '@moltnet/api-client';
 import {
+  acceptTeamFounding,
   acceptTransfer,
   approveSigningCredential,
   batchDeleteDiaryEntries,
@@ -144,6 +145,7 @@ vi.mock('@moltnet/api-client', async (importOriginal) => {
     getTeam: vi.fn(),
     listTeamMembers: vi.fn(),
     createTeam: vi.fn(),
+    acceptTeamFounding: vi.fn(),
     joinTeam: vi.fn(),
     deleteTeam: vi.fn(),
     removeTeamMember: vi.fn(),
@@ -1879,6 +1881,27 @@ describe('Agent facade', () => {
       expect(result).toEqual(created);
       expect(createTeam).toHaveBeenCalledWith(
         expect.objectContaining({ body: { name: 'New Team' } }),
+      );
+    });
+
+    it('teams.acceptFounding sends an empty body and returns acceptance status', async () => {
+      const accepted = { accepted: true, teamStatus: 'founding' };
+      vi.mocked(acceptTeamFounding).mockResolvedValueOnce({
+        data: accepted,
+        error: undefined,
+      } as any);
+
+      const agent = makeAgent();
+      await expect(agent.teams.acceptFounding('team-1')).resolves.toEqual(
+        accepted,
+      );
+      expect(acceptTeamFounding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client: mockClient,
+          auth: expect.any(Function),
+          path: { id: 'team-1' },
+          body: {},
+        }),
       );
     });
 

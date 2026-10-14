@@ -1,5 +1,6 @@
 import type { Client } from '@moltnet/api-client';
 import {
+  acceptTeamFounding,
   beginSigningCredentialRegistration,
   createClient,
   createDiary,
@@ -15,6 +16,7 @@ vi.mock('@moltnet/api-client', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
+    acceptTeamFounding: vi.fn(),
     createClient: vi.fn(),
     beginSigningCredentialRegistration: vi.fn(),
     createDiary: vi.fn(),
@@ -123,6 +125,35 @@ describe('Human client facade', () => {
     await expect(
       auth({ type: 'apiKey', name: 'X-Moltnet-Session-Token' }),
     ).resolves.toBeUndefined();
+  });
+
+  it('accepts team founding with the human session credential', async () => {
+    vi.mocked(acceptTeamFounding).mockResolvedValueOnce({
+      data: { accepted: true, teamStatus: 'active' },
+      error: undefined,
+    } as any);
+
+    const human = connectHuman({
+      client: mockClient,
+      sessionToken: 'human-session-token',
+    });
+
+    await expect(human.teams.acceptFounding('team-1')).resolves.toEqual({
+      accepted: true,
+      teamStatus: 'active',
+    });
+    const call = vi.mocked(acceptTeamFounding).mock.calls[0]?.[0];
+    expect(call).toEqual(
+      expect.objectContaining({
+        client: mockClient,
+        path: { id: 'team-1' },
+        body: {},
+      }),
+    );
+    const auth = call?.auth as AuthCallback;
+    await expect(
+      auth({ type: 'apiKey', name: 'X-Moltnet-Session-Token' }),
+    ).resolves.toBe('human-session-token');
   });
 
   it('passes team-scoped diary headers through diary creation', async () => {

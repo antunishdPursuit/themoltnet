@@ -420,7 +420,7 @@ security invariants.
 Multi-party consent workflow. The creator calls `POST /teams` with a list of
 `foundingMembers`. A DBOS durable workflow opens, seeds `founding_acceptances`
 rows for every required member, then waits (up to 24h) for all members to call
-`POST /teams/:id/accept-founding`. Once all have accepted, the team transitions
+`POST /teams/:id/accept`. Once all have accepted, the team transitions
 `founding → active` and Keto ownership is granted. On timeout the team is
 archived.
 
@@ -437,7 +437,7 @@ sequenceDiagram
     API->>DBOS: startWorkflow(teamFoundingWorkflow)
     Note over DBOS: seeds founding_acceptances for A, B, C
 
-    Creator->>API: POST /teams/:id/accept-founding
+    Creator->>API: POST /teams/:id/accept
     API->>DB: UPDATE founding_acceptances (A → accepted)
     API->>DBOS: send(FOUNDING_ACCEPT_EVENT, A)
 

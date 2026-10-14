@@ -1,4 +1,5 @@
 import {
+  acceptTeamFounding,
   createTeam,
   createTeamInvite,
   deleteTeam,
@@ -36,6 +37,12 @@ export function createTeamsNamespace(context: AgentContext): TeamsNamespace {
 
     async create(body) {
       return unwrapResult(await createTeam({ client, auth, body }));
+    },
+
+    async acceptFounding(id) {
+      return unwrapResult(
+        await acceptTeamFounding({ client, auth, path: { id }, body: {} }),
+      );
     },
 
     async join(code, options) {
