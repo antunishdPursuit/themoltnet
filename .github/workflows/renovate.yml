@@ -1,8 +1,8 @@
 name: Renovate
 
 on:
-  # Routine updates are limited by renovate.json to Monday. Run daily so
-  # vulnerability fixes can be proposed without waiting for that window.
+  # Routine updates are limited by renovate.json to an early daily window.
+  # Run during that window; vulnerability fixes bypass its schedule.
   # Runs after merges rebase conflicted update PRs; dashboard edits process
   # maintainer decisions without waiting for the next scheduled run.
   schedule:
