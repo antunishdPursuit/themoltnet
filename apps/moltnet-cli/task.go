@@ -252,6 +252,77 @@ func runTaskGetWithClient(ctx context.Context, client *moltnetapi.Client, taskID
 	return printJSON(task)
 }
 
+type taskUpdateOpts struct {
+	apiURL, credPath, taskID, teamID string
+	title                            string
+	titleSet, clearTitle             bool
+	tags                             string
+	tagsSet                          bool
+	out                              io.Writer
+}
+
+func runTaskUpdateCmd(opts taskUpdateOpts) error {
+	if _, _, err := buildTaskUpdateRequest(opts); err != nil {
+		return err
+	}
+	client, err := newAuthenticatedClient(opts.apiURL, opts.credPath, opts.teamID)
+	if err != nil {
+		return err
+	}
+	return runTaskUpdateWithClient(context.Background(), client, opts)
+}
+
+func runTaskUpdateWithClient(ctx context.Context, client *moltnetapi.Client, opts taskUpdateOpts) error {
+	req, params, err := buildTaskUpdateRequest(opts)
+	if err != nil {
+		return err
+	}
+	res, err := client.UpdateTaskMetadata(ctx, req, params)
+	if err != nil {
+		return fmt.Errorf("task update: %w", formatTransportError(err))
+	}
+	task, ok := res.(*moltnetapi.Task)
+	if !ok {
+		return formatAPIError(res)
+	}
+	return printJSONTo(opts.out, task)
+}
+
+func buildTaskUpdateRequest(opts taskUpdateOpts) (*moltnetapi.UpdateTaskMetadataReq, moltnetapi.UpdateTaskMetadataParams, error) {
+	if opts.titleSet && opts.clearTitle {
+		return nil, moltnetapi.UpdateTaskMetadataParams{}, fmt.Errorf("--title and --clear-title cannot be combined")
+	}
+	if !opts.titleSet && !opts.clearTitle && !opts.tagsSet {
+		return nil, moltnetapi.UpdateTaskMetadataParams{}, fmt.Errorf("task update requires --title, --clear-title, or --tags")
+	}
+	if opts.titleSet && strings.TrimSpace(opts.title) == "" {
+		return nil, moltnetapi.UpdateTaskMetadataParams{}, fmt.Errorf("--title must not be empty; use --clear-title to remove it")
+	}
+	taskID, err := uuid.Parse(opts.taskID)
+	if err != nil {
+		return nil, moltnetapi.UpdateTaskMetadataParams{}, fmt.Errorf("invalid task ID %q: %w", opts.taskID, err)
+	}
+	teamID, err := uuid.Parse(opts.teamID)
+	if err != nil {
+		return nil, moltnetapi.UpdateTaskMetadataParams{}, fmt.Errorf("invalid --team-id %q: %w", opts.teamID, err)
+	}
+	req := &moltnetapi.UpdateTaskMetadataReq{}
+	if opts.titleSet {
+		req.Title = moltnetapi.NewOptNilString(opts.title)
+	} else if opts.clearTitle {
+		req.Title.SetToNull()
+	}
+	if opts.tagsSet {
+		req.Tags = splitAndTrim(opts.tags, ",")
+		if len(req.Tags) > 20 {
+			return nil, moltnetapi.UpdateTaskMetadataParams{}, fmt.Errorf("--tags accepts at most 20 tags")
+		}
+	}
+	return req, moltnetapi.UpdateTaskMetadataParams{
+		ID: taskID, XMoltnetTeamID: moltnetapi.NewOptUUID(teamID),
+	}, nil
+}
+
 func runTaskCancelCmd(apiURL, credPath, taskID, teamID, reason string) error {
 	if strings.TrimSpace(reason) == "" {
 		return fmt.Errorf("--reason must not be empty")

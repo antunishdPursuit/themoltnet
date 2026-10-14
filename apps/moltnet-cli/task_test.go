@@ -29,6 +29,9 @@ type stubTasksHandler struct {
 	listParams                      moltnetapi.ListTasksParams
 	getCalls                        int
 	getParams                       moltnetapi.GetTaskParams
+	updateCalls                     int
+	updateParams                    moltnetapi.UpdateTaskMetadataParams
+	updateReq                       *moltnetapi.UpdateTaskMetadataReq
 	cancelCalls                     int
 	cancelParams                    moltnetapi.CancelTaskParams
 	cancelReason                    string
@@ -67,6 +70,13 @@ func (h *stubTasksHandler) GetTask(_ context.Context, params moltnetapi.GetTaskP
 	h.getCalls++
 	h.getParams = params
 	return newTaskFixture(params.ID, uuid.MustParse("22222222-2222-4222-8222-222222222222")), nil
+}
+
+func (h *stubTasksHandler) UpdateTaskMetadata(_ context.Context, req *moltnetapi.UpdateTaskMetadataReq, params moltnetapi.UpdateTaskMetadataParams) (moltnetapi.UpdateTaskMetadataRes, error) {
+	h.updateCalls++
+	h.updateReq = req
+	h.updateParams = params
+	return newTaskFixture(params.ID, params.XMoltnetTeamID.Value), nil
 }
 
 func (h *stubTasksHandler) CancelTask(_ context.Context, req *moltnetapi.CancelTaskReq, params moltnetapi.CancelTaskParams) (moltnetapi.CancelTaskRes, error) {
@@ -624,6 +634,82 @@ func TestRunTaskGet_InvalidID(t *testing.T) {
 	}
 	if h.getCalls != 0 {
 		t.Errorf("request should not be made on invalid ID, got %d calls", h.getCalls)
+	}
+}
+
+func TestRunTaskUpdateMetadata(t *testing.T) {
+	h := &stubTasksHandler{}
+	_, _, client := newTestServer(t, h)
+	taskID := "11111111-1111-4111-8111-111111111111"
+	teamID := "22222222-2222-4222-8222-222222222222"
+	var out bytes.Buffer
+	if err := runTaskUpdateWithClient(context.Background(), client, taskUpdateOpts{
+		taskID: taskID, teamID: teamID, title: "Review", titleSet: true,
+		tags: "review,priority:high", tagsSet: true, out: &out,
+	}); err != nil {
+		t.Fatalf("task update: %v", err)
+	}
+	if h.updateCalls != 1 || h.updateParams.ID.String() != taskID || h.updateParams.XMoltnetTeamID.Value.String() != teamID {
+		t.Fatalf("update request params = %+v, calls = %d", h.updateParams, h.updateCalls)
+	}
+	if !h.updateReq.Title.Set || h.updateReq.Title.Value != "Review" || !reflect.DeepEqual(h.updateReq.Tags, []string{"review", "priority:high"}) {
+		t.Fatalf("update body = %+v", h.updateReq)
+	}
+	if !strings.Contains(out.String(), taskID) {
+		t.Fatalf("task response missing ID: %s", out.String())
+	}
+}
+
+func TestRunTaskUpdateClearsTitleAndTags(t *testing.T) {
+	h := &stubTasksHandler{}
+	_, _, client := newTestServer(t, h)
+	if err := runTaskUpdateWithClient(context.Background(), client, taskUpdateOpts{
+		taskID:     "11111111-1111-4111-8111-111111111111",
+		teamID:     "22222222-2222-4222-8222-222222222222",
+		clearTitle: true, tagsSet: true, out: io.Discard,
+	}); err != nil {
+		t.Fatalf("task update: %v", err)
+	}
+	if !h.updateReq.Title.Set || !h.updateReq.Title.Null || h.updateReq.Tags == nil || len(h.updateReq.Tags) != 0 {
+		t.Fatalf("clear request = %+v", h.updateReq)
+	}
+}
+
+func TestRunTaskUpdateRejectsInvalidInput(t *testing.T) {
+	h := &stubTasksHandler{}
+	_, _, client := newTestServer(t, h)
+	base := taskUpdateOpts{
+		taskID: "11111111-1111-4111-8111-111111111111",
+		teamID: "22222222-2222-4222-8222-222222222222", out: io.Discard,
+	}
+	for _, change := range []func(*taskUpdateOpts){
+		func(o *taskUpdateOpts) {},
+		func(o *taskUpdateOpts) { o.titleSet = true; o.clearTitle = true },
+		func(o *taskUpdateOpts) { o.titleSet = true; o.title = " " },
+		func(o *taskUpdateOpts) { o.tagsSet = true; o.taskID = "bad" },
+		func(o *taskUpdateOpts) { o.tagsSet = true; o.teamID = "bad" },
+	} {
+		opts := base
+		change(&opts)
+		if err := runTaskUpdateWithClient(context.Background(), client, opts); err == nil {
+			t.Fatalf("expected validation error for %+v", opts)
+		}
+	}
+	if h.updateCalls != 0 {
+		t.Fatalf("invalid requests reached API: %d", h.updateCalls)
+	}
+}
+
+func TestTaskUpdateCommandRequiresTeamAndAField(t *testing.T) {
+	taskID := "11111111-1111-4111-8111-111111111111"
+	_, _, err := executeCommand(NewRootCmd("test", ""), "task", "update", taskID, "--title", "Review")
+	if err == nil || !strings.Contains(err.Error(), "team-id") {
+		t.Fatalf("expected team ID requirement, got %v", err)
+	}
+	_, _, err = executeCommand(NewRootCmd("test", ""), "task", "update", taskID,
+		"--team-id", "22222222-2222-4222-8222-222222222222")
+	if err == nil || !strings.Contains(err.Error(), "requires --title") {
+		t.Fatalf("expected metadata requirement, got %v", err)
 	}
 }
 
