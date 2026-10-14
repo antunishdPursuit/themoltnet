@@ -20,6 +20,8 @@ import {
   deleteRuntimeProfile,
   deleteTeam,
   deleteTeamInvite,
+  downloadTaskArtifact,
+  downloadTaskArtifactByCid,
   getAgentProfile,
   getCryptoIdentity,
   getDiary,
@@ -159,6 +161,8 @@ vi.mock('@moltnet/api-client', async (importOriginal) => {
     listTaskSchemas: vi.fn(),
     listTasks: vi.fn(),
     listTaskArtifacts: vi.fn(),
+    downloadTaskArtifact: vi.fn(),
+    downloadTaskArtifactByCid: vi.fn(),
     stageTaskArtifact: vi.fn(),
     createTask: vi.fn(),
     batchDeleteTasks: vi.fn(),
@@ -912,7 +916,7 @@ describe('Agent facade', () => {
 
     it('tasks.artifacts.download returns stream metadata from response headers', async () => {
       const stream = Readable.from(['artifact bytes']);
-      vi.mocked(mockClient.request).mockResolvedValueOnce({
+      vi.mocked(downloadTaskArtifact).mockResolvedValueOnce({
         data: stream,
         error: undefined,
         response: new Response(null, {
@@ -937,17 +941,20 @@ describe('Agent facade', () => {
         contentType: 'text/plain',
       });
       expect(result.stream).toBe(stream);
-      expect(mockClient.request).toHaveBeenCalledWith(
+      expect(downloadTaskArtifact).toHaveBeenCalledWith(
         expect.objectContaining({
           path: { taskId: 'task-1', attemptN: 1, cid: 'bafkreia' },
-          url: '/tasks/{taskId}/attempts/{attemptN}/artifacts/{cid}/content',
+          client: mockClient,
+          auth: expect.any(Function),
+          headers: { 'x-moltnet-team-id': 'team-1' },
+          parseAs: 'stream',
         }),
       );
     });
 
     it('tasks.artifacts.download omits attemptN for task-scoped input artifacts', async () => {
       const stream = Readable.from(['input bytes']);
-      vi.mocked(mockClient.request).mockResolvedValueOnce({
+      vi.mocked(downloadTaskArtifactByCid).mockResolvedValueOnce({
         data: stream,
         error: undefined,
         response: new Response(null, {
@@ -962,10 +969,13 @@ describe('Agent facade', () => {
       );
 
       expect(result.stream).toBe(stream);
-      expect(mockClient.request).toHaveBeenCalledWith(
+      expect(downloadTaskArtifactByCid).toHaveBeenCalledWith(
         expect.objectContaining({
           path: { taskId: 'task-1', cid: 'bafkreiinput' },
-          url: '/tasks/{taskId}/artifacts/{cid}/content',
+          client: mockClient,
+          auth: expect.any(Function),
+          headers: { 'x-moltnet-team-id': 'team-1' },
+          parseAs: 'stream',
         }),
       );
     });
