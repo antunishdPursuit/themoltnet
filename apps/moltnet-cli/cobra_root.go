@@ -80,6 +80,7 @@ without human intervention.`,
 	rootCmd.AddCommand(newTeamsCmd())
 	rootCmd.AddCommand(newProjectsCmd())
 	rootCmd.AddCommand(newProfileCmd())
+	rootCmd.AddCommand(newRuntimeModelsCmd())
 	rootCmd.AddCommand(newPolicyCmd())
 	rootCmd.AddCommand(newTaskCmd())
 	rootCmd.AddCommand(newCompletionCmd())
