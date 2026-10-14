@@ -155,6 +155,12 @@ const CATEGORY_LABELS = {
   question: 'question',
 };
 const CATEGORY_LABEL_THRESHOLD = 0.85;
+const INVITATION_MARKER = '<!-- moltnet-issue-triage-invite -->';
+const INVITATION_BODY = [
+  INVITATION_MARKER,
+  'A repository maintainer can reply with `/triage` to run MoltNet issue triage.',
+  'The workflow checks issue quality, classifies its category, and posts a reviewed result. Runs are queued one at a time.',
+].join('\n\n');
 
 const READINESS_CRITERIA = {
   'acceptance-criteria': 'The issue specifies verifiable completion outcomes.',
@@ -319,6 +325,46 @@ export function renderComment(
   ].join('\n');
 }
 
+export function invitationAction(issue, comments, repo) {
+  if (issue.state !== 'open' || issue.pull_request) return null;
+  const path = issuePath(repo, issue.number);
+  const existing = comments.find(
+    (comment) =>
+      comment.user?.login === 'legreffier[bot]' &&
+      comment.body?.startsWith(INVITATION_MARKER),
+  );
+  if (existing?.body === INVITATION_BODY) return null;
+  return existing
+    ? {
+        method: 'PATCH',
+        path: `repos/${repo}/issues/comments/${existing.id}`,
+        body: { body: INVITATION_BODY },
+      }
+    : {
+        method: 'POST',
+        path: `${path}/comments`,
+        body: { body: INVITATION_BODY },
+      };
+}
+
+function invite() {
+  const repo = process.env.GITHUB_REPOSITORY;
+  const number = Number(process.env.ISSUE_NUMBER);
+  const path = issuePath(repo, number);
+  const issue = gh('GET', path);
+  if (issue.state !== 'open' || issue.pull_request) return;
+  const comments = [];
+  for (let page = 1; page <= 20; page++) {
+    const batch = gh('GET', `${path}/comments?per_page=100&page=${page}`);
+    if (!Array.isArray(batch)) throw new Error('invalid issue comments');
+    comments.push(...batch);
+    if (batch.length < 100) break;
+    if (page === 20) throw new Error('issue comment scan limit exceeded');
+  }
+  const action = invitationAction(issue, comments, repo);
+  if (action) gh(action.method, action.path, action.body);
+}
+
 function prepare() {
   const repo = process.env.GITHUB_REPOSITORY;
   const number = Number(process.env.ISSUE_NUMBER);
@@ -473,7 +519,8 @@ function publish() {
 
 if (process.argv[1]?.endsWith('/issue-triage.mjs')) {
   const mode = process.argv[2];
-  if (mode === 'prepare') prepare();
+  if (mode === 'invite') invite();
+  else if (mode === 'prepare') prepare();
   else if (mode === 'prepare-classifier') prepareClassifier();
   else if (mode === 'publish') publish();
   else throw new Error('expected prepare or publish');

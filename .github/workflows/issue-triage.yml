@@ -4,6 +4,10 @@ name: Issue Triage
 # task. Only this trusted workflow changes labels or comments after validating
 # both accepted outputs. Category labels require a confident classifier result.
 on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       issue:
@@ -14,7 +18,51 @@ on:
 permissions: {}
 
 jobs:
+  invite:
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.issue.state == 'open'
+    concurrency:
+      group: issue-triage-pilot
+      queue: max
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: legreffier
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Mint issue-writing App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.MOLTNET_GITHUB_APP_ID }}
+          private-key: ${{ secrets.MOLTNET_GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-issues: write
+
+      - name: Create or refresh triage invitation
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: node .github/scripts/issue-triage.mjs invite
+
   triage:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request == null &&
+       github.event.issue.state == 'open' &&
+       github.event.comment.body == '/triage' &&
+       github.event.comment.user.type == 'User' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                github.event.comment.author_association))
     concurrency:
       group: issue-triage-pilot
       queue: max
@@ -35,7 +83,7 @@ jobs:
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ inputs.issue }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
         run: node .github/scripts/issue-triage.mjs prepare
 
       # Register both profiles and the input-only policy on the team before use.

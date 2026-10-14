@@ -9,6 +9,7 @@ import {
   buildSpec,
   buildClassifierSpec,
   categoryLabel,
+  invitationAction,
   parseClassification,
   parseVerdict,
   renderComment,
@@ -180,6 +181,28 @@ test('labels only confident categories when no category was assigned', () => {
     categoryLabel({ ...classification, probabilities: { feature: 0.8 } }, []),
     null,
   );
+});
+
+test('creates one invitation and only updates the bot-owned copy', () => {
+  const repo = 'getlarge/themoltnet';
+  const forged = {
+    id: 1,
+    user: { login: 'someone' },
+    body: '<!-- moltnet-issue-triage-invite -->',
+  };
+  const create = invitationAction(issue, [forged], repo);
+  assert.equal(create.method, 'POST');
+  assert.equal(create.path, 'repos/getlarge/themoltnet/issues/42/comments');
+  assert.match(create.body.body, /reply with `\/triage`/);
+  const bot = { ...forged, id: 2, user: { login: 'legreffier[bot]' } };
+  const update = invitationAction(issue, [forged, bot], repo);
+  assert.equal(update.method, 'PATCH');
+  assert.equal(update.path, 'repos/getlarge/themoltnet/issues/comments/2');
+  assert.equal(
+    invitationAction(issue, [forged, { ...bot, body: update.body.body }], repo),
+    null,
+  );
+  assert.equal(invitationAction({ ...issue, state: 'closed' }, [], repo), null);
 });
 
 test('renders the verdict and per-criterion reasons', () => {

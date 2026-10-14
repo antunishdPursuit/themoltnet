@@ -18,14 +18,17 @@ GitHub Actions prepares each request and starts MoltNet tasks. Agent daemon
 workers execute them, and the workflow publishes a validated result to the pull
 request or issue.
 
-Issue triage runs only when an operator dispatches the workflow with an open
-issue number. It has no issue-event trigger or scheduled sweep. Dispatch it with
-`gh workflow run issue-triage.yml -f issue=123 --repo getlarge/themoltnet`. Its
-concurrency group allows one triage job to run at a time and queues later manual
-runs. Each run uses at most two sequential model tasks: evidence extraction,
-then classification when `MOLTNET_ISSUE_CLASSIFIER_ENABLED=true` in the
-`legreffier` environment and `TYPESAFE_API_KEY` is available there. The job
-times out after 20 minutes; each model task has one attempt.
+When an issue opens or its title or body changes, a lightweight job creates or
+refreshes one instruction comment. A repository owner, member, or collaborator
+can reply with exactly `/triage` to run the model tasks. Other comments and
+issue edits do not run models. An operator can also dispatch the workflow with
+`gh workflow run issue-triage.yml -f issue=123 --repo getlarge/themoltnet`.
+There is no scheduled sweep. The concurrency group allows one issue triage job
+at a time and queues later jobs. Each triage run uses at most two sequential
+model tasks: evidence extraction, then classification when
+`MOLTNET_ISSUE_CLASSIFIER_ENABLED=true` in the `legreffier` environment and
+`TYPESAFE_API_KEY` is available there. The triage job times out after 20
+minutes; each model task has one attempt.
 
 The workflow applies `needs-spec` or `ready-for-agent` from validated evidence.
 The classifier may also add `bug`, `enhancement`, or `question` when its
