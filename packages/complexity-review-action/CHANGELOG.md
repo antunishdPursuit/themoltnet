@@ -1,13 +1,5 @@
 # Changelog
 
-## [0.4.2](https://github.com/getlarge/themoltnet/compare/complexity-review-action-v0.4.1...complexity-review-action-v0.4.2) (2026-10-14)
-
-
-### Bug Fixes
-
-* **actions:** refresh action bundles and runtime locks ([427053a](https://github.com/getlarge/themoltnet/commit/427053a318f831d0f32857136c9d79994afeffd3))
-* **actions:** refresh action bundles and runtime locks ([1c9823e](https://github.com/getlarge/themoltnet/commit/1c9823ea9177387f7e44774ef2810883cfdfcd00))
-
 ## [0.4.1](https://github.com/getlarge/themoltnet/compare/complexity-review-action-v0.4.0...complexity-review-action-v0.4.1) (2026-10-13)
 
 
