@@ -388,6 +388,43 @@ describe('TaskResultReader.result(schema)', () => {
     // Assert
     expect(result.rooms[0].id).toBe('t1');
   });
+  it('rejects a result that violates a constraint the contract dropped', () => {
+    // Arrange
+    const Strict = Type.Object(
+      {
+        rooms: Type.Array(
+          Type.Object(
+            { id: Type.String({ pattern: '^r[0-9]+$' }), m2: Type.Number() },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    );
+    const r = createResultReader(task, attempt);
+
+    // Act
+    const reading = () => r.result(Strict);
+
+    // Assert
+    expect(reading).toThrow(TaskResultError);
+    expect(reading).toThrow(/output\/result\/rooms\/0\/id/);
+  });
+
+  it('reports a schema with no contract projection as such', () => {
+    // Arrange
+    const r = createResultReader(task, attempt);
+    const Unprojectable = Type.Union([
+      Type.Object({ a: Type.String() }),
+      Type.Object({ b: Type.String() }),
+    ]);
+
+    // Act
+    const reading = () => r.result(Unprojectable);
+
+    // Assert
+    expect(reading).toThrow(/no contract projection/);
+  });
 });
 
 describe('createResultReader (classify)', () => {
@@ -409,6 +446,23 @@ describe('createResultReader (classify)', () => {
     const attempt = acceptedAttempt({
       version: 1,
       answers: { other: { type: 'bool', probability: 0.2 } },
+    });
+
+    // Act
+    const reading = () => createResultReader(task, attempt);
+
+    // Assert
+    expect(reading).toThrow(TaskResultError);
+  });
+
+  it('rejects a stored output that carries provider and model', () => {
+    // Arrange
+    const task = classifyTask(input);
+    const attempt = acceptedAttempt({
+      version: 1,
+      provider: 'ollama',
+      model: 'nimble',
+      answers: { planned: { type: 'bool', probability: 0.82 } },
     });
 
     // Act

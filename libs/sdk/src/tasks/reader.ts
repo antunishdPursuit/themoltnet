@@ -8,6 +8,7 @@ import {
   validateTaskOutput,
 } from '@moltnet/tasks';
 import type { Static, TSchema } from 'typebox';
+import { Value } from 'typebox/value';
 
 import type { ReferenceRole } from './builder.js';
 import { TaskResultError } from './errors.js';
@@ -52,14 +53,17 @@ function canonicalJson(value: unknown): string {
   );
 }
 
-/** Whether `schema` projects to the stored contract schema. */
-function sameContract(schema: TSchema, stored: unknown): boolean {
+/** The contract projection of `schema`, or the reason it has none. */
+function projectContract(schema: TSchema): Record<string, unknown> {
   try {
-    return (
-      canonicalJson(toOutputContractSchema(schema)) === canonicalJson(stored)
-    );
-  } catch {
-    return false;
+    return toOutputContractSchema(schema);
+  } catch (error) {
+    throw new TaskResultError([
+      {
+        field: 'input/outputContract/schema',
+        message: `the schema passed to result() has no contract projection: ${(error as Error).message}`,
+      },
+    ]);
   }
 }
 
@@ -160,16 +164,17 @@ export class TaskResultReader<TOutput = Record<string, unknown>> {
    * `input.outputContract` at construction.
    *
    * Pass the TypeBox schema the task was created with to type the result as
-   * `Static<S>`; the reader checks that its contract projection equals the
-   * stored contract schema, so the static type cannot drift from what was
-   * enforced. Constraints the contract cannot carry (such as `pattern`) were
-   * not enforced; validate them yourself if they matter. Without a schema,
-   * the type defaults to `TOutput['result']`.
+   * `Static<S>`. The reader checks that its contract projection equals the
+   * stored contract schema, then validates the result against the full
+   * schema, so constraints the contract cannot carry (such as `pattern`) are
+   * enforced here. Without a schema, the type defaults to `TOutput['result']`
+   * and only the contract was checked.
    *
    * @param schema - The contract schema used at creation (optional).
    * @returns The validated result.
-   * @throws {TaskResultError} if the task has no output contract, or if
-   *   `schema` differs from the stored contract schema.
+   * @throws {TaskResultError} if the task has no output contract, if
+   *   `schema` differs from the stored contract schema, or if the result
+   *   violates `schema`.
    * @example
    * const r = await agent.tasks.readResult(taskId);
    * r.result(Rooms).rooms; // typed from the TypeBox schema
@@ -187,12 +192,11 @@ export class TaskResultReader<TOutput = Record<string, unknown>> {
         },
       ]);
     }
+    const result = (this.output as { result: unknown }).result;
+    if (schema === undefined) return result;
     if (
-      schema !== undefined &&
-      !sameContract(
-        schema,
-        (this.#outputContract as { schema?: unknown }).schema,
-      )
+      canonicalJson(projectContract(schema)) !==
+      canonicalJson((this.#outputContract as { schema?: unknown }).schema)
     ) {
       throw new TaskResultError([
         {
@@ -201,7 +205,16 @@ export class TaskResultReader<TOutput = Record<string, unknown>> {
         },
       ]);
     }
-    return (this.output as { result: unknown }).result;
+    const errors = [...Value.Errors(schema, result)];
+    if (errors.length > 0) {
+      throw new TaskResultError(
+        errors.map((error) => ({
+          field: `output/result${error.instancePath}`,
+          message: error.message,
+        })),
+      );
+    }
+    return result;
   }
 
   /**

@@ -266,11 +266,9 @@ describe('Daemon classification through native Pi HTTP transport', () => {
       expect(final.status).toBe('completed');
       expect(final.acceptedAttemptN).toBe(attempt.attemptN);
       expect(attempt.status).toBe('completed');
-      expect(attempt.output).toMatchObject({
-        version: 1,
-        provider: 'typesafe',
-        model,
-      });
+      expect(attempt.output).toMatchObject({ version: 1 });
+      expect(attempt.output).not.toHaveProperty('provider');
+      expect(attempt.usage).toMatchObject({ provider: 'typesafe', model });
       expect(validateClassifyOutput(attempt.output, input)).toBeNull();
       expect(attempt.outputCid).toMatch(/^b[a-z2-7]+$/);
     },
