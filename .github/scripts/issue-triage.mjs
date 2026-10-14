@@ -149,6 +149,19 @@ const CATEGORY_CRITERIA = {
   other: 'The primary request does not fit the other categories.',
 };
 
+const CATEGORY_LABELS = {
+  bug: 'bug',
+  feature: 'enhancement',
+  question: 'question',
+};
+const CATEGORY_LABEL_THRESHOLD = 0.85;
+const INVITATION_MARKER = '<!-- moltnet-issue-triage-invite -->';
+const INVITATION_BODY = [
+  INVITATION_MARKER,
+  'A repository maintainer can reply with `/triage` to run MoltNet issue triage.',
+  'The workflow checks issue quality, classifies its category, and posts a reviewed result. Runs are queued one at a time.',
+].join('\n\n');
+
 const READINESS_CRITERIA = {
   'acceptance-criteria': 'The issue specifies verifiable completion outcomes.',
   'context-files':
@@ -266,7 +279,27 @@ export function parseClassification(output) {
   };
 }
 
-export function renderComment(criteria, classification, correlationId) {
+export function categoryLabel(classification, labels) {
+  if (
+    !classification ||
+    labels.some((label) => Object.values(CATEGORY_LABELS).includes(label))
+  ) {
+    return null;
+  }
+  const label = CATEGORY_LABELS[classification.category];
+  return label &&
+    classification.probabilities[classification.category] >=
+      CATEGORY_LABEL_THRESHOLD
+    ? label
+    : null;
+}
+
+export function renderComment(
+  criteria,
+  classification,
+  correlationId,
+  appliedCategoryLabel,
+) {
   const ready = criteria.every((item) => item.passed);
   const lines = criteria.map(
     (item) =>
@@ -285,11 +318,51 @@ export function renderComment(criteria, classification, correlationId) {
     ...(classification
       ? [
           '',
-          `Classifier pilot: **${classification.category}** (${Math.round(classification.probabilities[classification.category] * 100)}%). This prediction does not set labels.`,
+          `Classifier pilot: **${classification.category}** (${Math.round(classification.probabilities[classification.category] * 100)}%). ${appliedCategoryLabel ? `Added \`${appliedCategoryLabel}\` label.` : 'No category label added.'}`,
           `Readiness probabilities: ${CRITERIA.map((id) => `${id} ${Math.round(classification.readiness[id] * 100)}%`).join(' · ')}.`,
         ]
       : []),
   ].join('\n');
+}
+
+export function invitationAction(issue, comments, repo) {
+  if (issue.state !== 'open' || issue.pull_request) return null;
+  const path = issuePath(repo, issue.number);
+  const existing = comments.find(
+    (comment) =>
+      comment.user?.login === 'legreffier[bot]' &&
+      comment.body?.startsWith(INVITATION_MARKER),
+  );
+  if (existing?.body === INVITATION_BODY) return null;
+  return existing
+    ? {
+        method: 'PATCH',
+        path: `repos/${repo}/issues/comments/${existing.id}`,
+        body: { body: INVITATION_BODY },
+      }
+    : {
+        method: 'POST',
+        path: `${path}/comments`,
+        body: { body: INVITATION_BODY },
+      };
+}
+
+function invite() {
+  const repo = process.env.GITHUB_REPOSITORY;
+  const number = Number(process.env.ISSUE_NUMBER);
+  const path = issuePath(repo, number);
+  const issue = gh('GET', path);
+  if (issue.state !== 'open' || issue.pull_request) return;
+  const comments = [];
+  for (let page = 1; page <= 20; page++) {
+    const batch = gh('GET', `${path}/comments?per_page=100&page=${page}`);
+    if (!Array.isArray(batch)) throw new Error('invalid issue comments');
+    comments.push(...batch);
+    if (batch.length < 100) break;
+    if (page === 20) throw new Error('issue comment scan limit exceeded');
+  }
+  const action = invitationAction(issue, comments, repo);
+  if (action) gh(action.method, action.path, action.body);
 }
 
 function prepare() {
@@ -424,20 +497,30 @@ function publish() {
   const target = ready ? 'ready-for-agent' : 'needs-spec';
   const opposite = ready ? 'needs-spec' : 'ready-for-agent';
   const labels = issue.labels.map((label) => label.name);
+  const selectedCategoryLabel = categoryLabel(classification, labels);
   if (!labels.includes(target)) {
     gh('POST', `${path}/labels`, { labels: [target] });
+  }
+  if (selectedCategoryLabel) {
+    gh('POST', `${path}/labels`, { labels: [selectedCategoryLabel] });
   }
   if (labels.includes(opposite)) {
     gh('DELETE', `${path}/labels/${encodeURIComponent(opposite)}`);
   }
   gh('POST', `${path}/comments`, {
-    body: renderComment(criteria, classification, snapshot.correlationId),
+    body: renderComment(
+      criteria,
+      classification,
+      snapshot.correlationId,
+      selectedCategoryLabel,
+    ),
   });
 }
 
 if (process.argv[1]?.endsWith('/issue-triage.mjs')) {
   const mode = process.argv[2];
-  if (mode === 'prepare') prepare();
+  if (mode === 'invite') invite();
+  else if (mode === 'prepare') prepare();
   else if (mode === 'prepare-classifier') prepareClassifier();
   else if (mode === 'publish') publish();
   else throw new Error('expected prepare or publish');

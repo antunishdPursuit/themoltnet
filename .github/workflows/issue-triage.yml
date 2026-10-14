@@ -2,55 +2,71 @@ name: Issue Triage
 
 # Issue evidence is extracted by a tool-free task and passed to a classifier
 # task. Only this trusted workflow changes labels or comments after validating
-# both accepted outputs. Classification is advisory during the pilot.
+# both accepted outputs. Category labels require a confident classifier result.
 on:
   issues:
-    types: [opened, edited, labeled]
-  schedule:
-    - cron: '0 */6 * * *'
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Open issue number to triage again
+        required: true
+        type: number
 
 permissions: {}
 
 jobs:
-  discover:
+  invite:
     if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'issues' &&
-       (github.event.action != 'labeled' ||
-        (github.event.label.name != 'needs-spec' &&
-         github.event.label.name != 'ready-for-agent')))
+      github.event_name == 'issues' &&
+      github.event.issue.state == 'open'
+    concurrency:
+      group: issue-triage-pilot
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: legreffier
     permissions:
+      contents: read
       issues: read
-    outputs:
-      issues: ${{ steps.issues.outputs.issues }}
     steps:
-      - name: Select issues
-        id: issues
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Mint issue-writing App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.MOLTNET_GITHUB_APP_ID }}
+          private-key: ${{ secrets.MOLTNET_GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-issues: write
+
+      - name: Create or refresh triage invitation
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = schedule ]; then
-            issues=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-              --label needs-spec --limit 20 --json number | jq -c 'map(.number)')
-          else
-            issues=$(jq -cn --argjson number "$ISSUE_NUMBER" '[$number]')
-          fi
-          echo "issues=$issues" >> "$GITHUB_OUTPUT"
+        run: node .github/scripts/issue-triage.mjs invite
 
   triage:
-    needs: discover
-    if: needs.discover.outputs.issues != '[]'
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        issue: ${{ fromJSON(needs.discover.outputs.issues) }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request == null &&
+       github.event.issue.state == 'open' &&
+       github.event.comment.body == '/triage' &&
+       github.event.comment.user.type == 'User' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                github.event.comment.author_association))
     concurrency:
-      group: issue-triage-${{ matrix.issue }}
-      cancel-in-progress: true
+      group: issue-triage-pilot
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legreffier
@@ -67,8 +83,7 @@ jobs:
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ matrix.issue }}
-          SWEEP: ${{ github.event_name == 'schedule' }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
         run: node .github/scripts/issue-triage.mjs prepare
 
       # Register both profiles and the input-only policy on the team before use.
@@ -142,7 +157,6 @@ jobs:
           EXTRACTION_CORRELATION_ID: ${{ steps.extract.outputs.correlation-id }}
           CLASSIFIER_TASK_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.task-id || '' }}
           CLASSIFIER_CORRELATION_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.correlation-id || '' }}
-          SWEEP: ${{ github.event_name == 'schedule' }}
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
           MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
