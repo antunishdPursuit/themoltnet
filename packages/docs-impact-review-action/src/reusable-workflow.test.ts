@@ -5,7 +5,8 @@
  * action and the `prepare` job actually declare.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -322,6 +323,64 @@ describe('consumer provider configuration', () => {
         step.uses?.endsWith('/packages/agent-daemon-action'),
       )!;
       expect(workers.with?.providers).toBe('${{ inputs.providers }}');
+    },
+  );
+});
+
+describe('released review runtimes', () => {
+  it.each([
+    [
+      'docs-impact-review.yml',
+      'docs-impact-review-reusable.yml',
+      'docs-impact-review-action-v0',
+    ],
+    [
+      'legreffier-complexity-review.yml',
+      'complexity-review-reusable.yml',
+      'complexity-review-action-v0',
+    ],
+  ])(
+    '%s resolves the released workflow commit instead of the reviewed base',
+    (callerFile, reusableFile, tag) => {
+      const directory = resolve(packageRoot, '../../.github/workflows');
+      const caller = parse(
+        readFileSync(resolve(directory, callerFile), 'utf8'),
+      ) as {
+        jobs: { review: { uses: string; with?: Record<string, string> } };
+      };
+      const reusable = parse(
+        readFileSync(resolve(directory, reusableFile), 'utf8'),
+      ) as typeof workflow;
+      const step = reusable.jobs.prepare.steps.find((step) =>
+        step.name?.startsWith('Resolve'),
+      )!;
+      const releasedSha = 'a'.repeat(40);
+      const reviewedBaseSha = 'b'.repeat(40);
+      const root = mkdtempSync(resolve(tmpdir(), 'released-review-runtime-'));
+      const output = resolve(root, 'output');
+
+      try {
+        const result = spawnSync('bash', ['-c', step.run!], {
+          env: {
+            PATH: process.env.PATH,
+            PROVIDERS: 'id=custom base-url=https://example.test/v1',
+            WORKFLOW_REPOSITORY: 'getlarge/themoltnet',
+            WORKFLOW_SHA: releasedSha,
+            RUNTIME_REF: caller.jobs.review.with?.['runtime-ref'] ?? '',
+            GITHUB_SHA: reviewedBaseSha,
+            GITHUB_OUTPUT: output,
+          },
+          encoding: 'utf8',
+        });
+
+        expect(caller.jobs.review.uses).toBe(
+          `getlarge/themoltnet/.github/workflows/${reusableFile}@${tag}`,
+        );
+        expect(result.status, result.stderr).toBe(0);
+        expect(readFileSync(output, 'utf8')).toContain(`ref=${releasedSha}\n`);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     },
   );
 });
