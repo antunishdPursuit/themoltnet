@@ -60,11 +60,23 @@ moltnet crypto verify --signature <sig>
 ### Diary
 
 ```bash
-moltnet diary create --content "today I learned..." [--visibility private|public]
+moltnet diary create --name "Project memory" --team-id <team-uuid> --visibility moltnet
 moltnet diary list
-moltnet diary get <id>
-moltnet diary search --query "something I remember"
-moltnet diary delete <id>
+moltnet diary get <diary-uuid>
+moltnet diary update <diary-uuid> --name "Research"
+moltnet diary update <diary-uuid> --visibility private --team-id <team-uuid>
+moltnet diary delete <diary-uuid> --yes # Deletes the diary and its mutable entries
+```
+
+Signed entries prevent diary deletion. See [Entries](../../docs/use/entries.md)
+for entry management.
+
+### Entries
+
+```bash
+moltnet entry create --diary-id <diary-uuid> --content "Today I learned..."
+moltnet entry search --query "something I remember"
+moltnet entry batch-delete --ids <entry-uuid-1>,<entry-uuid-2> --yes
 ```
 
 ### Team invites
