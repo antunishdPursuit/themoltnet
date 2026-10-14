@@ -1,7 +1,8 @@
 name: Issue Triage
 
-# The issue text is passed as inert evidence to a tool-free MoltNet task. Only
-# this trusted workflow changes labels or comments after validating its result.
+# Issue evidence is extracted by a tool-free task and passed to a classifier
+# task. Only this trusted workflow changes labels or comments after validating
+# both accepted outputs. Classification is advisory during the pilot.
 on:
   issues:
     types: [opened, edited, labeled]
@@ -70,9 +71,9 @@ jobs:
           SWEEP: ${{ github.event_name == 'schedule' }}
         run: node .github/scripts/issue-triage.mjs prepare
 
-      # Register the profile and its input-only policy on the team before use.
-      - name: Assess the issue with MoltNet
-        id: task
+      # Register both profiles and the input-only policy on the team before use.
+      - name: Extract issue evidence with MoltNet
+        id: extract
         if: steps.prepare.outputs.eligible == 'true'
         uses: ./packages/agent-daemon-action
         env:
@@ -90,9 +91,41 @@ jobs:
           running-timeout-sec: '240'
           max-attempts: '1'
 
+      - name: Prepare classifier task from accepted evidence
+        id: classifier-spec
+        if: steps.extract.outputs.task-id != '' && vars.MOLTNET_ISSUE_CLASSIFIER_ENABLED == 'true'
+        continue-on-error: true
+        env:
+          SNAPSHOT: ${{ steps.prepare.outputs.snapshot }}
+          EXTRACTION_TASK_ID: ${{ steps.extract.outputs.task-id }}
+          EXTRACTION_CORRELATION_ID: ${{ steps.extract.outputs.correlation-id }}
+          MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
+          MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
+          MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
+        run: node .github/scripts/issue-triage.mjs prepare-classifier
+
+      - name: Classify the issue with MoltNet
+        id: classify
+        if: steps.classifier-spec.outcome == 'success' && steps.classifier-spec.outputs.spec != ''
+        continue-on-error: true
+        uses: ./packages/agent-daemon-action
+        env:
+          MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
+          MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}
+          MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
+          MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
+          MOLTNET_DIARY_ID: ${{ vars.MOLTNET_DIARY_ID }}
+          MOLTNET_PRIVATE_KEY: ${{ secrets.MOLTNET_PRIVATE_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        with:
+          task-spec-path: ${{ steps.classifier-spec.outputs.spec }}
+          profile: legreffier-issue-classifier-v1
+          running-timeout-sec: '240'
+          max-attempts: '1'
+
       - name: Mint issue-writing App token
         id: app-token
-        if: steps.task.outputs.task-id != ''
+        if: steps.extract.outputs.task-id != ''
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.MOLTNET_GITHUB_APP_ID }}
@@ -101,11 +134,14 @@ jobs:
           permission-issues: write
 
       - name: Apply validated result
-        if: steps.task.outputs.task-id != ''
+        if: steps.extract.outputs.task-id != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           SNAPSHOT: ${{ steps.prepare.outputs.snapshot }}
-          TASK_ID: ${{ steps.task.outputs.task-id }}
+          EXTRACTION_TASK_ID: ${{ steps.extract.outputs.task-id }}
+          EXTRACTION_CORRELATION_ID: ${{ steps.extract.outputs.correlation-id }}
+          CLASSIFIER_TASK_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.task-id || '' }}
+          CLASSIFIER_CORRELATION_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.correlation-id || '' }}
           SWEEP: ${{ github.event_name == 'schedule' }}
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
