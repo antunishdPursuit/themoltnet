@@ -20,6 +20,7 @@ import {
   deleteRuntimeProfile,
   deleteTeam,
   deleteTeamInvite,
+  deleteWhoamiAlias,
   downloadTaskArtifact,
   downloadTaskArtifactByCid,
   getAgentProfile,
@@ -100,6 +101,7 @@ vi.mock('@moltnet/api-client', async (importOriginal) => {
     getDiaryEntryById: vi.fn(),
     updateDiaryEntryById: vi.fn(),
     deleteDiaryEntryById: vi.fn(),
+    deleteWhoamiAlias: vi.fn(),
     batchDeleteDiaryEntries: vi.fn(),
     searchDiary: vi.fn(),
     getWhoami: vi.fn(),
@@ -1070,6 +1072,44 @@ describe('Agent facade', () => {
       expect(getWhoami).toHaveBeenCalledWith(
         expect.objectContaining({ client: mockClient }),
       );
+    });
+
+    it('agents.deleteAlias handles the no-content response and forwards cancellation', async () => {
+      vi.mocked(deleteWhoamiAlias).mockResolvedValueOnce({
+        data: undefined,
+        error: undefined,
+        response: new Response(null, { status: 204 }),
+      } as any);
+
+      const controller = new AbortController();
+      const agent = makeAgent();
+      await expect(
+        agent.agents.deleteAlias({ signal: controller.signal }),
+      ).resolves.toBeUndefined();
+
+      expect(deleteWhoamiAlias).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client: mockClient,
+          auth: expect.any(Function),
+          signal: controller.signal,
+        }),
+      );
+    });
+
+    it('agents.deleteAlias propagates API rejection', async () => {
+      vi.mocked(deleteWhoamiAlias).mockResolvedValueOnce({
+        error: {
+          type: 'about:blank',
+          title: 'Forbidden',
+          status: 403,
+          detail: 'Only primary credentials may withdraw an alias',
+        },
+      } as any);
+
+      const agent = makeAgent();
+      await expect(agent.agents.deleteAlias()).rejects.toMatchObject({
+        statusCode: 403,
+      });
     });
 
     it('agents.lookup passes fingerprint as path param', async () => {

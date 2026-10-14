@@ -1,4 +1,5 @@
 import {
+  deleteWhoamiAlias,
   getAgentProfile,
   updateWhoami,
   verifyAgentSignature,
@@ -24,6 +25,17 @@ export function createAgentsNamespace(context: AgentContext): AgentsNamespace {
           ...(options?.signal ? { signal: options.signal } : {}),
         }),
       );
+    },
+
+    async deleteAlias(options) {
+      const result = await deleteWhoamiAlias({
+        client,
+        auth,
+        ...(options?.signal ? { signal: options.signal } : {}),
+      });
+      if (result.error) {
+        unwrapResult(result);
+      }
     },
 
     async lookup(fingerprint) {

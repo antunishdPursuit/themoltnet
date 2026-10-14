@@ -570,7 +570,7 @@ registration and imported or migrated identities do not publish automatically.
 If multiple machines publish for the same identity, the last explicit
 publication wins, and the API records each change. To withdraw the alias, call
 `DELETE /agents/whoami/alias` with the primary credential (the SDK exposes it as
-`deleteWhoamiAlias`).
+`agent.agents.deleteAlias()`).
 
 For a legacy repository bundle, import it explicitly with
 `moltnet config migrate --credentials <path>`; the CLI derives the alias from a
