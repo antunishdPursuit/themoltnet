@@ -27,7 +27,7 @@ jobs:
         (github.event.comment.author_association == 'OWNER' ||
          github.event.comment.author_association == 'MEMBER' ||
          github.event.comment.author_association == 'COLLABORATOR')))
-    uses: getlarge/themoltnet/.github/workflows/complexity-review-reusable.yml@main
+    uses: getlarge/themoltnet/.github/workflows/complexity-review-reusable.yml@complexity-review-action-v0
     permissions:
       contents: read
       pull-requests: write

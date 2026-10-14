@@ -213,7 +213,7 @@ jobs:
         run: .trusted-workflow/apps/multi-lens-review/scripts/fly-database-proxy.sh stop
 
       - name: Preflight executor authentication and attestation
-        uses: ./packages/agent-daemon-action
+        uses: getlarge/themoltnet/packages/agent-daemon-action@v0
         with:
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY
           agent-name: ${{ vars.MOLTNET_AGENT_NAME }}
@@ -403,7 +403,7 @@ jobs:
         with:
           go: 'false'
       - name: Drain this review run
-        uses: ./packages/agent-daemon-action
+        uses: getlarge/themoltnet/packages/agent-daemon-action@v0
         with:
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY
           agent-name: ${{ vars.MOLTNET_AGENT_NAME }}

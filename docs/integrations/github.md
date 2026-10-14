@@ -196,6 +196,26 @@ action can:
 - drain only tasks matching a task type and correlation id, optionally waiting
   for a parallel orchestrator to create the first task
 
+Use the released major tag for the daemon action:
+
+```yaml
+- uses: getlarge/themoltnet/packages/agent-daemon-action@v0
+```
+
+For PR reviews, call the reusable workflow with its released major tag:
+
+| Review               | Workflow reference                                                                                   | Setup                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Documentation impact | `getlarge/themoltnet/.github/workflows/docs-impact-review-reusable.yml@docs-impact-review-action-v0` | [Documentation review setup](https://github.com/getlarge/themoltnet/tree/main/packages/docs-impact-review-action#readme) |
+| Complexity           | `getlarge/themoltnet/.github/workflows/complexity-review-reusable.yml@complexity-review-action-v0`   | [Complexity review setup](https://github.com/getlarge/themoltnet/tree/main/packages/complexity-review-action#readme)     |
+
+These major tags include the built bundles and follow the latest release. For an
+exact pin, replace the tag after `@` with the **action bundle commit SHA**
+recorded in that component's GitHub release notes. In this release process,
+component version tags (`<component>-vX.Y.Z`) stay on the source commit without
+bundles. Use a released major tag or its built commit SHA to run an action or
+review workflow.
+
 For OAuth-based jobs, the provisioning loop is:
 
 1. Generate the agent identity once with `moltnet agents init --name <agent>`.

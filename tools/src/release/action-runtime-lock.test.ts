@@ -5,7 +5,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { computeLock, staleLocks } from './action-runtime-lock.js';
+import {
+  computeLock,
+  RUNTIME_LOCKS,
+  staleLocks,
+} from './action-runtime-lock.js';
 
 describe('action runtime locks', () => {
   let root: string;
@@ -58,5 +62,17 @@ describe('action runtime locks', () => {
     // Assert
     expect(lock).toMatch(/^[0-9a-f]{64} {2}dep\/src\/main\.ts$/m);
     expect(lock).not.toContain('main.test.ts');
+  });
+});
+
+describe('released action runtime inputs', () => {
+  it('locks runtime source files without including generated bundles', () => {
+    expect(RUNTIME_LOCKS).toHaveLength(2);
+    for (const lock of RUNTIME_LOCKS) {
+      expect(lock.pathspecs).toContain(
+        'packages/agent-daemon-action/action.yml',
+      );
+      expect(lock.pathspecs.some((path) => path.includes('/dist'))).toBe(false);
+    }
   });
 });

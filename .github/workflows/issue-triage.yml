@@ -94,7 +94,7 @@ jobs:
       - name: Extract issue evidence with MoltNet
         id: extract
         if: steps.prepare.outputs.eligible == 'true'
-        uses: ./packages/agent-daemon-action
+        uses: getlarge/themoltnet/packages/agent-daemon-action@v0
         env:
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}
@@ -127,7 +127,7 @@ jobs:
         id: classify
         if: steps.classifier-spec.outcome == 'success' && steps.classifier-spec.outputs.spec != ''
         continue-on-error: true
-        uses: ./packages/agent-daemon-action
+        uses: getlarge/themoltnet/packages/agent-daemon-action@v0
         env:
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}

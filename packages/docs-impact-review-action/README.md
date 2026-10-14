@@ -306,34 +306,25 @@ and allowed ranges.
 
 ## Versions
 
-Pin the moving major tag `docs-impact-review-action-v0`, or an immutable
-release tag `docs-impact-review-action-vX.Y.Z`. Both exist from the first
-release of the action; until then, pin a commit SHA. The action is released by
-release-please as the `docs-impact-review-action` component. The release job
-checks the committed bundles at the release tag (this action's and
-`agent-daemon-action`'s, which the reusable workflow runs from the same
-commit), publishes the release, and then moves
-`docs-impact-review-action-v0` to it.
+Pin the moving major tag `docs-impact-review-action-v0`, or the built commit SHA
+recorded in release notes. Release-please's version tags stay on main and
+contain sources without bundles, so they cannot run the action.
 
-The reusable workflow and `agent-daemon-action` (its `action.yml` and the
-bundle the workers run) live outside this package, so
-[`runtime.lock`](./runtime.lock) records their hashes. Every pull request
-checks the lock, and the release refuses a stale one. A change to those files
-therefore touches this package, and release-please releases it when the
-change is a fix or a feature. This release never moves the `v0` tag that
-`agent-daemon-action` uses.
+The release job builds this action and `agent-daemon-action`, checks entrypoints
+and runtime locks, publishes the release, then adds both bundles in a detached
+release-only commit. It moves only `docs-impact-review-action-v0` to that commit;
+it never moves the worker action's `v0` tag or pushes a branch.
 
-The committed `dist/` is rebuilt with
+The reusable workflow and `agent-daemon-action/action.yml` live outside this
+package, so [`runtime.lock`](./runtime.lock) records their hashes. A change to
+those files must refresh the lock in a fix or feature commit so release-please
+releases this action. Bundles are ignored on main and excluded from the lock.
+
+Build locally with:
 
 ```bash
 pnpm exec nx run @themoltnet/docs-impact-review-action:build
 ```
 
-Release Please PRs rebuild and commit all action bundles and runtime locks
-before merge. CI verifies the committed artifacts against the proposed source
-and versions, and publishing verifies them again at the immutable release tag.
-Source PRs may also commit bundles to exercise their changes in this repository.
-
-## License
-
-AGPL-3.0-only.
+All callers, including this repository, run the last released action. See the
+[shared release process](../../docs/contribute/nx-release-workflow.md#github-actions).

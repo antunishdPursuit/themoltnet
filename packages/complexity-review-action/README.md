@@ -16,8 +16,10 @@ posts a head-aware comment through the configured GitHub App. The repository
 config selects the rubric file; the default is
 `rubrics/pr-complexity-tristate-v2.json` when the config is absent.
 
-The action bundles are committed under `dist/`, and `runtime.lock` hashes the
-reusable workflow and worker action it runs. Build with
+The action bundles are ignored on main and built into a release-only commit
+pointed to by `complexity-review-action-v0`. Release notes record its SHA for
+exact pins; version tags contain sources without bundles. `runtime.lock` hashes
+the reusable workflow and worker action definition it runs. Build with
 `pnpm exec nx run @themoltnet/complexity-review-action:build` and refresh the
 lock after staging changed runtime files with
 `node tools/src/release/action-runtime-lock.ts --write`.
@@ -38,7 +40,7 @@ reusable workflow. Workers discover the endpoint's models.
 ```yaml
 jobs:
   review:
-    uses: getlarge/themoltnet/.github/workflows/complexity-review-reusable.yml@main
+    uses: getlarge/themoltnet/.github/workflows/complexity-review-reusable.yml@complexity-review-action-v0
     permissions:
       contents: read
       pull-requests: write

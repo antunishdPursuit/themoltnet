@@ -359,20 +359,33 @@ pnpm exec nx run moltnet-cli:nx-release-publish -- --skip-upload --verbose
 ## GitHub Actions
 
 Release Please releases the GitHub Actions components (`agent-daemon-action`,
-`docs-impact-review-action`, `complexity-review-action`). After creating or
-updating its PR, `release.yml` builds all action bundles from the proposed
-versions and commits them with refreshed runtime locks onto that same PR. There
-is no separate bundle maintenance PR. CI rebuilds every release PR's artifacts;
-`publish-actions` verifies them again at the immutable release tag before moving
-the stable major tags.
+`docs-impact-review-action`, `complexity-review-action`). Bundles are ignored on
+main. CI builds all actions when an action project is affected or the release
+manifest changes, checks for inlined self-run guards, and verifies runtime
+locks.
+
+`publish-actions` checks out each version tag, builds the required bundles,
+checks entry points and runtime locks, and publishes the draft release. It then
+creates a detached release-only commit containing `dist/`. Review action
+releases also include `agent-daemon-action/dist`, which their reusable workflows
+run from the same commit. Only the stable major tag (`v0`,
+`docs-impact-review-action-v0`, or `complexity-review-action-v0`) moves to this
+built commit. No branch is pushed. Release notes record the built SHA for exact
+pins; version tags contain sources and cannot be used to run the actions.
+
+Release-please's version tags must stay on main: its manifest uses their SHAs as
+previous-release boundaries while walking main's history. Moving those tags
+outside main would cause old commits to be released again. Every caller,
+including this repository, uses the released major tags and therefore runs the
+last released action. Source changes take effect after release.
 
 Release PR preparation also advances Gondolin's guest CLI pin to npm's latest
 stable version, after checking that the wrapper and both Linux architecture
 packages expose that exact version. During partial publication it retains the
 current pin. The proposed CLI release itself cannot be pinned before
 publication: it becomes eligible during preparation of a later release PR. This
-preparation updates artifacts for the planned release; it does not add component
-releases.
+preparation updates only the guest CLI pin; it does not build action bundles or
+write runtime locks.
 
 ## Docker Images
 

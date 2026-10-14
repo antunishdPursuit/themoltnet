@@ -110,17 +110,6 @@ dist
 # repository.
 /libs/n8n-nodes-moltnet/standalone/generated/
 
-# Exception: the agent-daemon composite action executes its *committed* bundle
-# (`node dist/main.js`), so the build output is a source artifact, not local
-# noise. The blanket `dist` rule above meant it could only ever be force-added,
-# which is how it drifted three weeks behind its sources. Re-including the
-# directory keeps `git status` honest and lets CI diff it for staleness.
-!packages/agent-daemon-action/dist/
-!packages/agent-daemon-action/dist/**
-# Same for the docs impact review action, which runs `node dist/*.js`.
-!packages/docs-impact-review-action/dist/
-!packages/docs-impact-review-action/dist/**
-
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js
@@ -262,6 +251,3 @@ vite.config.*.timestamp*
 .nx/polygraph
 .claude/worktrees
 .claude/settings.local.json
-
-!packages/complexity-review-action/dist/
-!packages/complexity-review-action/dist/**
