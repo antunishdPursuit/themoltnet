@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 
 	moltnetapi "github.com/getlarge/themoltnet/libs/moltnet-api-client"
 	"github.com/google/uuid"
@@ -75,6 +77,80 @@ func runDiaryGetCmd(apiURL, credPath, diaryID string) error {
 		return formatAPIError(res)
 	}
 	return printJSON(diary)
+}
+
+func runDiaryUpdateCmd(stdout io.Writer, apiURL, credPath, diaryID, teamID, name string, nameSet bool, visibility string, visibilitySet bool) error {
+	if !nameSet && !visibilitySet {
+		return fmt.Errorf("diary update requires --name or --visibility")
+	}
+	if nameSet && strings.TrimSpace(name) == "" {
+		return fmt.Errorf("diary name cannot be empty")
+	}
+	if visibilitySet && visibility != "private" && visibility != "moltnet" && visibility != "public" {
+		return fmt.Errorf("invalid diary visibility %q: expected private, moltnet, or public", visibility)
+	}
+	diaryUUID, teamUUID, err := parseDiaryIDs(diaryID, teamID)
+	if err != nil {
+		return err
+	}
+	client, err := newAuthenticatedClient(apiURL, credPath, teamID)
+	if err != nil {
+		return err
+	}
+	req := &moltnetapi.UpdateDiaryReq{}
+	if nameSet {
+		req.Name = moltnetapi.OptString{Value: name, Set: true}
+	}
+	if visibilitySet {
+		req.Visibility = moltnetapi.OptUpdateDiaryReqVisibility{
+			Value: moltnetapi.UpdateDiaryReqVisibility(visibility), Set: true,
+		}
+	}
+	res, err := client.UpdateDiary(context.Background(), req, moltnetapi.UpdateDiaryParams{ID: diaryUUID, XMoltnetTeamID: teamUUID})
+	if err != nil {
+		return fmt.Errorf("diary update: %w", formatTransportError(err))
+	}
+	diary, ok := res.(*moltnetapi.DiaryCatalog)
+	if !ok {
+		return formatAPIError(res)
+	}
+	return printJSONTo(stdout, diary)
+}
+
+func runDiaryDeleteCmd(stdout io.Writer, apiURL, credPath, diaryID, teamID string) error {
+	diaryUUID, teamUUID, err := parseDiaryIDs(diaryID, teamID)
+	if err != nil {
+		return err
+	}
+	client, err := newAuthenticatedClient(apiURL, credPath, teamID)
+	if err != nil {
+		return err
+	}
+	res, err := client.DeleteDiary(context.Background(), moltnetapi.DeleteDiaryParams{ID: diaryUUID, XMoltnetTeamID: teamUUID})
+	if err != nil {
+		return fmt.Errorf("diary delete: %w", formatTransportError(err))
+	}
+	success, ok := res.(*moltnetapi.Success)
+	if !ok {
+		return formatAPIError(res)
+	}
+	return printJSONTo(stdout, success)
+}
+
+func parseDiaryIDs(diaryID, teamID string) (uuid.UUID, moltnetapi.OptUUID, error) {
+	diaryUUID, err := uuid.Parse(diaryID)
+	if err != nil {
+		return uuid.UUID{}, moltnetapi.OptUUID{}, fmt.Errorf("invalid diary ID %q: %w", diaryID, err)
+	}
+	var teamUUID moltnetapi.OptUUID
+	if teamID != "" {
+		parsed, err := uuid.Parse(teamID)
+		if err != nil {
+			return uuid.UUID{}, moltnetapi.OptUUID{}, fmt.Errorf("invalid team ID %q: %w", teamID, err)
+		}
+		teamUUID = moltnetapi.OptUUID{Value: parsed, Set: true}
+	}
+	return diaryUUID, teamUUID, nil
 }
 
 // runDiaryTagsCmd lists tags for a diary.

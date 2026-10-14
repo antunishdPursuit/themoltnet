@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +26,10 @@ type stubDiaryHandler struct {
 	listSigningRequestsArgs moltnetapi.ListSigningRequestsParams
 	searchDiaryReq          *moltnetapi.SearchDiaryReq
 	searchPublicFeedParams  moltnetapi.SearchPublicFeedParams
+	updateDiaryReq          *moltnetapi.UpdateDiaryReq
+	updateDiaryParams       moltnetapi.UpdateDiaryParams
+	deleteDiaryParams       moltnetapi.DeleteDiaryParams
+	batchDeleteEntriesReq   *moltnetapi.BatchDeleteDiaryEntriesReq
 }
 
 var testDiaryID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
@@ -183,6 +189,114 @@ func (h *stubDiaryHandler) GetDiary(_ context.Context, params moltnetapi.GetDiar
 	d := newTestDiary("fetched diary")
 	d.ID = params.ID
 	return d, nil
+}
+
+func (h *stubDiaryHandler) UpdateDiary(_ context.Context, req *moltnetapi.UpdateDiaryReq, params moltnetapi.UpdateDiaryParams) (moltnetapi.UpdateDiaryRes, error) {
+	h.updateDiaryReq = req
+	h.updateDiaryParams = params
+	d := newTestDiary("updated diary")
+	d.ID = params.ID
+	return d, nil
+}
+
+func (h *stubDiaryHandler) DeleteDiary(_ context.Context, params moltnetapi.DeleteDiaryParams) (moltnetapi.DeleteDiaryRes, error) {
+	h.deleteDiaryParams = params
+	return &moltnetapi.Success{Success: true}, nil
+}
+
+func (h *stubDiaryHandler) BatchDeleteDiaryEntries(_ context.Context, req *moltnetapi.BatchDeleteDiaryEntriesReq) (moltnetapi.BatchDeleteDiaryEntriesRes, error) {
+	h.batchDeleteEntriesReq = req
+	return &moltnetapi.BatchDeleteResponse{Deleted: req.Ids[:1], Skipped: req.Ids[1:]}, nil
+}
+
+func TestDiaryUpdateCommandForwardsSelectedFieldsAndTeam(t *testing.T) {
+	handler := &stubDiaryHandler{}
+	apiSrv, credPath := newCLICommandTestServer(t, handler)
+	teamID := "00000000-0000-0000-0000-000000000088"
+	root := NewRootCmd("test", "")
+	stdout, _, err := executeCommand(root, "diary", "update", testDiaryID.String(),
+		"--name", "Research", "--visibility", "private", "--team-id", teamID,
+		"--api-url", apiSrv.URL, "--credentials", credPath)
+	if err != nil {
+		t.Fatalf("diary update: %v", err)
+	}
+	if handler.updateDiaryReq == nil || !handler.updateDiaryReq.Name.Set || handler.updateDiaryReq.Name.Value != "Research" ||
+		!handler.updateDiaryReq.Visibility.Set || handler.updateDiaryReq.Visibility.Value != moltnetapi.UpdateDiaryReqVisibilityPrivate {
+		t.Fatalf("update request = %+v", handler.updateDiaryReq)
+	}
+	if handler.updateDiaryParams.ID != testDiaryID || !handler.updateDiaryParams.XMoltnetTeamID.Set ||
+		handler.updateDiaryParams.XMoltnetTeamID.Value.String() != teamID {
+		t.Fatalf("update params = %+v", handler.updateDiaryParams)
+	}
+	if !strings.Contains(stdout, `"name": "updated diary"`) {
+		t.Fatalf("output = %s", stdout)
+	}
+}
+
+func TestDiaryUpdateRequiresAField(t *testing.T) {
+	root := NewRootCmd("test", "")
+	_, _, err := executeCommand(root, "diary", "update", testDiaryID.String())
+	if err == nil || !strings.Contains(err.Error(), "--name or --visibility") {
+		t.Fatalf("expected field validation, got %v", err)
+	}
+}
+
+func TestDiaryDeleteRequiresConfirmationAndReturnsSuccess(t *testing.T) {
+	handler := &stubDiaryHandler{}
+	apiSrv, credPath := newCLICommandTestServer(t, handler)
+	root := NewRootCmd("test", "")
+	_, _, err := executeCommand(root, "diary", "delete", testDiaryID.String())
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("expected confirmation error, got %v", err)
+	}
+	if handler.deleteDiaryParams.ID != uuid.Nil {
+		t.Fatal("deletion reached API without confirmation")
+	}
+	root = NewRootCmd("test", "")
+	stdout, _, err := executeCommand(root, "diary", "delete", testDiaryID.String(), "--yes",
+		"--api-url", apiSrv.URL, "--credentials", credPath)
+	if err != nil {
+		t.Fatalf("diary delete: %v", err)
+	}
+	if handler.deleteDiaryParams.ID != testDiaryID || !strings.Contains(stdout, `"success": true`) {
+		t.Fatalf("delete params = %+v, output = %s", handler.deleteDiaryParams, stdout)
+	}
+}
+
+func TestEntryBatchDeleteReturnsDeletedAndSkippedIDs(t *testing.T) {
+	handler := &stubDiaryHandler{}
+	apiSrv, credPath := newCLICommandTestServer(t, handler)
+	secondID := uuid.MustParse("00000000-0000-0000-0000-000000000043")
+	root := NewRootCmd("test", "")
+	_, _, err := executeCommand(root, "entry", "batch-delete", "--ids", testEntryID.String())
+	if err == nil || !strings.Contains(err.Error(), "--yes") || handler.batchDeleteEntriesReq != nil {
+		t.Fatalf("expected confirmation before request, got %v", err)
+	}
+	root = NewRootCmd("test", "")
+	stdout, _, err := executeCommand(root, "entry", "batch-delete", "--ids",
+		testEntryID.String()+","+secondID.String(), "--yes", "--api-url", apiSrv.URL,
+		"--credentials", credPath)
+	if err != nil {
+		t.Fatalf("entry batch-delete: %v", err)
+	}
+	if handler.batchDeleteEntriesReq == nil || !slices.Equal(handler.batchDeleteEntriesReq.Ids, []uuid.UUID{testEntryID, secondID}) {
+		t.Fatalf("batch delete request = %+v", handler.batchDeleteEntriesReq)
+	}
+	var result moltnetapi.BatchDeleteResponse
+	if err := json.NewDecoder(bytes.NewBufferString(stdout)).Decode(&result); err != nil {
+		t.Fatalf("decode output: %v", err)
+	}
+	if !slices.Equal(result.Deleted, []uuid.UUID{testEntryID}) || !slices.Equal(result.Skipped, []uuid.UUID{secondID}) {
+		t.Fatalf("batch delete output = %+v", result)
+	}
+}
+
+func TestEntryBatchDeleteRejectsDuplicatesBeforeRequest(t *testing.T) {
+	var stdout bytes.Buffer
+	err := runEntryBatchDeleteCmd(&stdout, "http://127.0.0.1:1", "", testEntryID.String()+","+testEntryID.String(), "")
+	if err == nil || !strings.Contains(err.Error(), "duplicate entry ID") {
+		t.Fatalf("expected duplicate validation, got %v", err)
+	}
 }
 
 func (h *stubDiaryHandler) ListDiaryTags(_ context.Context, params moltnetapi.ListDiaryTagsParams) (moltnetapi.ListDiaryTagsRes, error) {

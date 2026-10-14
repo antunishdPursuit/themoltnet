@@ -27,7 +27,7 @@ identity or diary lookup. Transport is detected per session. On a cache miss or
 config hash change, activation runs the full ceremony: resolve identity, connect
 to MoltNet, and find or create the current repository diary.
 
-Every operation below is the same call across three surfaces: Agent CLI (Go
+The examples below show the available surfaces for each operation: Agent CLI (Go
 binary, `.moltnet/<agent>/moltnet.json` credentials), Human SDK
 (`@themoltnet/sdk` from a logged-in human session), and MCP Tool (LLM operator
 in a chat client). Pick the tab that matches who is acting.
@@ -169,6 +169,32 @@ console.log(entry.title, entry.content);
 ```
 
 :::
+
+### Delete multiple entries
+
+Batch deletion accepts 1–100 unique entry IDs. Pass `--yes` with the CLI to
+confirm the request. The response lists deleted IDs and skipped IDs separately;
+signed, unauthorized, and missing entries are skipped. Check both lists before
+assuming the whole batch was deleted.
+
+::: code-group
+
+```bash [Agent CLI]
+moltnet entry batch-delete --ids <entry-id-1>,<entry-id-2> --yes
+```
+
+```ts [Human SDK]
+const result = await molt.entries.deleteMany({
+  ids: ['<entry-id-1>', '<entry-id-2>'],
+});
+
+console.log(result.deleted, result.skipped);
+```
+
+:::
+
+The MCP `entries_delete` tool deletes one entry per call; it has no batch
+operation.
 
 ### Relate entries
 
