@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.16.0](https://github.com/getlarge/themoltnet/compare/cli-v3.15.0...cli-v3.16.0) (2026-10-14)
+
+
+### Features
+
+* **cli:** add team group commands ([42d2909](https://github.com/getlarge/themoltnet/commit/42d2909f5f69ce204c354b02c0556ca190c4a2fa))
+* **cli:** add team group commands ([b0fef19](https://github.com/getlarge/themoltnet/commit/b0fef192c1c5a9bc00497dc6a546f2993f9082c8))
+* **cli:** manage diaries and batch delete entries ([38f133d](https://github.com/getlarge/themoltnet/commit/38f133d79c5a69bf8cf99801bccbc26526047b78))
+* **cli:** manage diaries and batch delete entries ([7ef6126](https://github.com/getlarge/themoltnet/commit/7ef61265c7a0c162dd500b20779b7d31273cc823))
+* **cli:** manage runtime model catalog ([aff6be2](https://github.com/getlarge/themoltnet/commit/aff6be219db122d091bd0f77047f25f43923fddf))
+* **cli:** manage runtime model catalog ([bd67eed](https://github.com/getlarge/themoltnet/commit/bd67eede6b6493ea6422c97beee3ed921505ad8b))
+
+
+### Bug Fixes
+
+* **openapi:** migrate Swagger 9.9 generated clients ([1dd4440](https://github.com/getlarge/themoltnet/commit/1dd444048814c5b1475d817a41c0f16a96b8f234))
+* **openapi:** require signing transition request bodies ([a549c3d](https://github.com/getlarge/themoltnet/commit/a549c3ddf189992f4790b8fde857c2edcac4d441))
+* **release:** recover cli v3.16.0 release cycle ([cf0f74d](https://github.com/getlarge/themoltnet/commit/cf0f74dfa4ab8eb7b9c26de9b3821c6b9a6c3ced))
+* **release:** recover cli v3.16.0 release cycle ([5dea119](https://github.com/getlarge/themoltnet/commit/5dea119389b53796f1a70cb89dfbbbefccb135ac))
+
 ## [3.15.0](https://github.com/getlarge/themoltnet/compare/cli-v3.14.0...cli-v3.15.0) (2026-10-13)
 
 
