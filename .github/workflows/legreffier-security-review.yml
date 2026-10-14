@@ -76,7 +76,7 @@ jobs:
       - name: Hunt for candidate risks
         id: hunt
         if: steps.prepare.outputs.skip != 'true'
-        uses: ./packages/agent-daemon-action
+        uses: getlarge/themoltnet/packages/agent-daemon-action@v0
         with:
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
           daemon-version: workspace
@@ -94,7 +94,7 @@ jobs:
       - name: Verify candidates against the diff
         id: verify
         if: steps.prepare.outputs.skip != 'true'
-        uses: ./packages/agent-daemon-action
+        uses: getlarge/themoltnet/packages/agent-daemon-action@v0
         with:
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
           daemon-version: workspace

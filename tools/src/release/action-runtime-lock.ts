@@ -6,7 +6,8 @@
  * reusable workflow and the agent-daemon action at that tag's commit. The
  * lock file inside the package records a hash of each of those files, so a
  * change to one must update the lock, which touches the package and cuts a
- * release.
+ * release. Bundles are not committed, so they are not locked: the release
+ * job builds them into the commit the stable major tag points at.
  *
  * Plain Node (erasable TypeScript, built-ins only), so CI runs it without an
  * install: `node tools/src/release/action-runtime-lock.ts --check|--write`.
@@ -30,7 +31,6 @@ export const RUNTIME_LOCKS: RuntimeLock[] = [
     pathspecs: [
       '.github/workflows/complexity-review-reusable.yml',
       'packages/agent-daemon-action/action.yml',
-      'packages/agent-daemon-action/dist',
     ],
   },
   {
@@ -38,9 +38,6 @@ export const RUNTIME_LOCKS: RuntimeLock[] = [
     pathspecs: [
       '.github/workflows/docs-impact-review-reusable.yml',
       'packages/agent-daemon-action/action.yml',
-      // The bundle the workers run, not its sources: the bundle-sync PR
-      // refreshes this lock together with the bundle.
-      'packages/agent-daemon-action/dist',
     ],
   },
 ];

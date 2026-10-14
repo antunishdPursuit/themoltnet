@@ -1,5 +1,5 @@
 /**
- * Runs the shell blocks of action.yml, and the committed bundle, the way the
+ * Runs the shell blocks of action.yml, and the built bundle, the way the
  * runner does: with plain `bash` and plain `node`, against fake review and
  * comment commands.
  */
@@ -131,7 +131,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('prepare: committed bundle', () => {
+describe('prepare: built bundle', () => {
   let server: Server;
   let apiUrl: string;
 
@@ -206,7 +206,7 @@ describe('prepare: committed bundle', () => {
 });
 
 // The checks themselves are tested in the library (prepared.test.ts); these
-// run the committed bundle the way the step does.
+// run the built bundle the way the step does.
 describe('review: prepared input', () => {
   const dist = resolve(packageRoot, 'dist');
 

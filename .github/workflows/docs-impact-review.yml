@@ -50,7 +50,7 @@ jobs:
     # secrets. Its jobs run in the legreffier environment; GitHub gives a
     # called workflow's jobs that environment's secrets only when the caller
     # passes `secrets: inherit`.
-    uses: getlarge/themoltnet/.github/workflows/docs-impact-review-reusable.yml@main
+    uses: getlarge/themoltnet/.github/workflows/docs-impact-review-reusable.yml@docs-impact-review-action-v0
     permissions:
       contents: read
       pull-requests: write

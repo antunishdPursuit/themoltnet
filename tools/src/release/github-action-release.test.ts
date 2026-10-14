@@ -9,6 +9,7 @@ import { computeLock } from './action-runtime-lock.js';
 import { parsePublisherArgs } from './github-action-publisher.js';
 import {
   authHeaderValue,
+  createReleaseCommit,
   missingBundleEntries,
   releaseProblems,
   stableMajorTagFor,
@@ -100,11 +101,13 @@ describe('releaseProblems', () => {
     git('config', 'user.email', 'test@example.com');
     git('config', 'user.name', 'test');
     git('config', 'commit.gpgsign', 'false');
+    git('config', 'tag.gpgsign', 'false');
     for (const dir of ['a/dist', 'b/dist']) {
       mkdirSync(join(root, dir), { recursive: true });
       writeFileSync(join(root, dir, 'main.js'), 'export {};\n');
     }
     writeFileSync(join(root, 'workflow.yml'), 'on: push\n');
+    writeFileSync(join(root, '.gitignore'), '**/dist/\n');
     git('add', '-A');
     writeFileSync(join(root, 'a/runtime.lock'), computeLock(root, lock));
     git('add', '-A');
@@ -117,7 +120,7 @@ describe('releaseProblems', () => {
 
   const lock = {
     lock: 'a/runtime.lock',
-    pathspecs: ['workflow.yml', 'b/dist'],
+    pathspecs: ['workflow.yml'],
   };
   const check = () =>
     releaseProblems({
@@ -128,7 +131,7 @@ describe('releaseProblems', () => {
       locks: [lock],
     });
 
-  it('is ready when bundles are committed and locks current', () => {
+  it('is ready when bundles are ignored and locks current', () => {
     // Act / Assert
     expect(check()).toEqual([]);
   });
@@ -146,19 +149,55 @@ describe('releaseProblems', () => {
     expect(problems).toEqual(['a/dist lacks: check.js']);
   });
 
-  it('refuses a bundle, this one or another it runs, that differs from its commit', () => {
-    // Arrange
+  it('accepts newly built chunks without requiring tracked dist files', () => {
     writeFileSync(join(root, 'a/dist/chunk-new.js'), 'export {};\n');
     writeFileSync(join(root, 'b/dist/main.js'), 'export const x = 1;\n');
+    expect(check()).toEqual([]);
+  });
 
-    // Act
-    const problems = check();
+  it('refuses an absent included bundle', () => {
+    rmSync(join(root, 'b/dist'), { recursive: true });
+    expect(check()).toEqual(['b/dist is missing']);
+  });
 
-    // Assert
-    expect(problems[0]).toMatch(
-      /^a\/dist does not match its sources:\n\?\? a\/dist\/chunk-new\.js/,
+  it('adds both bundles only to a detached commit and moves only the major tag', () => {
+    const source = git('rev-parse', 'HEAD').trim();
+    const branch = git('branch', '--show-current').trim();
+    git('tag', 'action-v0.1.0');
+    git('checkout', '--detach', 'action-v0.1.0');
+
+    const target = createReleaseCommit(
+      root,
+      ['a/dist', 'b/dist'],
+      'chore(actions): bundle',
     );
-    expect(problems[1]).toMatch(/^b\/dist does not match its sources:/);
+    git('tag', '-f', 'action-v0', target);
+
+    expect(target).not.toBe(source);
+    expect(git('rev-parse', `${target}^`).trim()).toBe(source);
+    expect(git('rev-parse', 'action-v0.1.0').trim()).toBe(source);
+    expect(git('rev-parse', branch).trim()).toBe(source);
+    expect(git('rev-parse', 'action-v0').trim()).toBe(target);
+    expect(
+      git('diff-tree', '--no-commit-id', '--name-only', '-r', target)
+        .trim()
+        .split('\n'),
+    ).toEqual(['a/dist/main.js', 'b/dist/main.js']);
+  });
+
+  it('refuses to create a release commit on a branch', () => {
+    expect(() => createReleaseCommit(root, ['a/dist'], 'bundle')).toThrow(
+      'detached HEAD',
+    );
+  });
+
+  it('refuses to include unrelated staged changes', () => {
+    git('checkout', '--detach');
+    writeFileSync(join(root, 'unrelated.txt'), 'unrelated');
+    git('add', 'unrelated.txt');
+    expect(() => createReleaseCommit(root, ['a/dist'], 'bundle')).toThrow(
+      'clean tracked checkout',
+    );
   });
 
   it('refuses a stale runtime lock', () => {
@@ -179,7 +218,7 @@ describe('parsePublisherArgs', () => {
       '@themoltnet/docs-impact-review-action',
       '--entries',
       'prepare.js, review.js',
-      '--also-verify',
+      '--also-include',
       '@themoltnet/agent-daemon-action',
       '--stable-major-tag-prefix',
       'docs-impact-review-action-v',
@@ -188,7 +227,7 @@ describe('parsePublisherArgs', () => {
     // Assert
     expect(options).toMatchObject({
       entries: ['prepare.js', 'review.js'],
-      alsoVerify: ['@themoltnet/agent-daemon-action'],
+      alsoInclude: ['@themoltnet/agent-daemon-action'],
       stableMajorTagPrefix: 'docs-impact-review-action-v',
       dryRun: false,
     });

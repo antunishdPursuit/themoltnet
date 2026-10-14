@@ -62,9 +62,8 @@ export function authHeaderValue(token: string): string {
 
 /**
  * Everything that must hold before an action release moves its tag: every
- * entry point is bundled, each bundle (this action's and those it runs from
- * the same commit) matches its committed files, and the runtime locks are
- * current. Returns the problems; empty means ready.
+ * entry point is bundled and runtime locks are current. Bundles are built
+ * at the version tag and included only in the stable major tag's commit.
  */
 export function releaseProblems(options: {
   root: string;
@@ -82,20 +81,36 @@ export function releaseProblems(options: {
   if (missing.length > 0) {
     problems.push(`${options.bundleDir} lacks: ${missing.join(', ')}`);
   }
-  // `git status --porcelain`, not `git diff`: the bundle code-splits into
-  // content-hashed chunks, and a renamed chunk is untracked, which `git diff`
-  // does not report.
-  for (const dir of [options.bundleDir, ...(options.otherBundleDirs ?? [])]) {
-    const changes = execFileSync('git', ['status', '--porcelain', '--', dir], {
-      cwd: options.root,
-      encoding: 'utf8',
-    }).trim();
-    if (changes) {
-      problems.push(`${dir} does not match its sources:\n${changes}`);
+  for (const dir of options.otherBundleDirs ?? []) {
+    if (!existsSync(join(options.root, dir))) {
+      problems.push(`${dir} is missing`);
     }
   }
   for (const lock of staleLocks(options.root, options.locks)) {
     problems.push(`${lock} is out of date`);
   }
   return problems;
+}
+
+/** Add only the built bundles on a detached release checkout; never move a branch. */
+export function createReleaseCommit(
+  root: string,
+  bundleDirs: readonly string[],
+  message: string,
+): string {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'HEAD') {
+    throw new Error(
+      'Action publishing requires a detached HEAD at the version tag',
+    );
+  }
+  if (git('status', '--porcelain', '--untracked-files=no')) {
+    throw new Error(
+      'Action publishing requires a clean tracked checkout and index',
+    );
+  }
+  git('add', '-f', '--', ...bundleDirs);
+  git('commit', '-m', message);
+  return git('rev-parse', 'HEAD');
 }

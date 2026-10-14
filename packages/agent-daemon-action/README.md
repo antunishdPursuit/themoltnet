@@ -511,44 +511,29 @@ PR explaining there's nothing machine-verifiable to judge.
 
 ## Releasing this action
 
-`packages/agent-daemon-action/dist/main.js` is the bundled entrypoint
-that `action.yml` executes. It is **committed to git** (the standard
-pattern used by `actions/checkout`, `actions/setup-node`, and the
-`actions/javascript-action` template) because composite actions are
-resolved by checking out the repo at the requested `ref` — there is no
-build step on the consumer's runner.
+`packages/agent-daemon-action/dist/main.js` is the bundled entrypoint that
+`action.yml` executes. `dist/` is ignored on main. The release workflow checks
+out the release-please version tag, builds the bundle, checks its entrypoint,
+and publishes the release. It then adds `dist/` in a detached release-only
+commit and moves the stable major tag (`v0`, later `v1`) to that commit.
 
-The bundle inlines `@themoltnet/sdk`, so SDK changes make it stale too.
-Source PRs can defer rebuilding it: `.github/workflows/release.yml` rebuilds
-all action bundles and runtime locks on the Release Please PR, after version
-updates and before merge. In-repo workflows run the committed bundle, so a
-source PR may still commit `dist/` to exercise its changes before release.
+Use `getlarge/themoltnet/packages/agent-daemon-action@v0`, or pin the built
+commit SHA recorded in release notes. The version tag
+`agent-daemon-action-vX.Y.Z` remains on main for release-please's history
+traversal and contains sources without the bundle; it is not an action pin.
+In-repo workflows also use `@v0`, so they run the last released action.
 
-The CI job `check-dist-actions` runs for every release PR and any PR that changes
-bundles or runtime locks. It rebuilds from source and fails if the whole `dist/`
-directory differs from what is committed, including content-hashed `assets/`
-chunks, or if a runtime lock is stale. To commit a bundle:
+To build locally for development:
 
 ```bash
 pnpm exec nx run @themoltnet/agent-daemon-action:build
-git add -A packages/agent-daemon-action/dist/
-git commit -m "..."
 ```
 
-The bundle is reproducible — `vite build` of the same sources produces
-byte-identical output, which is what lets CI diff it.
-
-`dist/` is deliberately exempted from the repo-wide `dist` rule in
-`.gitignore` (and from Prettier): it is a committed build artifact, not
-local scratch, and hiding it from `git status` is what let it drift
-behind its sources unnoticed.
-
-The action is released by release-please as the `agent-daemon-action`
-component. Consumers can pin the immutable `agent-daemon-action-vX.Y.Z` tag or
-the moving major tag (`v0`, later `v1`) that the release workflow moves to the
-release commit. That job rebuilds the bundle and refuses to release while
-`dist/` differs from its sources, so merge any open bundle sync PR before
-merging a release PR that includes the action.
+CI builds all actions when any action project is affected or the release
+manifest changes. It checks for inlined self-run guards and stale runtime locks,
+without comparing generated bundles to committed files. See
+[GitHub Actions releases](../../docs/contribute/nx-release-workflow.md#github-actions)
+for the shared release process.
 
 ## License
 

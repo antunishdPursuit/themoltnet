@@ -1,5 +1,5 @@
 /**
- * Runs the committed bundles the way action.yml does, with plain `node`.
+ * Runs the built bundles the way action.yml does, with plain `node`.
  * Each entry point must run its command exactly once: a second, concurrent
  * run creates duplicate review tasks and writes a second JSON report.
  */
@@ -21,6 +21,7 @@ describe.each(['review', 'comment'])('dist/%s.js', (entry) => {
     );
 
     expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Usage:');
     expect(result.stderr.match(/Usage:/g)).toHaveLength(1);
   });
 });

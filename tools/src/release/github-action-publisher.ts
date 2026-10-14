@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -11,6 +11,7 @@ import {
 
 import {
   authHeaderValue,
+  createReleaseCommit,
   releaseProblems,
   stableMajorTagFor,
   tagPushCommand,
@@ -23,8 +24,8 @@ type PackageJson = {
 type Options = {
   project: string;
   entries: string[];
-  /** Other action projects whose committed bundles this action runs. */
-  alsoVerify: string[];
+  /** Other action projects whose bundles must be included in the release commit. */
+  alsoInclude: string[];
   stableMajorTagPrefix: string;
   dryRun: boolean;
 };
@@ -82,7 +83,7 @@ export function parsePublisherArgs(argv = process.argv.slice(2)): Options {
       'stable-major-tag-prefix': {
         type: 'string',
       },
-      'also-verify': {
+      'also-include': {
         type: 'string',
       },
       tag: {
@@ -113,7 +114,7 @@ export function parsePublisherArgs(argv = process.argv.slice(2)): Options {
       .split(',')
       .map((entry) => entry.trim())
       .filter(Boolean),
-    alsoVerify: (values['also-verify'] ?? '')
+    alsoInclude: (values['also-include'] ?? '')
       .split(',')
       .map((project) => project.trim())
       .filter(Boolean),
@@ -165,11 +166,9 @@ async function main() {
       throw new Error(`GitHub Action release artifact is missing: ${path}`);
     }
   }
-  // Each action runs its own entry points (`node dist/<entry>`); a
-  // workflow at this tag may also run another action's bundle from the same
-  // commit, so a stale one must not ship under this release either.
+  // Reusable workflows run the worker action from the same built commit.
   const otherBundleDirs = await Promise.all(
-    options.alsoVerify.map(async (other) =>
+    options.alsoInclude.map(async (other) =>
       join(await resolveProjectRoot(other), 'dist'),
     ),
   );
@@ -182,7 +181,7 @@ async function main() {
   if (problems.length > 0) {
     throw new Error(
       `${options.project} is not ready to release:\n- ${problems.join('\n- ')}\n` +
-        'Rebuild and commit action bundles and runtime locks on the Release Please PR before merging it.',
+        'Build the required action bundles and refresh stale runtime locks before releasing.',
     );
   }
 
@@ -196,16 +195,20 @@ async function main() {
     packageJson.version,
     options.stableMajorTagPrefix,
   );
-  const target = git(['rev-parse', 'HEAD']);
+  const source = git(['rev-parse', 'HEAD']);
+  const bundleDirs = [bundleDir, ...otherBundleDirs];
+  const message = `chore(actions): bundle ${options.project} ${packageJson.version}`;
 
   process.stdout.write(
     `Publishing GitHub Action ${options.project} ${packageJson.version}\n` +
-      `stable major tag: ${stableMajorTag} -> ${target}\n`,
+      `source commit: ${source}\n`,
   );
 
   if (options.dryRun) {
     process.stdout.write(
-      `(dry-run) git tag -f ${stableMajorTag} ${target}\n` +
+      `(dry-run) git add -f -- ${bundleDirs.join(' ')}\n` +
+        `(dry-run) git commit -m "${message}" (detached HEAD)\n` +
+        `(dry-run) git tag -f ${stableMajorTag} <built-commit>\n` +
         `(dry-run) git push origin refs/tags/${stableMajorTag}:refs/tags/${stableMajorTag} --force\n`,
     );
     return;
@@ -216,6 +219,18 @@ async function main() {
       `Skipped moving ${stableMajorTag}; GITHUB_ACTION_RELEASE_SKIP_PUSH=true\n`,
     );
     return;
+  }
+
+  const target = createReleaseCommit(
+    git(['rev-parse', '--show-toplevel']),
+    bundleDirs,
+    message,
+  );
+  process.stdout.write(
+    `built commit: ${target}\nstable major tag: ${stableMajorTag} -> ${target}\n`,
+  );
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `built-commit=${target}\n`);
   }
 
   git(['tag', '-f', stableMajorTag, target], { stdio: 'inherit' });
