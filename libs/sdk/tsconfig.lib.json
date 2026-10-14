@@ -23,25 +23,28 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../runtime-profiles/tsconfig.lib.json"
+      "path": "../task-schemas/tsconfig.lib.json"
     },
     {
       "path": "../dts-entry-shims/tsconfig.lib.json"
     },
     {
-      "path": "../agent-config/tsconfig.lib.json"
-    },
-    {
-      "path": "../os-keyring/tsconfig.lib.json"
+      "path": "../runtime-profiles/tsconfig.lib.json"
     },
     {
       "path": "../tasks/tsconfig.lib.json"
     },
     {
-      "path": "../crypto-service/tsconfig.lib.json"
+      "path": "../os-keyring/tsconfig.lib.json"
+    },
+    {
+      "path": "../agent-config/tsconfig.lib.json"
     },
     {
       "path": "../models/tsconfig.lib.json"
+    },
+    {
+      "path": "../crypto-service/tsconfig.lib.json"
     },
     {
       "path": "../api-client/tsconfig.lib.json"

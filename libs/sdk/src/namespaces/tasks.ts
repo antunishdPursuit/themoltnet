@@ -43,6 +43,7 @@ import { MoltNetError } from '../errors.js';
 import type { BuiltTask } from '../tasks/index.js';
 import {
   buildAssessBrief,
+  buildClassify,
   buildCuratePack,
   buildFreeform,
   buildFulfillBrief,
@@ -297,6 +298,7 @@ export function createTasksNamespace(context: AgentContext): TasksNamespace {
 
     buildTask,
     buildFreeform,
+    buildClassify,
     buildFulfillBrief,
     buildCuratePack,
     buildRenderPack,

@@ -30,8 +30,6 @@ const input: ClassifyInput = {
 };
 const output: ClassifyOutput = {
   version: 1,
-  provider: 'typesafe',
-  model: 'jev-latest',
   answers: {
     kind: {
       type: 'choice',
@@ -45,11 +43,19 @@ const output: ClassifyOutput = {
 };
 
 describe('classification contract', () => {
-  it('preserves distributions, fractional expected levels and missing usage', () => {
+  it('preserves distributions and fractional expected levels', () => {
     expect(Value.Check(ClassifyInput, input)).toBe(true);
     expect(Value.Check(ClassifyOutput, output)).toBe(true);
     expect(validateClassifyOutput(output, input)).toBeNull();
-    expect(output).not.toHaveProperty('usage');
+  });
+  it('rejects provider, model and usage, which belong to the attempt', () => {
+    expect(
+      Value.Check(ClassifyOutput, {
+        ...output,
+        provider: 'typesafe',
+        model: 'jev-latest',
+      }),
+    ).toBe(false);
   });
   it('rejects unknown answers and incomplete distributions', () => {
     expect(

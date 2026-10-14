@@ -41,9 +41,10 @@ input/output schemas; no server change needed.
 - `bool`: `criteria` contains `true` and `false` descriptions. Output is a
   probability, so the consumer chooses its decision threshold.
 
-The versioned output includes provider/model identity and the answers. Usage is
-omitted when the provider does not report it. Extra answers, invalid probability
-mass, unknown labels, and out-of-range scores fail validation. See
+The versioned output contains only the answers. As for every task type, the
+attempt's `usage` records the provider, model, and token counts. Extra answers,
+invalid probability mass, unknown labels, and out-of-range scores fail
+validation. See
 [Runtime profile model capabilities](../operate/runtime-profiles.md#model-capabilities)
 for runtime configuration and
 [Pi classification adapters](../contribute/custom-pi-runtimes.md#pi-10-classification)

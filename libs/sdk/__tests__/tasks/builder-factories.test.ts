@@ -1,8 +1,10 @@
 import { validateTaskCreateRequest } from '@moltnet/tasks';
+import { Type } from 'typebox';
 import { describe, expect, it } from 'vitest';
 
 import {
   buildAssessBrief,
+  buildClassify,
   buildCuratePack,
   buildFreeform,
   buildFulfillBrief,
@@ -14,6 +16,7 @@ import {
   buildRunEval,
   normalizeRubricCriteria,
 } from '../../src/tasks/builder.js';
+import { TaskBuildError } from '../../src/tasks/errors.js';
 
 const TEAM = '6743b4b1-6b93-46e2-a048-19490f04f91a';
 const DIARY = '6e4d9948-8ec5-4f59-b82a-3acbc4bbc396';
@@ -68,6 +71,91 @@ describe('typed per-type factories produce validator-passing bodies', () => {
     expect(built.body.input).toMatchObject({
       outputContract: { version: 1, schema },
     });
+  });
+
+  it('buildFreeform projects a TypeBox result schema onto the contract', () => {
+    // Arrange
+    const Result = Type.Object({
+      id: Type.String({ pattern: '^[a-z]+$', description: 'Lowercase id' }),
+      verdict: Type.Union([Type.Literal('keep'), Type.Literal('drop')]),
+    });
+
+    // Act
+    const built = buildFreeform({ brief: 'Review a finding.' })
+      .outputSchema(Result)
+      .team(TEAM)
+      .diary(DIARY)
+      .build();
+
+    // Assert
+    expect(ok(built)).toEqual([]);
+    expect(built.body.input).toMatchObject({
+      outputContract: {
+        version: 1,
+        schema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Lowercase id' },
+            verdict: { type: 'string', enum: ['keep', 'drop'] },
+          },
+          required: ['id', 'verdict'],
+          additionalProperties: false,
+        },
+      },
+    });
+  });
+
+  it('buildFreeform rejects a result schema with no contract projection', () => {
+    // Arrange
+    const Result = Type.Union([
+      Type.Object({ a: Type.String() }),
+      Type.Object({ b: Type.String() }),
+    ]);
+
+    // Act
+    const setting = () => buildFreeform({ brief: 'b' }).outputSchema(Result);
+
+    // Assert
+    expect(setting).toThrow(TaskBuildError);
+  });
+
+  it('buildClassify', () => {
+    // Arrange
+    const input = {
+      version: 1 as const,
+      state: { finding: 'Night consumption doubled in week 12.' },
+      questions: {
+        planned: {
+          type: 'bool' as const,
+          instructions: 'Is the change attributed to a planned event?',
+          criteria: { true: 'planned', false: 'not attributed' },
+        },
+      },
+    };
+
+    // Act
+    const built = buildClassify(input)
+      .allowProfiles({ profileId: UUID_A })
+      .team(TEAM)
+      .diary(DIARY)
+      .build();
+
+    // Assert
+    expect(ok(built)).toEqual([]);
+    expect(built.body.taskType).toBe('classify');
+    expect(built.body.input).toEqual(input);
+  });
+
+  it('buildClassify rejects input without questions', () => {
+    // Act
+    const building = () =>
+      buildClassify({ version: 1, state: {}, questions: {} })
+        .team(TEAM)
+        .diary(DIARY)
+        .build();
+
+    // Assert
+    expect(building).toThrow(TaskBuildError);
   });
 
   it('buildFulfillBrief', () => {

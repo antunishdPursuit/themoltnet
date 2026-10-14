@@ -216,14 +216,13 @@ describe('Daemon classification through native Pi HTTP transport', () => {
           expect(result.exitCode).toBe(0);
           expect(result.final.status).toBe('completed');
           expect(result.final.acceptedAttemptN).toBe(result.attempt.attemptN);
-          const output = {
-            version: 1,
+          expect(result.attempt.output).toEqual({ version: 1, answers });
+          expect(result.attempt.usage).toMatchObject({
             provider: 'classifier-fixture',
             model: 'fixture-jev',
-            answers,
-            usage: { inputTokens: 42, outputTokens: 0 },
-          };
-          expect(result.attempt.output).toEqual(output);
+            inputTokens: 42,
+            outputTokens: 0,
+          });
           // The completion API verifies the submitted CID before storing the JSONB output.
           expect(result.attempt.outputCid).toMatch(/^b[a-z2-7]+$/);
           expect(result.attempt.status).toBe('completed');
@@ -267,11 +266,9 @@ describe('Daemon classification through native Pi HTTP transport', () => {
       expect(final.status).toBe('completed');
       expect(final.acceptedAttemptN).toBe(attempt.attemptN);
       expect(attempt.status).toBe('completed');
-      expect(attempt.output).toMatchObject({
-        version: 1,
-        provider: 'typesafe',
-        model,
-      });
+      expect(attempt.output).toMatchObject({ version: 1 });
+      expect(attempt.output).not.toHaveProperty('provider');
+      expect(attempt.usage).toMatchObject({ provider: 'typesafe', model });
       expect(validateClassifyOutput(attempt.output, input)).toBeNull();
       expect(attempt.outputCid).toMatch(/^b[a-z2-7]+$/);
     },

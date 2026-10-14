@@ -63,21 +63,14 @@ export const ClassificationAnswer = Type.Union([
   Type.Object({ type: Type.Literal('bool'), probability }, strict),
 ]);
 
+/**
+ * The answers only. Like every task type, the attempt's `usage` records the
+ * provider, model, and token counts that produced them.
+ */
 export const ClassifyOutput = Type.Object(
   {
     version: Type.Literal(1),
-    provider: text,
-    model: text,
     answers: Type.Record(text, ClassificationAnswer),
-    usage: Type.Optional(
-      Type.Object(
-        {
-          inputTokens: Type.Integer({ minimum: 0 }),
-          outputTokens: Type.Integer({ minimum: 0 }),
-        },
-        strict,
-      ),
-    ),
   },
   { $id: 'ClassifyOutput', ...strict },
 );

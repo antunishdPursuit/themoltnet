@@ -188,20 +188,7 @@ function classificationOutput(
   result: ClassifierResult,
   input: ClassifyInput,
 ): ClassifyOutput {
-  const output: ClassifyOutput = {
-    version: 1,
-    provider: result.provider,
-    model: result.model,
-    answers: result.answers,
-    ...(result.usage
-      ? {
-          usage: {
-            inputTokens: result.usage.input,
-            outputTokens: result.usage.output,
-          },
-        }
-      : {}),
-  };
+  const output: ClassifyOutput = { version: 1, answers: result.answers };
   if (!Value.Check(ClassifyOutput, output))
     throw new Error('Invalid classifier response');
   const error = validateClassifyOutput(output, input);

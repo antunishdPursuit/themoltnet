@@ -2,6 +2,7 @@ import type { Task, TaskAttempt } from '@moltnet/api-client';
 import { Type } from 'typebox';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { ClassifyOutput } from '../../src/index.js';
 import { TaskResultError } from '../../src/tasks/errors.js';
 import { createResultReader } from '../../src/tasks/reader.js';
 
@@ -15,7 +16,12 @@ function freeformTask(overrides: Partial<Task> = {}): Task {
   } as Task;
 }
 
-function freeformAttempt(
+function classifyTask(input: Task['input']): Task {
+  return freeformTask({ taskType: 'classify', input });
+}
+
+/** An accepted attempt carrying `output`, for any task type. */
+function acceptedAttempt(
   output: unknown,
   overrides: Partial<TaskAttempt> = {},
 ): TaskAttempt {
@@ -48,7 +54,7 @@ describe('createResultReader (freeform)', () => {
   };
 
   it('exposes typed output + summary + accepted meta', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(r.summary).toBe('Did the thing');
     expect(r.output).toEqual(output);
     expect(r.accepted.attemptN).toBe(1);
@@ -57,26 +63,26 @@ describe('createResultReader (freeform)', () => {
   });
 
   it('artifact()/artifacts() filter by kind', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(r.artifacts('patch')).toHaveLength(1);
     expect(r.artifact('patch')?.title).toBe('fix');
     expect(r.artifacts()).toHaveLength(2);
   });
 
   it('artifactBody<T>() parses JSON body', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(r.artifactBody<{ changed: number }>('patch')).toEqual({
       changed: 3,
     });
   });
 
   it('artifactBody throws TaskResultError on invalid JSON', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(() => r.artifactBody('note')).toThrow(TaskResultError);
   });
 
   it('outputRef(role) carries the real outputCid', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(r.outputRef('context')).toEqual({
       taskId: 'task-1',
       outputCid: 'bafyOUT',
@@ -85,7 +91,7 @@ describe('createResultReader (freeform)', () => {
   });
 
   it('judgeEvalTarget() carries the accepted attempt tuple', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(r.judgeEvalTarget()).toEqual({
       targetTaskId: 'task-1',
       targetAttemptN: 1,
@@ -93,7 +99,7 @@ describe('createResultReader (freeform)', () => {
   });
 
   it('artifactRef(role) carries outputCid and artifact CID metadata', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(r.artifactRef('patch', 'context')).toEqual({
       taskId: 'task-1',
       outputCid: 'bafyOUT',
@@ -109,19 +115,19 @@ describe('createResultReader (freeform)', () => {
   });
 
   it('artifactRef throws when the matching artifact has no CID', () => {
-    const r = createResultReader(freeformTask(), freeformAttempt(output));
+    const r = createResultReader(freeformTask(), acceptedAttempt(output));
     expect(() => r.artifactRef('note', 'context')).toThrow(TaskResultError);
   });
 
   it('throws when output is null', () => {
     expect(() =>
-      createResultReader(freeformTask(), freeformAttempt(null)),
+      createResultReader(freeformTask(), acceptedAttempt(null)),
     ).toThrow(TaskResultError);
   });
 
   it('throws when output fails its schema (missing summary)', () => {
     expect(() =>
-      createResultReader(freeformTask(), freeformAttempt({ artifacts: [] })),
+      createResultReader(freeformTask(), acceptedAttempt({ artifacts: [] })),
     ).toThrow(TaskResultError);
   });
 
@@ -129,7 +135,7 @@ describe('createResultReader (freeform)', () => {
     expect(() =>
       createResultReader(
         freeformTask({ acceptedAttemptN: null }),
-        freeformAttempt(output),
+        acceptedAttempt(output),
       ),
     ).toThrow(TaskResultError);
   });
@@ -223,7 +229,7 @@ describe('createResultReader (freeform output contract)', () => {
 
     const r = createResultReader(
       contractedTask,
-      freeformAttempt({ summary: 'Classified.', result }),
+      acceptedAttempt({ summary: 'Classified.', result }),
     );
 
     expect(r.result<{ category: string; confidence: number }>()).toEqual(
@@ -235,7 +241,7 @@ describe('createResultReader (freeform output contract)', () => {
     const act = () =>
       createResultReader(
         contractedTask,
-        freeformAttempt({
+        acceptedAttempt({
           summary: 'Classified.',
           result: { category: 'medical', confidence: 2 },
         }),
@@ -250,7 +256,7 @@ describe('createResultReader (freeform output contract)', () => {
     const act = () =>
       createResultReader(
         contractedTask,
-        freeformAttempt({ summary: 'Classified.' }),
+        acceptedAttempt({ summary: 'Classified.' }),
       );
 
     expect(act).toThrow(/output\/result: is required/);
@@ -260,7 +266,7 @@ describe('createResultReader (freeform output contract)', () => {
     const act = () =>
       createResultReader(
         freeformTask({ input: { brief: 'Classify.' } }),
-        freeformAttempt({ summary: 'Classified.', result: { any: 1 } }),
+        acceptedAttempt({ summary: 'Classified.', result: { any: 1 } }),
       );
 
     expect(act).toThrow(/requires input.outputContract/);
@@ -269,7 +275,7 @@ describe('createResultReader (freeform output contract)', () => {
   it('result() throws when the task has no output contract', () => {
     const r = createResultReader(
       freeformTask({ input: { brief: 'Classify.' } }),
-      freeformAttempt({ summary: 'Classified.' }),
+      acceptedAttempt({ summary: 'Classified.' }),
     );
 
     expect(() => r.result()).toThrow(TaskResultError);
@@ -294,7 +300,7 @@ describe('TaskResultReader.result type inference', () => {
           },
         },
       }),
-      freeformAttempt({ summary: 'Counted.', result: { n: 3 } }),
+      acceptedAttempt({ summary: 'Counted.', result: { n: 3 } }),
     );
 
     expectTypeOf(r.result()).toEqualTypeOf<{ n: number }>();
@@ -334,7 +340,7 @@ describe('TaskResultReader.result(schema)', () => {
   const task = freeformTask({
     input: { brief: 'Rooms.', outputContract: { version: 1, schema: stored } },
   });
-  const attempt = freeformAttempt({
+  const attempt = acceptedAttempt({
     summary: 'Read rooms.',
     result: { rooms: [{ id: 't1', m2: 24 }] },
   });
@@ -359,5 +365,128 @@ describe('TaskResultReader.result(schema)', () => {
 
     expect(() => r.result(Other)).toThrow(TaskResultError);
     expect(() => r.result(Other)).toThrow(/input\/outputContract\/schema/);
+  });
+
+  it('matches a schema whose constraints the contract cannot carry', () => {
+    // Arrange: created with `outputSchema(Rooms)`, which drops `pattern`.
+    const Strict = Type.Object(
+      {
+        rooms: Type.Array(
+          Type.Object(
+            { id: Type.String({ pattern: '^t[0-9]+$' }), m2: Type.Number() },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    );
+    const r = createResultReader(task, attempt);
+
+    // Act
+    const result = r.result(Strict);
+
+    // Assert
+    expect(result.rooms[0].id).toBe('t1');
+  });
+  it('rejects a result that violates a constraint the contract dropped', () => {
+    // Arrange
+    const Strict = Type.Object(
+      {
+        rooms: Type.Array(
+          Type.Object(
+            { id: Type.String({ pattern: '^r[0-9]+$' }), m2: Type.Number() },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    );
+    const r = createResultReader(task, attempt);
+
+    // Act
+    const reading = () => r.result(Strict);
+
+    // Assert
+    expect(reading).toThrow(TaskResultError);
+    expect(reading).toThrow(/output\/result\/rooms\/0\/id/);
+  });
+
+  it('reports a schema with no contract projection as such', () => {
+    // Arrange
+    const r = createResultReader(task, attempt);
+    const Unprojectable = Type.Union([
+      Type.Object({ a: Type.String() }),
+      Type.Object({ b: Type.String() }),
+    ]);
+
+    // Act
+    const reading = () => r.result(Unprojectable);
+
+    // Assert
+    expect(reading).toThrow(/no contract projection/);
+  });
+});
+
+describe('createResultReader (classify)', () => {
+  const input = {
+    version: 1,
+    state: { finding: 'Night consumption doubled.' },
+    questions: {
+      planned: {
+        type: 'bool',
+        instructions: 'Is the change attributed to a planned event?',
+        criteria: { true: 'planned', false: 'not attributed' },
+      },
+    },
+  };
+
+  it('validates the answers against the questions', () => {
+    // Arrange
+    const task = classifyTask(input);
+    const attempt = acceptedAttempt({
+      version: 1,
+      answers: { other: { type: 'bool', probability: 0.2 } },
+    });
+
+    // Act
+    const reading = () => createResultReader(task, attempt);
+
+    // Assert
+    expect(reading).toThrow(TaskResultError);
+  });
+
+  it('rejects a stored output that carries provider and model', () => {
+    // Arrange
+    const task = classifyTask(input);
+    const attempt = acceptedAttempt({
+      version: 1,
+      provider: 'ollama',
+      model: 'nimble',
+      answers: { planned: { type: 'bool', probability: 0.82 } },
+    });
+
+    // Act
+    const reading = () => createResultReader(task, attempt);
+
+    // Assert
+    expect(reading).toThrow(TaskResultError);
+  });
+
+  it('exposes a typed classify output', () => {
+    // Arrange
+    const task = classifyTask(input);
+    const attempt = acceptedAttempt({
+      version: 1,
+      answers: { planned: { type: 'bool', probability: 0.82 } },
+    });
+
+    // Act
+    const r = createResultReader<ClassifyOutput>(task, attempt);
+
+    // Assert
+    expect(r.output.answers.planned).toEqual({
+      type: 'bool',
+      probability: 0.82,
+    });
   });
 });
