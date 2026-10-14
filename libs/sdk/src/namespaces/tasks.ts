@@ -11,6 +11,8 @@ import {
   claimTask,
   completeTask,
   createTask,
+  downloadTaskArtifact,
+  downloadTaskArtifactByCid,
   failTaskAttempt,
   getTask,
   getTaskConversation,
@@ -213,22 +215,19 @@ export function createTasksNamespace(context: AgentContext): TasksNamespace {
       async download(path, options) {
         const request = {
           auth,
+          client,
           headers: requiredTeamHeaders(options),
-          method: 'GET' as const,
           parseAs: 'stream' as const,
-          security: [{ scheme: 'bearer' as const, type: 'http' as const }],
         };
         const result =
           'attemptN' in path
-            ? await client.request({
+            ? await downloadTaskArtifact({
                 ...request,
                 path,
-                url: '/tasks/{taskId}/attempts/{attemptN}/artifacts/{cid}/content',
               })
-            : await client.request({
+            : await downloadTaskArtifactByCid({
                 ...request,
                 path,
-                url: '/tasks/{taskId}/artifacts/{cid}/content',
               });
         const stream = unwrapResult(result);
         const normalizedStream = normalizeDownloadStream(stream);
