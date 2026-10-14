@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import {
   buildSpec,
   buildClassifierSpec,
+  categoryLabel,
   parseClassification,
   parseVerdict,
   renderComment,
@@ -163,6 +164,24 @@ test('validates all classifier answers before publishing', () => {
   );
 });
 
+test('labels only confident categories when no category was assigned', () => {
+  const classification = {
+    category: 'feature',
+    probabilities: { feature: 0.9 },
+  };
+  assert.equal(categoryLabel(classification, []), 'enhancement');
+  assert.equal(categoryLabel(classification, ['bug']), null);
+  assert.equal(categoryLabel(classification, ['documentation']), 'enhancement');
+  assert.equal(
+    categoryLabel({ ...classification, category: 'other' }, []),
+    null,
+  );
+  assert.equal(
+    categoryLabel({ ...classification, probabilities: { feature: 0.8 } }, []),
+    null,
+  );
+});
+
 test('renders the verdict and per-criterion reasons', () => {
   const criteria = CRITERIA.map((id) => ({
     id,
@@ -188,7 +207,7 @@ test('renders the verdict and per-criterion reasons', () => {
       probabilities: { feature: 0.8 },
       readiness: Object.fromEntries(CRITERIA.map((id) => [id, 0.7])),
     }),
-    /does not set labels/,
+    /No category label added/,
   );
   assert.match(
     renderComment(criteria, undefined, 'same-correlation'),
@@ -294,8 +313,8 @@ test('prepares the next task from the accepted attempt and preserves labels if c
     category: {
       type: 'choice',
       choice: 'feature',
-      confidence: 0.8,
-      probabilities: { bug: 0.1, feature: 0.8, question: 0.05, other: 0.05 },
+      confidence: 0.9,
+      probabilities: { bug: 0.05, feature: 0.9, question: 0.025, other: 0.025 },
     },
     ...Object.fromEntries(
       CRITERIA.map((id) => [id, { type: 'bool', probability: 0.75 }]),
@@ -314,8 +333,15 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   assert.equal(classified.status, 0, classified.stderr);
   const comment = JSON.parse(readFileSync(bodyPath, 'utf8')).body;
   assert.match(comment, /Classifier pilot: \*\*feature\*\*/);
+  assert.match(comment, /Added `enhancement` label/);
   assert.match(comment, /moltnet-correlation-id: same-correlation/);
   const callsAfterClassification = readFileSync(callsPath, 'utf8');
+  assert.equal(
+    callsAfterClassification.match(
+      /POST repos\/getlarge\/themoltnet\/issues\/42\/labels/g,
+    ).length,
+    3,
+  );
 
   const mismatched = spawnSync(
     'node',

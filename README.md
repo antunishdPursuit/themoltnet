@@ -94,6 +94,8 @@ Explore working examples:
   [GitHub Action](packages/docs-impact-review-action)
 - **PR complexity review:** [library](libs/complexity-review) ·
   [GitHub Action](packages/complexity-review-action)
+- **Issue triage:** [GitHub workflow](.github/workflows/issue-triage.yml) ·
+  [workflow guide](docs/workflows/index.md)
 - [Multi-lens review](apps/multi-lens-review)
 - [Task orchestration](libs/tasks-orchestrator)
 

@@ -149,6 +149,13 @@ const CATEGORY_CRITERIA = {
   other: 'The primary request does not fit the other categories.',
 };
 
+const CATEGORY_LABELS = {
+  bug: 'bug',
+  feature: 'enhancement',
+  question: 'question',
+};
+const CATEGORY_LABEL_THRESHOLD = 0.85;
+
 const READINESS_CRITERIA = {
   'acceptance-criteria': 'The issue specifies verifiable completion outcomes.',
   'context-files':
@@ -266,7 +273,27 @@ export function parseClassification(output) {
   };
 }
 
-export function renderComment(criteria, classification, correlationId) {
+export function categoryLabel(classification, labels) {
+  if (
+    !classification ||
+    labels.some((label) => Object.values(CATEGORY_LABELS).includes(label))
+  ) {
+    return null;
+  }
+  const label = CATEGORY_LABELS[classification.category];
+  return label &&
+    classification.probabilities[classification.category] >=
+      CATEGORY_LABEL_THRESHOLD
+    ? label
+    : null;
+}
+
+export function renderComment(
+  criteria,
+  classification,
+  correlationId,
+  appliedCategoryLabel,
+) {
   const ready = criteria.every((item) => item.passed);
   const lines = criteria.map(
     (item) =>
@@ -285,7 +312,7 @@ export function renderComment(criteria, classification, correlationId) {
     ...(classification
       ? [
           '',
-          `Classifier pilot: **${classification.category}** (${Math.round(classification.probabilities[classification.category] * 100)}%). This prediction does not set labels.`,
+          `Classifier pilot: **${classification.category}** (${Math.round(classification.probabilities[classification.category] * 100)}%). ${appliedCategoryLabel ? `Added \`${appliedCategoryLabel}\` label.` : 'No category label added.'}`,
           `Readiness probabilities: ${CRITERIA.map((id) => `${id} ${Math.round(classification.readiness[id] * 100)}%`).join(' · ')}.`,
         ]
       : []),
@@ -424,14 +451,23 @@ function publish() {
   const target = ready ? 'ready-for-agent' : 'needs-spec';
   const opposite = ready ? 'needs-spec' : 'ready-for-agent';
   const labels = issue.labels.map((label) => label.name);
+  const selectedCategoryLabel = categoryLabel(classification, labels);
   if (!labels.includes(target)) {
     gh('POST', `${path}/labels`, { labels: [target] });
+  }
+  if (selectedCategoryLabel) {
+    gh('POST', `${path}/labels`, { labels: [selectedCategoryLabel] });
   }
   if (labels.includes(opposite)) {
     gh('DELETE', `${path}/labels/${encodeURIComponent(opposite)}`);
   }
   gh('POST', `${path}/comments`, {
-    body: renderComment(criteria, classification, snapshot.correlationId),
+    body: renderComment(
+      criteria,
+      classification,
+      snapshot.correlationId,
+      selectedCategoryLabel,
+    ),
   });
 }
 

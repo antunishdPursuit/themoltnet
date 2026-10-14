@@ -2,55 +2,23 @@ name: Issue Triage
 
 # Issue evidence is extracted by a tool-free task and passed to a classifier
 # task. Only this trusted workflow changes labels or comments after validating
-# both accepted outputs. Classification is advisory during the pilot.
+# both accepted outputs. Category labels require a confident classifier result.
 on:
-  issues:
-    types: [opened, edited, labeled]
-  schedule:
-    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Open issue number to triage again
+        required: true
+        type: number
 
 permissions: {}
 
 jobs:
-  discover:
-    if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'issues' &&
-       (github.event.action != 'labeled' ||
-        (github.event.label.name != 'needs-spec' &&
-         github.event.label.name != 'ready-for-agent')))
-    runs-on: ubuntu-latest
-    permissions:
-      issues: read
-    outputs:
-      issues: ${{ steps.issues.outputs.issues }}
-    steps:
-      - name: Select issues
-        id: issues
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = schedule ]; then
-            issues=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-              --label needs-spec --limit 20 --json number | jq -c 'map(.number)')
-          else
-            issues=$(jq -cn --argjson number "$ISSUE_NUMBER" '[$number]')
-          fi
-          echo "issues=$issues" >> "$GITHUB_OUTPUT"
-
   triage:
-    needs: discover
-    if: needs.discover.outputs.issues != '[]'
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        issue: ${{ fromJSON(needs.discover.outputs.issues) }}
     concurrency:
-      group: issue-triage-${{ matrix.issue }}
-      cancel-in-progress: true
+      group: issue-triage-pilot
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: legreffier
@@ -67,8 +35,7 @@ jobs:
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ matrix.issue }}
-          SWEEP: ${{ github.event_name == 'schedule' }}
+          ISSUE_NUMBER: ${{ inputs.issue }}
         run: node .github/scripts/issue-triage.mjs prepare
 
       # Register both profiles and the input-only policy on the team before use.
@@ -142,7 +109,6 @@ jobs:
           EXTRACTION_CORRELATION_ID: ${{ steps.extract.outputs.correlation-id }}
           CLASSIFIER_TASK_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.task-id || '' }}
           CLASSIFIER_CORRELATION_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.correlation-id || '' }}
-          SWEEP: ${{ github.event_name == 'schedule' }}
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
           MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
