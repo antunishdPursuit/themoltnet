@@ -293,6 +293,7 @@ export function renderComment(
   classification,
   correlationId,
   appliedCategoryLabel,
+  provenance = {},
 ) {
   const ready = criteria.every((item) => item.passed);
   const lines = criteria.map(
@@ -316,6 +317,17 @@ export function renderComment(
           `Readiness probabilities: ${CRITERIA.map((id) => `${id} ${Math.round(classification.readiness[id] * 100)}%`).join(' · ')}.`,
         ]
       : []),
+    '',
+    ...(provenance.runUrl
+      ? [`Workflow run: [view on GitHub](${provenance.runUrl}).`]
+      : []),
+    ...(provenance.extractionTaskId
+      ? [`Extraction task: \`${provenance.extractionTaskId}\`.`]
+      : []),
+    ...(provenance.classifierTaskId
+      ? [`Classifier task: \`${provenance.classifierTaskId}\`.`]
+      : []),
+    ...(correlationId ? [`Correlation ID: \`${correlationId}\`.`] : []),
   ].join('\n');
 }
 
@@ -507,6 +519,14 @@ function publish() {
       classification,
       snapshot.correlationId,
       selectedCategoryLabel,
+      {
+        runUrl:
+          process.env.GITHUB_SERVER_URL && process.env.GITHUB_RUN_ID
+            ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+            : null,
+        extractionTaskId: process.env.EXTRACTION_TASK_ID,
+        classifierTaskId: process.env.CLASSIFIER_TASK_ID,
+      },
     ),
   });
 }
