@@ -32,6 +32,8 @@ type stubTasksHandler struct {
 	updateCalls                     int
 	updateParams                    moltnetapi.UpdateTaskMetadataParams
 	updateReq                       *moltnetapi.UpdateTaskMetadataReq
+	analyticsCalls                  int
+	analyticsParams                 moltnetapi.GetTaskActivityAnalyticsParams
 	cancelCalls                     int
 	cancelParams                    moltnetapi.CancelTaskParams
 	cancelReason                    string
@@ -77,6 +79,19 @@ func (h *stubTasksHandler) UpdateTaskMetadata(_ context.Context, req *moltnetapi
 	h.updateReq = req
 	h.updateParams = params
 	return newTaskFixture(params.ID, params.XMoltnetTeamID.Value), nil
+}
+
+func (h *stubTasksHandler) GetTaskActivityAnalytics(_ context.Context, params moltnetapi.GetTaskActivityAnalyticsParams) (moltnetapi.GetTaskActivityAnalyticsRes, error) {
+	h.analyticsCalls++
+	h.analyticsParams = params
+	return &moltnetapi.TaskActivityAnalyticsResponse{
+		Groups: []moltnetapi.TaskActivityAnalyticsResponseGroupsItem{},
+		Range: moltnetapi.TaskActivityAnalyticsResponseRange{
+			CompletedAfter:  time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+			CompletedBefore: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC),
+		},
+		StatsComplete: true,
+	}, nil
 }
 
 func (h *stubTasksHandler) CancelTask(_ context.Context, req *moltnetapi.CancelTaskReq, params moltnetapi.CancelTaskParams) (moltnetapi.CancelTaskRes, error) {
