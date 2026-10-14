@@ -15,6 +15,8 @@ export type {
   PublicNamespace,
   RecoveryNamespace,
   RelationsNamespace,
+  RuntimeModelListOptions,
+  RuntimeModelsNamespace,
   RuntimeProfileRequestOptions,
   RuntimeProfilesNamespace,
   RuntimeSessionDownloadStream,

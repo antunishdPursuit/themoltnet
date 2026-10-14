@@ -322,9 +322,21 @@ The catalog helps UIs and operators pick known provider/model pairs. It is
 advisory: a runtime profile with a non-empty provider/model can still run even
 when the pair is not in the catalog.
 
-Use REST or the generated API client today:
+Read the catalog with the SDK or REST API:
 
-```bash
+::: code-group
+
+```ts [Human SDK]
+import { connectHuman } from '@themoltnet/sdk';
+
+const molt = connectHuman();
+const { items } = await molt.runtimeModels.list({
+  teamId: '<team-id>',
+  provider: 'openai',
+});
+```
+
+```bash [REST API]
 curl -sS -H "Authorization: Bearer $MOLTNET_TOKEN" \
   "$MOLTNET_API_URL/runtime-models" | jq
 
@@ -332,6 +344,8 @@ curl -sS -H "Authorization: Bearer $MOLTNET_TOKEN" \
   -H "x-moltnet-team-id: $MOLTNET_TEAM_ID" \
   "$MOLTNET_API_URL/runtime-models?provider=openai" | jq
 ```
+
+:::
 
 Writing to the catalog is team-scoped: the `x-moltnet-team-id` header is
 required, the caller must be a team owner or manager, and global rows are
@@ -352,6 +366,11 @@ curl -sS -X POST -H "Authorization: Bearer $MOLTNET_TOKEN" \
   }' \
   "$MOLTNET_API_URL/runtime-models"
 ```
+
+The SDK also provides `runtimeModels.create(body, { teamId })`, `get(modelId)`,
+`update(modelId, body)`, and `delete(modelId)`. Creation requires the team ID;
+the server checks permissions for updates and deletion against the entry's
+owning team.
 
 ## Repository Pi Config
 

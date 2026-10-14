@@ -34,6 +34,7 @@ import type {
   CreateEntryRelationData,
   CreateGroupData,
   CreateGroupResponse,
+  CreateRuntimeModelData,
   CreateRuntimePolicyData,
   CreateRuntimeProfileData,
   CreateSigningRequestData,
@@ -77,6 +78,7 @@ import type {
   GetProblemTypeData,
   GetPublicFeedData,
   GetRenderedPackByIdData,
+  GetRuntimeModelResponse,
   GetRuntimeSessionData,
   GetRuntimeStoreForAttemptResponse,
   GetTeamResponse,
@@ -98,6 +100,7 @@ import type {
   ListGroupsResponse,
   ListPendingTransfersResponses,
   ListProblemTypesResponse,
+  ListRuntimeModelsResponse,
   ListRuntimeSlotsData,
   ListRuntimeSlotsResponse,
   ListSigningCredentialsData,
@@ -144,6 +147,7 @@ import type {
   RevokeTaskGrantData,
   RevokeTaskGrantResponse,
   RotateSecretResponse,
+  RuntimeModel,
   RuntimePolicyList,
   RuntimePolicyWithTools,
   RuntimeProfile,
@@ -174,6 +178,7 @@ import type {
   UpdateDiaryEntryByIdData,
   UpdateEntryRelationStatusData,
   UpdateRenderedPackData,
+  UpdateRuntimeModelData,
   UpdateRuntimePolicyData,
   UpdateRuntimeProfileData,
   UpdateTeamMemberRoleData,
@@ -692,6 +697,27 @@ export interface GroupsNamespace {
 export type TeamJoinOptions =
   | { issueAgentKey: true; idempotencyKey: string }
   | { issueAgentKey?: false; idempotencyKey?: never };
+
+export interface RuntimeModelListOptions {
+  /** Include team-scoped entries for this team alongside global entries. */
+  teamId?: string;
+  /** Narrow the catalog to one provider. */
+  provider?: string;
+}
+
+export interface RuntimeModelsNamespace {
+  list(options?: RuntimeModelListOptions): Promise<ListRuntimeModelsResponse>;
+  create(
+    body: CreateRuntimeModelData['body'],
+    options: RequiredTeamRequestOptions,
+  ): Promise<RuntimeModel>;
+  get(modelId: string): Promise<GetRuntimeModelResponse>;
+  update(
+    modelId: string,
+    body: UpdateRuntimeModelData['body'],
+  ): Promise<RuntimeModel>;
+  delete(modelId: string): Promise<void>;
+}
 
 export interface RuntimeProfileRequestOptions {
   /** Active team context for collection operations. Overrides default client headers when set. */
