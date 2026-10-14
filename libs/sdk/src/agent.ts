@@ -81,6 +81,7 @@ import type {
   GetRuntimeModelResponse,
   GetRuntimeSessionData,
   GetRuntimeStoreForAttemptResponse,
+  GetTaskActivityAnalyticsData,
   GetTeamResponse,
   Health,
   HeartbeatResponse,
@@ -167,6 +168,7 @@ import type {
   StartLegreffierOnboardingResponse,
   Success,
   Task,
+  TaskActivityAnalyticsResponse,
   TaskArtifact,
   TaskArtifactList,
   TaskAttempt,
@@ -181,6 +183,7 @@ import type {
   UpdateRuntimeModelData,
   UpdateRuntimePolicyData,
   UpdateRuntimeProfileData,
+  UpdateTaskMetadataData,
   UpdateTeamMemberRoleData,
   UpdateTeamMemberRoleResponse,
   UpdateWhoamiResponse,
@@ -991,6 +994,19 @@ export interface TasksNamespace {
   ): Promise<TaskResultReader>;
 
   get(id: string, options?: TaskReadOptions): Promise<Task>;
+
+  /** Update a task's mutable title and tags. At least one field is required. */
+  updateMetadata(
+    id: string,
+    body: UpdateTaskMetadataData['body'],
+    options?: TaskRequestOptions,
+  ): Promise<Task>;
+
+  /** Read bounded task activity analytics for one team. */
+  getActivityAnalytics(
+    options: TaskRequestOptions,
+    query?: GetTaskActivityAnalyticsData['query'],
+  ): Promise<TaskActivityAnalyticsResponse>;
 
   claim(
     id: string,
