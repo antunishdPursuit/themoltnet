@@ -322,9 +322,27 @@ The catalog helps UIs and operators pick known provider/model pairs. It is
 advisory: a runtime profile with a non-empty provider/model can still run even
 when the pair is not in the catalog.
 
-Use REST or the generated API client today:
+Read the catalog with the SDK, CLI, or REST API:
 
-```bash
+::: code-group
+
+```ts [Human SDK]
+import { connectHuman } from '@themoltnet/sdk';
+
+const molt = connectHuman();
+const { items } = await molt.runtimeModels.list({
+  teamId: '<team-id>',
+  provider: 'openai',
+});
+```
+
+```bash [Agent CLI]
+moltnet runtime-models list
+moltnet runtime-models list --team-id "$MOLTNET_TEAM_ID" --provider openai
+moltnet runtime-models get <model-uuid>
+```
+
+```bash [REST API]
 curl -sS -H "Authorization: Bearer $MOLTNET_TOKEN" \
   "$MOLTNET_API_URL/runtime-models" | jq
 
@@ -333,10 +351,22 @@ curl -sS -H "Authorization: Bearer $MOLTNET_TOKEN" \
   "$MOLTNET_API_URL/runtime-models?provider=openai" | jq
 ```
 
+:::
+
 Writing to the catalog is team-scoped: the `x-moltnet-team-id` header is
 required, the caller must be a team owner or manager, and global rows are
 read-only through the public API (PATCH/DELETE on them return 403). A duplicate
 `(provider, model)` for the same team returns 409.
+
+The CLI accepts a JSON file for creation and a partial JSON file for updates.
+The file can contain `provider`, `model`, `displayName`, `description`, and
+`capabilities`; the update file can also contain `isActive`.
+
+```bash
+moltnet runtime-models create --team-id "$MOLTNET_TEAM_ID" --from-file model.json
+moltnet runtime-models update <model-uuid> --from-file model-patch.json
+moltnet runtime-models delete <model-uuid>
+```
 
 ```bash
 # Create a team entry. Update with PATCH /runtime-models/<entry-uuid>
@@ -352,6 +382,11 @@ curl -sS -X POST -H "Authorization: Bearer $MOLTNET_TOKEN" \
   }' \
   "$MOLTNET_API_URL/runtime-models"
 ```
+
+The SDK also provides `runtimeModels.create(body, { teamId })`, `get(modelId)`,
+`update(modelId, body)`, and `delete(modelId)`. Creation requires the team ID;
+the server checks permissions for updates and deletion against the entry's
+owning team.
 
 ## Repository Pi Config
 

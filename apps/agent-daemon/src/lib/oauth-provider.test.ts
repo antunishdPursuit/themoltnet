@@ -113,8 +113,34 @@ describe('OAuthProviderService', () => {
     await service.login('anthropic', interaction);
     await service.logout('anthropic');
 
-    expect(loginCheck).toHaveBeenCalledWith('anthropic', 'oauth', interaction);
+    expect(loginCheck).toHaveBeenCalledWith('anthropic', 'oauth', interaction, {
+      getDeviceId: expect.any(Function) as unknown,
+      agentName: 'moltnet-agent',
+    });
     expect(logoutCheck).toHaveBeenCalledWith('anthropic');
+  });
+
+  it('persists the installation UUID across services and isolates different stores', async () => {
+    const ids: string[] = [];
+    const login = vi.fn<ModelRuntime['login']>(
+      async (_id, _type, _interaction, options) => {
+        ids.push(options!.getDeviceId!());
+        return { type: 'oauth', access: '', refresh: '', expires: 0 };
+      },
+    );
+    const path = authPath();
+    for (const store of [path, path, authPath()]) {
+      const service = await OAuthProviderService.create({
+        authPath: store,
+        modelRuntime: runtime({ login }),
+      });
+      await service.login('anthropic', interaction);
+    }
+    expect(ids[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    );
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
   });
 
   it('rejects unsupported providers without invoking ModelRuntime', async () => {

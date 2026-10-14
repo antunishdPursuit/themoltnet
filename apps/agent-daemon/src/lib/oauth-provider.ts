@@ -1,7 +1,15 @@
-import { readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
+import { lockSync } from 'proper-lockfile';
 
 import { withProviderOAuthLock } from './provider-lock.js';
 
@@ -98,7 +106,10 @@ export class OAuthProviderService {
       providerId,
       async () => {
         try {
-          await this.runtime.login(providerId, 'oauth', interaction);
+          await this.runtime.login(providerId, 'oauth', interaction, {
+            getDeviceId: () => installationDeviceId(dirname(this.authPath)),
+            agentName: 'moltnet-agent',
+          });
         } finally {
           await options.onSettledUnderLock?.();
         }
@@ -165,6 +176,35 @@ export class OAuthProviderService {
       }
       return new Set();
     }
+  }
+}
+
+/** Shared by CLI and Desktop, independent of project and provider credentials. */
+function installationDeviceId(directory: string): string {
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const path = join(directory, 'device-id');
+  const release = lockSync(directory, {
+    realpath: false,
+    lockfilePath: join(directory, '.device-id.lock'),
+  });
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  try {
+    try {
+      const id = readFileSync(path, 'utf8').trim();
+      if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(id)) {
+        throw new Error('Invalid OAuth installation device ID');
+      }
+      return id;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    const id = randomUUID();
+    writeFileSync(temporary, `${id}\n`, { mode: 0o600, flag: 'wx' });
+    renameSync(temporary, path);
+    return id;
+  } finally {
+    rmSync(temporary, { force: true });
+    release();
   }
 }
 

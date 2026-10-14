@@ -10,6 +10,7 @@ import type {
   ProblemsNamespace,
   PublicNamespace,
   RelationsNamespace,
+  RuntimeModelsNamespace,
   RuntimeProfilesNamespace,
   TasksNamespace,
   TeamsNamespace,
@@ -30,6 +31,7 @@ import {
 } from './namespaces/projects.js';
 import { createPublicNamespace } from './namespaces/public.js';
 import { createRelationsNamespace } from './namespaces/relations.js';
+import { createRuntimeModelsNamespace } from './namespaces/runtime-models.js';
 import { createRuntimeProfilesNamespace } from './namespaces/runtime-profiles.js';
 import { createSigningCredentialsNamespace } from './namespaces/signing-credentials.js';
 import { createSigningRequestsNamespace } from './namespaces/signing-requests.js';
@@ -42,6 +44,7 @@ export interface SharedNamespaces {
   diaries: DiariesNamespace;
   diaryGrants: DiaryGrantsNamespace;
   runtimeProfiles: RuntimeProfilesNamespace;
+  runtimeModels: RuntimeModelsNamespace;
   packs: PacksNamespace;
   entries: EntriesNamespace;
   relations: RelationsNamespace;
@@ -66,6 +69,7 @@ export function createSharedNamespaces(
     diaries: createDiariesNamespace(context),
     diaryGrants: createDiaryGrantsNamespace(context),
     runtimeProfiles: createRuntimeProfilesNamespace(context),
+    runtimeModels: createRuntimeModelsNamespace(context),
     packs: createPacksNamespace(context),
     entries: createEntriesNamespace(context),
     relations: createRelationsNamespace(context),

@@ -13,6 +13,7 @@ func newTeamsCmd() *cobra.Command {
 	teamsCmd.AddCommand(newTeamsListCmd())
 	teamsCmd.AddCommand(newTeamsGetCmd())
 	teamsCmd.AddCommand(newTeamsMembersCmd())
+	teamsCmd.AddCommand(newTeamsGroupsCmd())
 	teamsCmd.AddCommand(newTeamsCreateCmd())
 	teamsCmd.AddCommand(newTeamsJoinCmd())
 	teamsCmd.AddCommand(newTeamsInviteCmd())
