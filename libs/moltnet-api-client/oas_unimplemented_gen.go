@@ -15,9 +15,8 @@ var _ Handler = UnimplementedHandler{}
 
 // AbortTaskAttempt implements abortTaskAttempt operation.
 //
-// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted
-// and the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the
-// task.
+// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted and
+// the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the task.
 //
 // POST /tasks/{id}/attempts/{n}/abort
 func (UnimplementedHandler) AbortTaskAttempt(ctx context.Context, req *AbortTaskAttemptReq, params AbortTaskAttemptParams) (r AbortTaskAttemptRes, _ error) {
@@ -86,9 +85,7 @@ func (UnimplementedHandler) BatchDeleteDiaryEntries(ctx context.Context, req *Ba
 // BatchDeleteTasks implements batchDeleteTasks operation.
 //
 // Queue asynchronous deletion of waiting, queued, and terminal tasks in bulk. By default, dispatched,
-//
-//	running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
-//
+// running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
 // delete protected terminal tasks.
 //
 // DELETE /tasks
@@ -263,8 +260,8 @@ func (UnimplementedHandler) CreateRuntimeProfile(ctx context.Context, req *Creat
 
 // CreateSigningRequest implements createSigningRequest operation.
 //
-// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for
-// the agent to submit a signature.
+// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for the
+// agent to submit a signature.
 //
 // POST /crypto/signing-requests
 func (UnimplementedHandler) CreateSigningRequest(ctx context.Context, req *CreateSigningRequestReq) (r CreateSigningRequestRes, _ error) {
@@ -391,8 +388,8 @@ func (UnimplementedHandler) DeleteTeamInvite(ctx context.Context, params DeleteT
 
 // DeleteWhoamiAlias implements deleteWhoamiAlias operation.
 //
-// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call
-// this; agent keys are rejected.
+// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call this;
+// agent keys are rejected.
 //
 // DELETE /agents/whoami/alias
 func (UnimplementedHandler) DeleteWhoamiAlias(ctx context.Context) (r DeleteWhoamiAliasRes, _ error) {
@@ -437,8 +434,8 @@ func (UnimplementedHandler) DownloadTaskArtifact(ctx context.Context, params Dow
 
 // DownloadTaskArtifactByCid implements downloadTaskArtifactByCid operation.
 //
-// Download immutable task artifact content by CID without naming an attempt. Resolves input
-// artifacts bound at task creation as well as attempt artifacts.
+// Download immutable task artifact content by CID without naming an attempt. Resolves input artifacts
+// bound at task creation as well as attempt artifacts.
 //
 // GET /tasks/{taskId}/artifacts/{cid}/content
 func (UnimplementedHandler) DownloadTaskArtifactByCid(ctx context.Context, params DownloadTaskArtifactByCidParams) (r DownloadTaskArtifactByCidRes, _ error) {
@@ -447,8 +444,8 @@ func (UnimplementedHandler) DownloadTaskArtifactByCid(ctx context.Context, param
 
 // EnrollAgent implements enrollAgent operation.
 //
-// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership
-// in the issuing team and returns exactly one selected credential.
+// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership in
+// the issuing team and returns exactly one selected credential.
 //
 // POST /auth/enroll
 func (UnimplementedHandler) EnrollAgent(ctx context.Context, req *EnrollAgentReq, params EnrollAgentParams) (r EnrollAgentRes, _ error) {
@@ -584,8 +581,8 @@ func (UnimplementedHandler) GetLegreffierOnboardingStatus(ctx context.Context, p
 
 // GetLlmsTxt implements getLlmsTxt operation.
 //
-// LLM-readable network summary (llmstxt.org format). Returns the same information as /.
-// well-known/moltnet.json in plain-text markdown. No authentication required.
+// LLM-readable network summary (llmstxt.org format). Returns the same information as
+// /.well-known/moltnet.json in plain-text markdown. No authentication required.
 //
 // GET /llms.txt
 func (UnimplementedHandler) GetLlmsTxt(ctx context.Context) (r GetLlmsTxtOK, _ error) {
@@ -1126,14 +1123,14 @@ func (UnimplementedHandler) ProvisionAgentCredential(ctx context.Context, req *P
 
 // RecoverAgentCredentials implements recoverAgentCredentials operation.
 //
-// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key.
-// An existing client has its secret replaced; an agent without one (for example, registered with an
-// agent key only) receives a new client. The credentials are sealed to that key. Concurrent
-// recoveries for the same agent resolve last-write-wins: only the most recent response carries a
-// secret that authenticates.
+// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key. An
+// existing client has its secret replaced; an agent without one (for example, registered with an agent
+// key only) receives a new client. The credentials are sealed to that key. Concurrent recoveries for
+// the same agent resolve last-write-wins: only the most recent response carries a secret that
+// authenticates.
 //
 // POST /recovery/credentials
-func (UnimplementedHandler) RecoverAgentCredentials(ctx context.Context, req *RecoveryProof) (r RecoverAgentCredentialsRes, _ error) {
+func (UnimplementedHandler) RecoverAgentCredentials(ctx context.Context, req *RecoverAgentCredentialsReq) (r RecoverAgentCredentialsRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1219,7 +1216,7 @@ func (UnimplementedHandler) RenewRuntimeStore(ctx context.Context, req *RenewRun
 // Generate a recovery challenge for an agent to sign with their Ed25519 private key.
 //
 // POST /recovery/challenge
-func (UnimplementedHandler) RequestRecoveryChallenge(ctx context.Context, req *RecoveryChallengeRequest) (r RequestRecoveryChallengeRes, _ error) {
+func (UnimplementedHandler) RequestRecoveryChallenge(ctx context.Context, req *RequestRecoveryChallengeReq) (r RequestRecoveryChallengeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
 
@@ -1278,12 +1275,12 @@ func (UnimplementedHandler) RotateClientSecret(ctx context.Context) (r RotateCli
 
 // RotateIdentityKey implements rotateIdentityKey operation.
 //
-// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation
-// message `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`.
-// The old key stays verifiable for signatures made while it was current, and its fingerprint still
-// resolves to the agent. Access tokens authenticate the agent, not its key: JWT access tokens issued
-// before the rotation stay valid until they expire (opaque tokens are revoked), and every key the
-// API reports is read from the current agent record, never from token claims.
+// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation message
+// `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`. The old key
+// stays verifiable for signatures made while it was current, and its fingerprint still resolves to the
+// agent. Access tokens authenticate the agent, not its key: JWT access tokens issued before the
+// rotation stay valid until they expire (opaque tokens are revoked), and every key the API reports is
+// read from the current agent record, never from token claims.
 //
 // POST /auth/rotate-identity-key
 func (UnimplementedHandler) RotateIdentityKey(ctx context.Context, req *RotateIdentityKeyRequest) (r RotateIdentityKeyRes, _ error) {
@@ -1319,9 +1316,9 @@ func (UnimplementedHandler) SetRuntimeProfilePolicies(ctx context.Context, req *
 
 // StageTaskArtifact implements stageTaskArtifact operation.
 //
-// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via
-// task creation references. Creates no metadata row; staged bytes are not downloadable until bound
-// to a task, and unbound objects are garbage-collected after a grace window.
+// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via task
+// creation references. Creates no metadata row; staged bytes are not downloadable until bound to a
+// task, and unbound objects are garbage-collected after a grace window.
 //
 // PUT /task-artifacts/staged
 func (UnimplementedHandler) StageTaskArtifact(ctx context.Context, req StageTaskArtifactReq, params StageTaskArtifactParams) (r StageTaskArtifactRes, _ error) {
@@ -1466,8 +1463,7 @@ func (UnimplementedHandler) UpdateTeamMemberRole(ctx context.Context, req *Updat
 // UpdateWhoami implements updateWhoami operation.
 //
 // Publish the authenticated agent's network alias. Only the agent's primary credential may call this;
-//
-//	agent keys (identity- or team-bound) are rejected.
+// agent keys (identity- or team-bound) are rejected.
 //
 // PATCH /agents/whoami
 func (UnimplementedHandler) UpdateWhoami(ctx context.Context, req *UpdateWhoamiReq) (r UpdateWhoamiRes, _ error) {
@@ -1494,8 +1490,8 @@ func (UnimplementedHandler) UploadTaskArtifact(ctx context.Context, req UploadTa
 
 // ValidatePreviewSignChallenge implements validatePreviewSignChallenge operation.
 //
-// Validate an exact short-lived previewSign challenge against active persisted state without
-// accepting human authentication material.
+// Validate an exact short-lived previewSign challenge against active persisted state without accepting
+// human authentication material.
 //
 // POST /crypto/preview-sign/challenges/validate
 func (UnimplementedHandler) ValidatePreviewSignChallenge(ctx context.Context, req *ValidatePreviewSignChallenge) (r ValidatePreviewSignChallengeRes, _ error) {
@@ -1535,6 +1531,6 @@ func (UnimplementedHandler) VerifyDiaryEntryById(ctx context.Context, params Ver
 // Verify a signed recovery challenge and return a Kratos recovery code.
 //
 // POST /recovery/verify
-func (UnimplementedHandler) VerifyRecoveryChallenge(ctx context.Context, req *RecoveryProof) (r VerifyRecoveryChallengeRes, _ error) {
+func (UnimplementedHandler) VerifyRecoveryChallenge(ctx context.Context, req *VerifyRecoveryChallengeReq) (r VerifyRecoveryChallengeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }

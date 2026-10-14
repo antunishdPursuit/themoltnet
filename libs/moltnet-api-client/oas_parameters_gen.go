@@ -2489,8 +2489,8 @@ func decodeCreateRuntimeProfileParams(args [0]string, argsEscaped bool, r *http.
 type CreateTaskParams struct {
 	// Team ID (UUID) that will own the resource. Required.
 	XMoltnetTeamID uuid.UUID
-	// Retry key scoped to the active team and authenticated proposer. Reusing it with a different
-	// request returns 409.
+	// Retry key scoped to the active team and authenticated proposer. Reusing it with a different request
+	// returns 409.
 	IdempotencyKey OptString `json:",omitempty,omitzero"`
 }
 
@@ -7794,6 +7794,7 @@ func decodeGetTaskActivityAnalyticsParams(args [0]string, argsEscaped bool, r *h
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Tags = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotTagsVal string
 					if err := func() error {
@@ -7882,6 +7883,7 @@ func decodeGetTaskActivityAnalyticsParams(args [0]string, argsEscaped bool, r *h
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.TaskTypes = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotTaskTypesVal string
 					if err := func() error {
@@ -7970,6 +7972,7 @@ func decodeGetTaskActivityAnalyticsParams(args [0]string, argsEscaped bool, r *h
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.ProfileIds = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotProfileIdsVal uuid.UUID
 					if err := func() error {
@@ -8029,6 +8032,7 @@ func decodeGetTaskActivityAnalyticsParams(args [0]string, argsEscaped bool, r *h
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.DiaryIds = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotDiaryIdsVal uuid.UUID
 					if err := func() error {
@@ -8088,6 +8092,7 @@ func decodeGetTaskActivityAnalyticsParams(args [0]string, argsEscaped bool, r *h
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.ClaimedByAgentIds = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotClaimedByAgentIdsVal uuid.UUID
 					if err := func() error {
@@ -9747,8 +9752,7 @@ type ListDiaryEntriesParams struct {
 	Tags []string `json:",omitempty"`
 	// Repeated excluded tags filter (entry must have NONE of these tags, max 20 tags, 128 chars each).
 	ExcludeTags []string `json:",omitempty"`
-	// Repeated entry type filter (e.g. entryType=semantic&entryType=episodic). Single value also
-	// accepted.
+	// Repeated entry type filter (e.g. entryType=semantic&entryType=episodic). Single value also accepted.
 	EntryType []ListDiaryEntriesEntryTypeItem `json:",omitempty"`
 	// UUID v4 identifier.
 	DiaryId uuid.UUID
@@ -9963,6 +9967,7 @@ func decodeListDiaryEntriesParams(args [1]string, argsEscaped bool, r *http.Requ
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Ids = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotIdsVal uuid.UUID
 					if err := func() error {
@@ -10022,6 +10027,7 @@ func decodeListDiaryEntriesParams(args [1]string, argsEscaped bool, r *http.Requ
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Tags = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotTagsVal string
 					if err := func() error {
@@ -10110,6 +10116,7 @@ func decodeListDiaryEntriesParams(args [1]string, argsEscaped bool, r *http.Requ
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.ExcludeTags = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotExcludeTagsVal string
 					if err := func() error {
@@ -10198,6 +10205,7 @@ func decodeListDiaryEntriesParams(args [1]string, argsEscaped bool, r *http.Requ
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.EntryType = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotEntryTypeVal ListDiaryEntriesEntryTypeItem
 					if err := func() error {
@@ -11182,6 +11190,7 @@ func decodeListDiaryTagsParams(args [1]string, argsEscaped bool, r *http.Request
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.EntryTypes = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotEntryTypesVal ListDiaryTagsEntryTypesItem
 					if err := func() error {
@@ -13457,6 +13466,7 @@ func decodeListSigningRequestsParams(args [0]string, argsEscaped bool, r *http.R
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Status = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotStatusVal ListSigningRequestsStatusItem
 					if err := func() error {
@@ -14253,9 +14263,8 @@ func decodeListTaskGrantsParams(args [1]string, argsEscaped bool, r *http.Reques
 
 // ListTaskMessagesParams is parameters of listTaskMessages operation.
 type ListTaskMessagesParams struct {
-	// Exclusive cursor: return only messages whose seq is strictly greater than this value. Omit to
-	// fetch all messages from the beginning. Pass the seq of the last message you received to poll for
-	// new ones.
+	// Exclusive cursor: return only messages whose seq is strictly greater than this value. Omit to fetch
+	// all messages from the beginning. Pass the seq of the last message you received to poll for new ones.
 	AfterSeq OptInt `json:",omitempty,omitzero"`
 	Limit    OptInt `json:",omitempty,omitzero"`
 	// Return only messages of these kinds. Filtering happens in the database, so a rare kind such as
@@ -14471,6 +14480,7 @@ func decodeListTaskMessagesParams(args [2]string, argsEscaped bool, r *http.Requ
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Kind = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotKindVal TaskMessageKind
 					if err := func() error {
@@ -15033,6 +15043,7 @@ func decodeListTasksParams(args [0]string, argsEscaped bool, r *http.Request) (p
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Statuses = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotStatusesVal TaskStatus
 					if err := func() error {
@@ -15109,6 +15120,7 @@ func decodeListTasksParams(args [0]string, argsEscaped bool, r *http.Request) (p
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.TaskTypes = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotTaskTypesVal string
 					if err := func() error {
@@ -15197,6 +15209,7 @@ func decodeListTasksParams(args [0]string, argsEscaped bool, r *http.Request) (p
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.Tags = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotTagsVal string
 					if err := func() error {
@@ -15285,6 +15298,7 @@ func decodeListTasksParams(args [0]string, argsEscaped bool, r *http.Request) (p
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.ExcludeTags = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotExcludeTagsVal string
 					if err := func() error {
@@ -18233,6 +18247,7 @@ func decodeSearchPublicFeedParams(args [0]string, argsEscaped bool, r *http.Requ
 
 		if err := q.HasParam(cfg); err == nil {
 			if err := q.DecodeParam(cfg, func(d uri.Decoder) error {
+				params.EntryTypes = nil
 				return d.DecodeArray(func(d uri.Decoder) error {
 					var paramsDotEntryTypesVal SearchPublicFeedEntryTypesItem
 					if err := func() error {

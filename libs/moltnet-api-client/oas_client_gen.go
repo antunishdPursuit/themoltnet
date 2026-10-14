@@ -31,9 +31,8 @@ func trimTrailingSlashes(u *url.URL) {
 type Invoker interface {
 	// AbortTaskAttempt invokes abortTaskAttempt operation.
 	//
-	// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted
-	// and the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the
-	// task.
+	// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted and
+	// the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the task.
 	//
 	// POST /tasks/{id}/attempts/{n}/abort
 	AbortTaskAttempt(ctx context.Context, request *AbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error)
@@ -78,7 +77,7 @@ type Invoker interface {
 	// BatchDeleteTasks invokes batchDeleteTasks operation.
 	//
 	// Queue asynchronous deletion of waiting, queued, and terminal tasks in bulk. By default, dispatched,
-	//  running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
+	// running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
 	// delete protected terminal tasks.
 	//
 	// DELETE /tasks
@@ -193,8 +192,8 @@ type Invoker interface {
 	CreateRuntimeProfile(ctx context.Context, request *CreateRuntimeProfileBody, params CreateRuntimeProfileParams) (CreateRuntimeProfileRes, error)
 	// CreateSigningRequest invokes createSigningRequest operation.
 	//
-	// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for
-	// the agent to submit a signature.
+	// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for the
+	// agent to submit a signature.
 	//
 	// POST /crypto/signing-requests
 	CreateSigningRequest(ctx context.Context, request *CreateSigningRequestReq) (CreateSigningRequestRes, error)
@@ -279,8 +278,8 @@ type Invoker interface {
 	DeleteTeamInvite(ctx context.Context, params DeleteTeamInviteParams) (DeleteTeamInviteRes, error)
 	// DeleteWhoamiAlias invokes deleteWhoamiAlias operation.
 	//
-	// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call
-	// this; agent keys are rejected.
+	// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call this;
+	// agent keys are rejected.
 	//
 	// DELETE /agents/whoami/alias
 	DeleteWhoamiAlias(ctx context.Context) (DeleteWhoamiAliasRes, error)
@@ -310,15 +309,15 @@ type Invoker interface {
 	DownloadTaskArtifact(ctx context.Context, params DownloadTaskArtifactParams) (DownloadTaskArtifactRes, error)
 	// DownloadTaskArtifactByCid invokes downloadTaskArtifactByCid operation.
 	//
-	// Download immutable task artifact content by CID without naming an attempt. Resolves input
-	// artifacts bound at task creation as well as attempt artifacts.
+	// Download immutable task artifact content by CID without naming an attempt. Resolves input artifacts
+	// bound at task creation as well as attempt artifacts.
 	//
 	// GET /tasks/{taskId}/artifacts/{cid}/content
 	DownloadTaskArtifactByCid(ctx context.Context, params DownloadTaskArtifactByCidParams) (DownloadTaskArtifactByCidRes, error)
 	// EnrollAgent invokes enrollAgent operation.
 	//
-	// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership
-	// in the issuing team and returns exactly one selected credential.
+	// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership in
+	// the issuing team and returns exactly one selected credential.
 	//
 	// POST /auth/enroll
 	EnrollAgent(ctx context.Context, request *EnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error)
@@ -409,8 +408,8 @@ type Invoker interface {
 	GetLegreffierOnboardingStatus(ctx context.Context, params GetLegreffierOnboardingStatusParams) (GetLegreffierOnboardingStatusRes, error)
 	// GetLlmsTxt invokes getLlmsTxt operation.
 	//
-	// LLM-readable network summary (llmstxt.org format). Returns the same information as /.
-	// well-known/moltnet.json in plain-text markdown. No authentication required.
+	// LLM-readable network summary (llmstxt.org format). Returns the same information as
+	// /.well-known/moltnet.json in plain-text markdown. No authentication required.
 	//
 	// GET /llms.txt
 	GetLlmsTxt(ctx context.Context) (GetLlmsTxtOK, error)
@@ -768,14 +767,14 @@ type Invoker interface {
 	ProvisionAgentCredential(ctx context.Context, request *ProvisionAgentCredentialReq) (ProvisionAgentCredentialRes, error)
 	// RecoverAgentCredentials invokes recoverAgentCredentials operation.
 	//
-	// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key.
-	// An existing client has its secret replaced; an agent without one (for example, registered with an
-	// agent key only) receives a new client. The credentials are sealed to that key. Concurrent
-	// recoveries for the same agent resolve last-write-wins: only the most recent response carries a
-	// secret that authenticates.
+	// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key. An
+	// existing client has its secret replaced; an agent without one (for example, registered with an agent
+	// key only) receives a new client. The credentials are sealed to that key. Concurrent recoveries for
+	// the same agent resolve last-write-wins: only the most recent response carries a secret that
+	// authenticates.
 	//
 	// POST /recovery/credentials
-	RecoverAgentCredentials(ctx context.Context, request *RecoveryProof) (RecoverAgentCredentialsRes, error)
+	RecoverAgentCredentials(ctx context.Context, request *RecoverAgentCredentialsReq) (RecoverAgentCredentialsRes, error)
 	// RegisterAgent invokes registerAgent operation.
 	//
 	// Self-register using an Ed25519 proof of key possession. Creates a personal team and private diary,
@@ -831,7 +830,7 @@ type Invoker interface {
 	// Generate a recovery challenge for an agent to sign with their Ed25519 private key.
 	//
 	// POST /recovery/challenge
-	RequestRecoveryChallenge(ctx context.Context, request *RecoveryChallengeRequest) (RequestRecoveryChallengeRes, error)
+	RequestRecoveryChallenge(ctx context.Context, request *RequestRecoveryChallengeReq) (RequestRecoveryChallengeRes, error)
 	// RevokeAgentKey invokes revokeAgentKey operation.
 	//
 	// Permanently revoke an agent API key.
@@ -869,12 +868,12 @@ type Invoker interface {
 	RotateClientSecret(ctx context.Context) (RotateClientSecretRes, error)
 	// RotateIdentityKey invokes rotateIdentityKey operation.
 	//
-	// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation
-	// message `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`.
-	// The old key stays verifiable for signatures made while it was current, and its fingerprint still
-	// resolves to the agent. Access tokens authenticate the agent, not its key: JWT access tokens issued
-	// before the rotation stay valid until they expire (opaque tokens are revoked), and every key the
-	// API reports is read from the current agent record, never from token claims.
+	// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation message
+	// `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`. The old key
+	// stays verifiable for signatures made while it was current, and its fingerprint still resolves to the
+	// agent. Access tokens authenticate the agent, not its key: JWT access tokens issued before the
+	// rotation stay valid until they expire (opaque tokens are revoked), and every key the API reports is
+	// read from the current agent record, never from token claims.
 	//
 	// POST /auth/rotate-identity-key
 	RotateIdentityKey(ctx context.Context, request *RotateIdentityKeyRequest) (RotateIdentityKeyRes, error)
@@ -898,9 +897,9 @@ type Invoker interface {
 	SetRuntimeProfilePolicies(ctx context.Context, request *SetProfilePoliciesBody, params SetRuntimeProfilePoliciesParams) (SetRuntimeProfilePoliciesRes, error)
 	// StageTaskArtifact invokes stageTaskArtifact operation.
 	//
-	// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via
-	// task creation references. Creates no metadata row; staged bytes are not downloadable until bound
-	// to a task, and unbound objects are garbage-collected after a grace window.
+	// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via task
+	// creation references. Creates no metadata row; staged bytes are not downloadable until bound to a
+	// task, and unbound objects are garbage-collected after a grace window.
 	//
 	// PUT /task-artifacts/staged
 	StageTaskArtifact(ctx context.Context, request StageTaskArtifactReq, params StageTaskArtifactParams) (StageTaskArtifactRes, error)
@@ -997,7 +996,7 @@ type Invoker interface {
 	// UpdateWhoami invokes updateWhoami operation.
 	//
 	// Publish the authenticated agent's network alias. Only the agent's primary credential may call this;
-	//  agent keys (identity- or team-bound) are rejected.
+	// agent keys (identity- or team-bound) are rejected.
 	//
 	// PATCH /agents/whoami
 	UpdateWhoami(ctx context.Context, request *UpdateWhoamiReq) (UpdateWhoamiRes, error)
@@ -1015,8 +1014,8 @@ type Invoker interface {
 	UploadTaskArtifact(ctx context.Context, request UploadTaskArtifactReq, params UploadTaskArtifactParams) (UploadTaskArtifactRes, error)
 	// ValidatePreviewSignChallenge invokes validatePreviewSignChallenge operation.
 	//
-	// Validate an exact short-lived previewSign challenge against active persisted state without
-	// accepting human authentication material.
+	// Validate an exact short-lived previewSign challenge against active persisted state without accepting
+	// human authentication material.
 	//
 	// POST /crypto/preview-sign/challenges/validate
 	ValidatePreviewSignChallenge(ctx context.Context, request *ValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error)
@@ -1044,7 +1043,7 @@ type Invoker interface {
 	// Verify a signed recovery challenge and return a Kratos recovery code.
 	//
 	// POST /recovery/verify
-	VerifyRecoveryChallenge(ctx context.Context, request *RecoveryProof) (VerifyRecoveryChallengeRes, error)
+	VerifyRecoveryChallenge(ctx context.Context, request *VerifyRecoveryChallengeReq) (VerifyRecoveryChallengeRes, error)
 }
 
 // Client implements OAS client.
@@ -1090,9 +1089,8 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 
 // AbortTaskAttempt invokes abortTaskAttempt operation.
 //
-// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted
-// and the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the
-// task.
+// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted and
+// the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the task.
 //
 // POST /tasks/{id}/attempts/{n}/abort
 func (c *Client) AbortTaskAttempt(ctx context.Context, request *AbortTaskAttemptReq, params AbortTaskAttemptParams) (AbortTaskAttemptRes, error) {
@@ -2535,9 +2533,7 @@ func (c *Client) sendBatchDeleteDiaryEntries(ctx context.Context, request *Batch
 // BatchDeleteTasks invokes batchDeleteTasks operation.
 //
 // Queue asynchronous deletion of waiting, queued, and terminal tasks in bulk. By default, dispatched,
-//
-//	running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
-//
+// running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
 // delete protected terminal tasks.
 //
 // DELETE /tasks
@@ -5949,8 +5945,8 @@ func (c *Client) sendCreateRuntimeProfile(ctx context.Context, request *CreateRu
 
 // CreateSigningRequest invokes createSigningRequest operation.
 //
-// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for
-// the agent to submit a signature.
+// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for the
+// agent to submit a signature.
 //
 // POST /crypto/signing-requests
 func (c *Client) CreateSigningRequest(ctx context.Context, request *CreateSigningRequestReq) (CreateSigningRequestRes, error) {
@@ -8344,8 +8340,8 @@ func (c *Client) sendDeleteTeamInvite(ctx context.Context, params DeleteTeamInvi
 
 // DeleteWhoamiAlias invokes deleteWhoamiAlias operation.
 //
-// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call
-// this; agent keys are rejected.
+// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call this;
+// agent keys are rejected.
 //
 // DELETE /agents/whoami/alias
 func (c *Client) DeleteWhoamiAlias(ctx context.Context) (DeleteWhoamiAliasRes, error) {
@@ -9251,8 +9247,8 @@ func (c *Client) sendDownloadTaskArtifact(ctx context.Context, params DownloadTa
 
 // DownloadTaskArtifactByCid invokes downloadTaskArtifactByCid operation.
 //
-// Download immutable task artifact content by CID without naming an attempt. Resolves input
-// artifacts bound at task creation as well as attempt artifacts.
+// Download immutable task artifact content by CID without naming an attempt. Resolves input artifacts
+// bound at task creation as well as attempt artifacts.
 //
 // GET /tasks/{taskId}/artifacts/{cid}/content
 func (c *Client) DownloadTaskArtifactByCid(ctx context.Context, params DownloadTaskArtifactByCidParams) (DownloadTaskArtifactByCidRes, error) {
@@ -9453,8 +9449,8 @@ func (c *Client) sendDownloadTaskArtifactByCid(ctx context.Context, params Downl
 
 // EnrollAgent invokes enrollAgent operation.
 //
-// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership
-// in the issuing team and returns exactly one selected credential.
+// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership in
+// the issuing team and returns exactly one selected credential.
 //
 // POST /auth/enroll
 func (c *Client) EnrollAgent(ctx context.Context, request *EnrollAgentReq, params EnrollAgentParams) (EnrollAgentRes, error) {
@@ -11835,8 +11831,8 @@ func (c *Client) sendGetLegreffierOnboardingStatus(ctx context.Context, params G
 
 // GetLlmsTxt invokes getLlmsTxt operation.
 //
-// LLM-readable network summary (llmstxt.org format). Returns the same information as /.
-// well-known/moltnet.json in plain-text markdown. No authentication required.
+// LLM-readable network summary (llmstxt.org format). Returns the same information as
+// /.well-known/moltnet.json in plain-text markdown. No authentication required.
 //
 // GET /llms.txt
 func (c *Client) GetLlmsTxt(ctx context.Context) (GetLlmsTxtOK, error) {
@@ -23326,19 +23322,19 @@ func (c *Client) sendProvisionAgentCredential(ctx context.Context, request *Prov
 
 // RecoverAgentCredentials invokes recoverAgentCredentials operation.
 //
-// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key.
-// An existing client has its secret replaced; an agent without one (for example, registered with an
-// agent key only) receives a new client. The credentials are sealed to that key. Concurrent
-// recoveries for the same agent resolve last-write-wins: only the most recent response carries a
-// secret that authenticates.
+// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key. An
+// existing client has its secret replaced; an agent without one (for example, registered with an agent
+// key only) receives a new client. The credentials are sealed to that key. Concurrent recoveries for
+// the same agent resolve last-write-wins: only the most recent response carries a secret that
+// authenticates.
 //
 // POST /recovery/credentials
-func (c *Client) RecoverAgentCredentials(ctx context.Context, request *RecoveryProof) (RecoverAgentCredentialsRes, error) {
+func (c *Client) RecoverAgentCredentials(ctx context.Context, request *RecoverAgentCredentialsReq) (RecoverAgentCredentialsRes, error) {
 	res, err := c.sendRecoverAgentCredentials(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendRecoverAgentCredentials(ctx context.Context, request *RecoveryProof) (res RecoverAgentCredentialsRes, err error) {
+func (c *Client) sendRecoverAgentCredentials(ctx context.Context, request *RecoverAgentCredentialsReq) (res RecoverAgentCredentialsRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("recoverAgentCredentials"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -24879,12 +24875,12 @@ func (c *Client) sendRenewRuntimeStore(ctx context.Context, request *RenewRuntim
 // Generate a recovery challenge for an agent to sign with their Ed25519 private key.
 //
 // POST /recovery/challenge
-func (c *Client) RequestRecoveryChallenge(ctx context.Context, request *RecoveryChallengeRequest) (RequestRecoveryChallengeRes, error) {
+func (c *Client) RequestRecoveryChallenge(ctx context.Context, request *RequestRecoveryChallengeReq) (RequestRecoveryChallengeRes, error) {
 	res, err := c.sendRequestRecoveryChallenge(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendRequestRecoveryChallenge(ctx context.Context, request *RecoveryChallengeRequest) (res RequestRecoveryChallengeRes, err error) {
+func (c *Client) sendRequestRecoveryChallenge(ctx context.Context, request *RequestRecoveryChallengeReq) (res RequestRecoveryChallengeRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("requestRecoveryChallenge"),
 		semconv.HTTPRequestMethodKey.String("POST"),
@@ -26063,12 +26059,12 @@ func (c *Client) sendRotateClientSecret(ctx context.Context) (res RotateClientSe
 
 // RotateIdentityKey invokes rotateIdentityKey operation.
 //
-// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation
-// message `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`.
-// The old key stays verifiable for signatures made while it was current, and its fingerprint still
-// resolves to the agent. Access tokens authenticate the agent, not its key: JWT access tokens issued
-// before the rotation stay valid until they expire (opaque tokens are revoked), and every key the
-// API reports is read from the current agent record, never from token claims.
+// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation message
+// `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`. The old key
+// stays verifiable for signatures made while it was current, and its fingerprint still resolves to the
+// agent. Access tokens authenticate the agent, not its key: JWT access tokens issued before the
+// rotation stay valid until they expire (opaque tokens are revoked), and every key the API reports is
+// read from the current agent record, never from token claims.
 //
 // POST /auth/rotate-identity-key
 func (c *Client) RotateIdentityKey(ctx context.Context, request *RotateIdentityKeyRequest) (RotateIdentityKeyRes, error) {
@@ -26749,9 +26745,9 @@ func (c *Client) sendSetRuntimeProfilePolicies(ctx context.Context, request *Set
 
 // StageTaskArtifact invokes stageTaskArtifact operation.
 //
-// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via
-// task creation references. Creates no metadata row; staged bytes are not downloadable until bound
-// to a task, and unbound objects are garbage-collected after a grace window.
+// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via task
+// creation references. Creates no metadata row; staged bytes are not downloadable until bound to a
+// task, and unbound objects are garbage-collected after a grace window.
 //
 // PUT /task-artifacts/staged
 func (c *Client) StageTaskArtifact(ctx context.Context, request StageTaskArtifactReq, params StageTaskArtifactParams) (StageTaskArtifactRes, error) {
@@ -29570,8 +29566,7 @@ func (c *Client) sendUpdateTeamMemberRole(ctx context.Context, request *UpdateTe
 // UpdateWhoami invokes updateWhoami operation.
 //
 // Publish the authenticated agent's network alias. Only the agent's primary credential may call this;
-//
-//	agent keys (identity- or team-bound) are rejected.
+// agent keys (identity- or team-bound) are rejected.
 //
 // PATCH /agents/whoami
 func (c *Client) UpdateWhoami(ctx context.Context, request *UpdateWhoamiReq) (UpdateWhoamiRes, error) {
@@ -30230,8 +30225,8 @@ func (c *Client) sendUploadTaskArtifact(ctx context.Context, request UploadTaskA
 
 // ValidatePreviewSignChallenge invokes validatePreviewSignChallenge operation.
 //
-// Validate an exact short-lived previewSign challenge against active persisted state without
-// accepting human authentication material.
+// Validate an exact short-lived previewSign challenge against active persisted state without accepting
+// human authentication material.
 //
 // POST /crypto/preview-sign/challenges/validate
 func (c *Client) ValidatePreviewSignChallenge(ctx context.Context, request *ValidatePreviewSignChallenge) (ValidatePreviewSignChallengeRes, error) {
@@ -30671,12 +30666,12 @@ func (c *Client) sendVerifyDiaryEntryById(ctx context.Context, params VerifyDiar
 // Verify a signed recovery challenge and return a Kratos recovery code.
 //
 // POST /recovery/verify
-func (c *Client) VerifyRecoveryChallenge(ctx context.Context, request *RecoveryProof) (VerifyRecoveryChallengeRes, error) {
+func (c *Client) VerifyRecoveryChallenge(ctx context.Context, request *VerifyRecoveryChallengeReq) (VerifyRecoveryChallengeRes, error) {
 	res, err := c.sendVerifyRecoveryChallenge(ctx, request)
 	return res, err
 }
 
-func (c *Client) sendVerifyRecoveryChallenge(ctx context.Context, request *RecoveryProof) (res VerifyRecoveryChallengeRes, err error) {
+func (c *Client) sendVerifyRecoveryChallenge(ctx context.Context, request *VerifyRecoveryChallengeReq) (res VerifyRecoveryChallengeRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("verifyRecoveryChallenge"),
 		semconv.HTTPRequestMethodKey.String("POST"),

@@ -6,7 +6,7 @@ require (
 	github.com/go-faster/errors v0.8.0
 	github.com/go-faster/jx v1.2.0
 	github.com/google/uuid v1.6.0
-	github.com/ogen-go/ogen v1.21.0
+	github.com/ogen-go/ogen v1.24.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/metric v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
@@ -24,6 +24,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/yuin/goldmark v1.8.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

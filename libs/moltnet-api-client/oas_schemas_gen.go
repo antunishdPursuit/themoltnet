@@ -18208,7 +18208,7 @@ type EnrollAgentReq struct {
 	CredentialType EnrollAgentReqCredentialType `json:"credentialType"`
 	// Base64-encoded Ed25519 signature of the registration message.
 	Proof string `json:"proof"`
-	// Ed25519 public key in "ed25519:<base64>" format (32-byte raw key).
+	// Ed25519 public key in "ed25519:" format (32-byte raw key).
 	PublicKey string `json:"publicKey"`
 	// Single-use or limited-use team invite code.
 	Token string `json:"token"`
@@ -46662,31 +46662,55 @@ type RecoverAgentCredentialsInternalServerError ProblemDetails
 
 func (*RecoverAgentCredentialsInternalServerError) recoverAgentCredentialsRes() {}
 
-// Ref: #/components/schemas/RecoveryChallengeRequest
-type RecoveryChallengeRequest struct {
+// Merged schema.
+type RecoverAgentCredentialsReq struct {
+	Challenge string `json:"challenge"`
+	// Hex-encoded HMAC-SHA256.
+	Hmac string `json:"hmac"`
 	// Ed25519 public key with prefix.
-	PublicKey string          `json:"publicKey"`
-	Purpose   RecoveryPurpose `json:"purpose"`
+	PublicKey string `json:"publicKey"`
+	// Base64-encoded Ed25519 signature of the challenge.
+	Signature string `json:"signature"`
+}
+
+// GetChallenge returns the value of Challenge.
+func (s *RecoverAgentCredentialsReq) GetChallenge() string {
+	return s.Challenge
+}
+
+// GetHmac returns the value of Hmac.
+func (s *RecoverAgentCredentialsReq) GetHmac() string {
+	return s.Hmac
 }
 
 // GetPublicKey returns the value of PublicKey.
-func (s *RecoveryChallengeRequest) GetPublicKey() string {
+func (s *RecoverAgentCredentialsReq) GetPublicKey() string {
 	return s.PublicKey
 }
 
-// GetPurpose returns the value of Purpose.
-func (s *RecoveryChallengeRequest) GetPurpose() RecoveryPurpose {
-	return s.Purpose
+// GetSignature returns the value of Signature.
+func (s *RecoverAgentCredentialsReq) GetSignature() string {
+	return s.Signature
+}
+
+// SetChallenge sets the value of Challenge.
+func (s *RecoverAgentCredentialsReq) SetChallenge(val string) {
+	s.Challenge = val
+}
+
+// SetHmac sets the value of Hmac.
+func (s *RecoverAgentCredentialsReq) SetHmac(val string) {
+	s.Hmac = val
 }
 
 // SetPublicKey sets the value of PublicKey.
-func (s *RecoveryChallengeRequest) SetPublicKey(val string) {
+func (s *RecoverAgentCredentialsReq) SetPublicKey(val string) {
 	s.PublicKey = val
 }
 
-// SetPurpose sets the value of Purpose.
-func (s *RecoveryChallengeRequest) SetPurpose(val RecoveryPurpose) {
-	s.Purpose = val
+// SetSignature sets the value of Signature.
+func (s *RecoverAgentCredentialsReq) SetSignature(val string) {
+	s.Signature = val
 }
 
 // Ref: #/components/schemas/RecoveryChallengeResponse
@@ -46750,57 +46774,6 @@ func (s *RecoveryCredentialsResponse) SetSealedClientSecret(val string) {
 }
 
 func (*RecoveryCredentialsResponse) recoverAgentCredentialsRes() {}
-
-// Ref: #/components/schemas/RecoveryProof
-type RecoveryProof struct {
-	Challenge string `json:"challenge"`
-	// Hex-encoded HMAC-SHA256.
-	Hmac string `json:"hmac"`
-	// Ed25519 public key with prefix.
-	PublicKey string `json:"publicKey"`
-	// Base64-encoded Ed25519 signature of the challenge.
-	Signature string `json:"signature"`
-}
-
-// GetChallenge returns the value of Challenge.
-func (s *RecoveryProof) GetChallenge() string {
-	return s.Challenge
-}
-
-// GetHmac returns the value of Hmac.
-func (s *RecoveryProof) GetHmac() string {
-	return s.Hmac
-}
-
-// GetPublicKey returns the value of PublicKey.
-func (s *RecoveryProof) GetPublicKey() string {
-	return s.PublicKey
-}
-
-// GetSignature returns the value of Signature.
-func (s *RecoveryProof) GetSignature() string {
-	return s.Signature
-}
-
-// SetChallenge sets the value of Challenge.
-func (s *RecoveryProof) SetChallenge(val string) {
-	s.Challenge = val
-}
-
-// SetHmac sets the value of Hmac.
-func (s *RecoveryProof) SetHmac(val string) {
-	s.Hmac = val
-}
-
-// SetPublicKey sets the value of PublicKey.
-func (s *RecoveryProof) SetPublicKey(val string) {
-	s.PublicKey = val
-}
-
-// SetSignature sets the value of Signature.
-func (s *RecoveryProof) SetSignature(val string) {
-	s.Signature = val
-}
 
 // Ref: #/components/schemas/RecoveryPurpose
 type RecoveryPurpose string
@@ -46898,7 +46871,7 @@ type RegisterAgentReq struct {
 	CredentialType RegisterAgentReqCredentialType `json:"credentialType"`
 	// Base64-encoded Ed25519 signature of the registration message.
 	Proof string `json:"proof"`
-	// Ed25519 public key in "ed25519:<base64>" format (32-byte raw key).
+	// Ed25519 public key in "ed25519:" format (32-byte raw key).
 	PublicKey string `json:"publicKey"`
 }
 
@@ -48627,6 +48600,33 @@ type RequestRecoveryChallengeInternalServerError ProblemDetails
 
 func (*RequestRecoveryChallengeInternalServerError) requestRecoveryChallengeRes() {}
 
+// Merged schema.
+type RequestRecoveryChallengeReq struct {
+	// Ed25519 public key with prefix.
+	PublicKey string          `json:"publicKey"`
+	Purpose   RecoveryPurpose `json:"purpose"`
+}
+
+// GetPublicKey returns the value of PublicKey.
+func (s *RequestRecoveryChallengeReq) GetPublicKey() string {
+	return s.PublicKey
+}
+
+// GetPurpose returns the value of Purpose.
+func (s *RequestRecoveryChallengeReq) GetPurpose() RecoveryPurpose {
+	return s.Purpose
+}
+
+// SetPublicKey sets the value of PublicKey.
+func (s *RequestRecoveryChallengeReq) SetPublicKey(val string) {
+	s.PublicKey = val
+}
+
+// SetPurpose sets the value of Purpose.
+func (s *RequestRecoveryChallengeReq) SetPurpose(val RecoveryPurpose) {
+	s.Purpose = val
+}
+
 type RevokeAgentKeyBadGateway ProblemDetails
 
 func (*RevokeAgentKeyBadGateway) revokeAgentKeyRes() {}
@@ -49217,7 +49217,7 @@ type RotateIdentityKeyRequest struct {
 	IssuedAt time.Time `json:"issuedAt"`
 	// Base64 Ed25519 signature of the rotation message by the new key.
 	NewKeySignature string `json:"newKeySignature"`
-	// Replacement raw 32-byte Ed25519 public key, "ed25519:<base64>".
+	// Replacement raw 32-byte Ed25519 public key, "ed25519:".
 	NewPublicKey string `json:"newPublicKey"`
 	// Base64 Ed25519 signature of the rotation message by the current identity key.
 	PreviousKeySignature string `json:"previousKeySignature"`
@@ -55836,8 +55836,8 @@ type TaskActivityProductMetrics struct {
 	Hurdles TaskActivityProductMetricsHurdles `json:"hurdles"`
 	// Knowledge leverage metrics: diary search/get and pack retrieval usage per accepted task.
 	Knowledge TaskActivityProductMetricsKnowledge `json:"knowledge"`
-	// Productivity metrics: accepted task throughput and attempt/turn/tool-call effort required to
-	// finish work.
+	// Productivity metrics: accepted task throughput and attempt/turn/tool-call effort required to finish
+	// work.
 	Productivity TaskActivityProductMetricsProductivity `json:"productivity"`
 	Raw          TaskActivityProductMetricsRaw          `json:"raw"`
 	// Token-efficiency ROI metrics: token totals, accepted work per token, tokens per accepted task, and
@@ -56062,8 +56062,8 @@ func (s *TaskActivityProductMetricsKnowledge) SetPackGetCount(val int) {
 	s.PackGetCount = val
 }
 
-// Productivity metrics: accepted task throughput and attempt/turn/tool-call effort required to
-// finish work.
+// Productivity metrics: accepted task throughput and attempt/turn/tool-call effort required to finish
+// work.
 type TaskActivityProductMetricsProductivity struct {
 	AcceptedTasksPerDay            float64    `json:"acceptedTasksPerDay"`
 	AttemptCount                   int        `json:"attemptCount"`
@@ -56267,8 +56267,8 @@ func (s *TaskActivityProductMetricsRoi) SetTotalTokens(val int) {
 // Task success metrics: accepted output rate, first-attempt success, retry recovery, and terminal
 // failure.
 type TaskActivityProductMetricsSuccess struct {
-	// Accepted task ratio: acceptedTaskCount / taskCount. Product intent: how often tasks produce
-	// accepted outputs.
+	// Accepted task ratio: acceptedTaskCount / taskCount. Product intent: how often tasks produce accepted
+	// outputs.
 	AcceptedOutputRate float64 `json:"acceptedOutputRate"`
 	AcceptedTaskCount  int     `json:"acceptedTaskCount"`
 	// First-attempt success ratio. Product intent: how often work succeeds without retry friction.
@@ -59360,8 +59360,8 @@ func (*UpdateRenderedPackNotFound) updateRenderedPackRes() {}
 
 // At least one field must be provided. See route handler for field-combination constraints.
 type UpdateRenderedPackReq struct {
-	// Activation language for AgentSkills installations. Sidecar metadata; not part of the pack CID.
-	// Pass null to clear.
+	// Activation language for AgentSkills installations. Sidecar metadata; not part of the pack CID. Pass
+	// null to clear.
 	Description OptNilString `json:"description"`
 	// Explicit GC deadline. Must be in the future and cannot be set on a pinned pack. Optional when
 	// unpinning: omit it to let the server apply its retention window.
@@ -65669,6 +65669,57 @@ func (*VerifyRecoveryChallengeBadRequest) verifyRecoveryChallengeRes() {}
 type VerifyRecoveryChallengeInternalServerError ProblemDetails
 
 func (*VerifyRecoveryChallengeInternalServerError) verifyRecoveryChallengeRes() {}
+
+// Merged schema.
+type VerifyRecoveryChallengeReq struct {
+	Challenge string `json:"challenge"`
+	// Hex-encoded HMAC-SHA256.
+	Hmac string `json:"hmac"`
+	// Ed25519 public key with prefix.
+	PublicKey string `json:"publicKey"`
+	// Base64-encoded Ed25519 signature of the challenge.
+	Signature string `json:"signature"`
+}
+
+// GetChallenge returns the value of Challenge.
+func (s *VerifyRecoveryChallengeReq) GetChallenge() string {
+	return s.Challenge
+}
+
+// GetHmac returns the value of Hmac.
+func (s *VerifyRecoveryChallengeReq) GetHmac() string {
+	return s.Hmac
+}
+
+// GetPublicKey returns the value of PublicKey.
+func (s *VerifyRecoveryChallengeReq) GetPublicKey() string {
+	return s.PublicKey
+}
+
+// GetSignature returns the value of Signature.
+func (s *VerifyRecoveryChallengeReq) GetSignature() string {
+	return s.Signature
+}
+
+// SetChallenge sets the value of Challenge.
+func (s *VerifyRecoveryChallengeReq) SetChallenge(val string) {
+	s.Challenge = val
+}
+
+// SetHmac sets the value of Hmac.
+func (s *VerifyRecoveryChallengeReq) SetHmac(val string) {
+	s.Hmac = val
+}
+
+// SetPublicKey sets the value of PublicKey.
+func (s *VerifyRecoveryChallengeReq) SetPublicKey(val string) {
+	s.PublicKey = val
+}
+
+// SetSignature sets the value of Signature.
+func (s *VerifyRecoveryChallengeReq) SetSignature(val string) {
+	s.Signature = val
+}
 
 // Ref: #/components/schemas/VerifyResult
 type VerifyResult struct {

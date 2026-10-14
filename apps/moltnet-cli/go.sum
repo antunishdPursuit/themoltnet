@@ -68,8 +68,8 @@ github.com/multiformats/go-varint v0.1.0 h1:i2wqFp4sdl3IcIxfAonHQV9qU5OsZ4Ts9IOo
 github.com/multiformats/go-varint v0.1.0/go.mod h1:5KVAVXegtfmNQQm/lCY+ATvDzvJJhSkUlGQV9wgObdI=
 github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0A=
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
-github.com/ogen-go/ogen v1.21.0 h1:3nC59sHOGmAzDtPclUmUPeOpcctKc/jzcHsXCz7W7go=
-github.com/ogen-go/ogen v1.21.0/go.mod h1:RZTsgaQWHIslhzm+kiwNAeklUwnY9ZZyjsZ4l5QWMSQ=
+github.com/ogen-go/ogen v1.24.0 h1:NehBG/8s0JeM6jYHPJeFJntBG3cE/xQgZd1q8BchPNM=
+github.com/ogen-go/ogen v1.24.0/go.mod h1:hcg4aTzLcu/MS1SGGahUriPBEOZB3c82RGIC6dYcdFU=
 github.com/rogpeppe/go-internal v1.15.0 h1:D0RCU5rMAp+SpgkiNdrjfJ+LX4J1M32V2NeCY7EJ6hc=
 github.com/rogpeppe/go-internal v1.15.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=

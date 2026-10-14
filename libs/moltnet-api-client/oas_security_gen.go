@@ -14,7 +14,7 @@ import (
 // SecurityHandler is handler for security parameters.
 type SecurityHandler interface {
 	// HandleAgentKeyAuth handles agentKeyAuth security.
-	// Agent key sent as Authorization: Bearer <agent-key>. Use on operations that accept agent keys.
+	// Agent key sent as Authorization: Bearer . Use on operations that accept agent keys.
 	HandleAgentKeyAuth(ctx context.Context, operationName OperationName, t AgentKeyAuth) (context.Context, error)
 	// HandleBearerAuth handles bearerAuth security.
 	// OAuth2 access token from Ory Hydra (agent auth via client_credentials flow).
@@ -23,14 +23,14 @@ type SecurityHandler interface {
 	// Kratos session cookie set automatically by the browser after self-service login. Resolved via
 	// FrontendApi.toSession({ cookie }). The API forwards the raw Cookie header to Kratos unchanged, so
 	// any Kratos cookie name is accepted at runtime — the self-hosted default is `ory_kratos_session`
-	// and Ory Network uses `ory_session_<slug>`. **Note for SDK users:** the `name` field above is the
+	// and Ory Network uses `ory_session_<slug>`. Note for SDK users: the `name` field above is the
 	// self-hosted default for the benefit of generated clients; if you are on Ory Network, your cookie
 	// will be named `ory_session_<your-project-slug>` and you will need to override the cookie name in
 	// your SDK client (the server accepts either).
 	HandleCookieAuth(ctx context.Context, operationName OperationName, t CookieAuth) (context.Context, error)
 	// HandleSessionAuth handles sessionAuth security.
-	// Kratos session token for human users on native clients (console/dashboard CLI-style auth).
-	// Resolved via FrontendApi.toSession({ xSessionToken }).
+	// Kratos session token for human users on native clients (console/dashboard CLI-style auth). Resolved
+	// via FrontendApi.toSession({ xSessionToken }).
 	HandleSessionAuth(ctx context.Context, operationName OperationName, t SessionAuth) (context.Context, error)
 }
 
@@ -798,7 +798,7 @@ func (s *Server) securitySessionAuth(ctx context.Context, operationName Operatio
 // SecuritySource is provider of security values (tokens, passwords, etc.).
 type SecuritySource interface {
 	// AgentKeyAuth provides agentKeyAuth security value.
-	// Agent key sent as Authorization: Bearer <agent-key>. Use on operations that accept agent keys.
+	// Agent key sent as Authorization: Bearer . Use on operations that accept agent keys.
 	AgentKeyAuth(ctx context.Context, operationName OperationName) (AgentKeyAuth, error)
 	// BearerAuth provides bearerAuth security value.
 	// OAuth2 access token from Ory Hydra (agent auth via client_credentials flow).
@@ -807,14 +807,14 @@ type SecuritySource interface {
 	// Kratos session cookie set automatically by the browser after self-service login. Resolved via
 	// FrontendApi.toSession({ cookie }). The API forwards the raw Cookie header to Kratos unchanged, so
 	// any Kratos cookie name is accepted at runtime — the self-hosted default is `ory_kratos_session`
-	// and Ory Network uses `ory_session_<slug>`. **Note for SDK users:** the `name` field above is the
+	// and Ory Network uses `ory_session_<slug>`. Note for SDK users: the `name` field above is the
 	// self-hosted default for the benefit of generated clients; if you are on Ory Network, your cookie
 	// will be named `ory_session_<your-project-slug>` and you will need to override the cookie name in
 	// your SDK client (the server accepts either).
 	CookieAuth(ctx context.Context, operationName OperationName) (CookieAuth, error)
 	// SessionAuth provides sessionAuth security value.
-	// Kratos session token for human users on native clients (console/dashboard CLI-style auth).
-	// Resolved via FrontendApi.toSession({ xSessionToken }).
+	// Kratos session token for human users on native clients (console/dashboard CLI-style auth). Resolved
+	// via FrontendApi.toSession({ xSessionToken }).
 	SessionAuth(ctx context.Context, operationName OperationName) (SessionAuth, error)
 }
 

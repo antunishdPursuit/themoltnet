@@ -9,7 +9,7 @@ require (
 	github.com/ipfs/go-cid v0.6.2
 	github.com/joho/godotenv v1.5.1
 	github.com/multiformats/go-multihash v0.2.3
-	github.com/ogen-go/ogen v1.21.0
+	github.com/ogen-go/ogen v1.24.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/spf13/cobra v1.10.2
 	github.com/vektah/gqlparser/v2 v2.5.62

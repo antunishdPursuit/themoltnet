@@ -599,7 +599,7 @@ func encodeProvisionAgentCredentialRequest(
 }
 
 func encodeRecoverAgentCredentialsRequest(
-	req *RecoveryProof,
+	req *RecoverAgentCredentialsReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
@@ -697,7 +697,7 @@ func encodeRenewRuntimeStoreRequest(
 }
 
 func encodeRequestRecoveryChallengeRequest(
-	req *RecoveryChallengeRequest,
+	req *RequestRecoveryChallengeReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"
@@ -1105,7 +1105,7 @@ func encodeVerifyCryptoSignatureRequest(
 }
 
 func encodeVerifyRecoveryChallengeRequest(
-	req *RecoveryProof,
+	req *VerifyRecoveryChallengeReq,
 	r *http.Request,
 ) error {
 	const contentType = "application/json"

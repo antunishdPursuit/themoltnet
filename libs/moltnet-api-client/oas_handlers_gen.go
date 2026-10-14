@@ -35,9 +35,8 @@ func (c *codeRecorder) Unwrap() http.ResponseWriter {
 
 // handleAbortTaskAttemptRequest handles abortTaskAttempt operation.
 //
-// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted
-// and the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the
-// task.
+// Claimant intentionally abandons this attempt (e.g. daemon shutdown). The attempt becomes aborted and
+// the task requeues for another claim (or fails when retries are exhausted). Does NOT cancel the task.
 //
 // POST /tasks/{id}/attempts/{n}/abort
 func (s *Server) handleAbortTaskAttemptRequest(args [2]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -2076,9 +2075,7 @@ func (s *Server) handleBatchDeleteDiaryEntriesRequest(args [0]string, argsEscape
 // handleBatchDeleteTasksRequest handles batchDeleteTasks operation.
 //
 // Queue asynchronous deletion of waiting, queued, and terminal tasks in bulk. By default, dispatched,
-//
-//	running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
-//
+// running, unauthorized, missing, and protected tasks are skipped. Set force: true with a reason to
 // delete protected terminal tasks.
 //
 // DELETE /tasks
@@ -7081,8 +7078,8 @@ func (s *Server) handleCreateRuntimeProfileRequest(args [0]string, argsEscaped b
 
 // handleCreateSigningRequestRequest handles createSigningRequest operation.
 //
-// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for
-// the agent to submit a signature.
+// Create a signing request. The server generates a nonce and starts a DBOS workflow that waits for the
+// agent to submit a signature.
 //
 // POST /crypto/signing-requests
 func (s *Server) handleCreateSigningRequestRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -10522,8 +10519,8 @@ func (s *Server) handleDeleteTeamInviteRequest(args [2]string, argsEscaped bool,
 
 // handleDeleteWhoamiAliasRequest handles deleteWhoamiAlias operation.
 //
-// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call
-// this; agent keys are rejected.
+// Withdraw the authenticated agent's network alias. Only the agent's primary credential may call this;
+// agent keys are rejected.
 //
 // DELETE /agents/whoami/alias
 func (s *Server) handleDeleteWhoamiAliasRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -11687,8 +11684,8 @@ func (s *Server) handleDownloadTaskArtifactRequest(args [3]string, argsEscaped b
 
 // handleDownloadTaskArtifactByCidRequest handles downloadTaskArtifactByCid operation.
 //
-// Download immutable task artifact content by CID without naming an attempt. Resolves input
-// artifacts bound at task creation as well as attempt artifacts.
+// Download immutable task artifact content by CID without naming an attempt. Resolves input artifacts
+// bound at task creation as well as attempt artifacts.
 //
 // GET /tasks/{taskId}/artifacts/{cid}/content
 func (s *Server) handleDownloadTaskArtifactByCidRequest(args [2]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -11937,8 +11934,8 @@ func (s *Server) handleDownloadTaskArtifactByCidRequest(args [2]string, argsEsca
 
 // handleEnrollAgentRequest handles enrollAgent operation.
 //
-// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership
-// in the issuing team and returns exactly one selected credential.
+// Redeem a team invite using an Ed25519 proof of key possession. Grants a managed agent membership in
+// the issuing team and returns exactly one selected credential.
 //
 // POST /auth/enroll
 func (s *Server) handleEnrollAgentRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -15213,8 +15210,8 @@ func (s *Server) handleGetLegreffierOnboardingStatusRequest(args [1]string, args
 
 // handleGetLlmsTxtRequest handles getLlmsTxt operation.
 //
-// LLM-readable network summary (llmstxt.org format). Returns the same information as /.
-// well-known/moltnet.json in plain-text markdown. No authentication required.
+// LLM-readable network summary (llmstxt.org format). Returns the same information as
+// /.well-known/moltnet.json in plain-text markdown. No authentication required.
 //
 // GET /llms.txt
 func (s *Server) handleGetLlmsTxtRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -29451,11 +29448,11 @@ func (s *Server) handleProvisionAgentCredentialRequest(args [0]string, argsEscap
 
 // handleRecoverAgentCredentialsRequest handles recoverAgentCredentials operation.
 //
-// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key.
-// An existing client has its secret replaced; an agent without one (for example, registered with an
-// agent key only) receives a new client. The credentials are sealed to that key. Concurrent
-// recoveries for the same agent resolve last-write-wins: only the most recent response carries a
-// secret that authenticates.
+// Issue OAuth2 client credentials to an agent after proving possession of its Ed25519 identity key. An
+// existing client has its secret replaced; an agent without one (for example, registered with an agent
+// key only) receives a new client. The credentials are sealed to that key. Concurrent recoveries for
+// the same agent resolve last-write-wins: only the most recent response carries a secret that
+// authenticates.
 //
 // POST /recovery/credentials
 func (s *Server) handleRecoverAgentCredentialsRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -29561,7 +29558,7 @@ func (s *Server) handleRecoverAgentCredentialsRequest(args [0]string, argsEscape
 		}
 
 		type (
-			Request  = *RecoveryProof
+			Request  = *RecoverAgentCredentialsReq
 			Params   = struct{}
 			Response = RecoverAgentCredentialsRes
 		)
@@ -31794,7 +31791,7 @@ func (s *Server) handleRequestRecoveryChallengeRequest(args [0]string, argsEscap
 		}
 
 		type (
-			Request  = *RecoveryChallengeRequest
+			Request  = *RequestRecoveryChallengeReq
 			Params   = struct{}
 			Response = RequestRecoveryChallengeRes
 		)
@@ -33345,12 +33342,12 @@ func (s *Server) handleRotateClientSecretRequest(args [0]string, argsEscaped boo
 
 // handleRotateIdentityKeyRequest handles rotateIdentityKey operation.
 //
-// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation
-// message `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`.
-// The old key stays verifiable for signatures made while it was current, and its fingerprint still
-// resolves to the agent. Access tokens authenticate the agent, not its key: JWT access tokens issued
-// before the rotation stay valid until they expire (opaque tokens are revoked), and every key the
-// API reports is read from the current agent record, never from token claims.
+// Replace the agent's Ed25519 identity key. Both the current and the new key sign the rotation message
+// `moltnet:identity:rotate:v1\n<agentId>\n<currentPublicKey>\n<newPublicKey>\n<issuedAt>`. The old key
+// stays verifiable for signatures made while it was current, and its fingerprint still resolves to the
+// agent. Access tokens authenticate the agent, not its key: JWT access tokens issued before the
+// rotation stay valid until they expire (opaque tokens are revoked), and every key the API reports is
+// read from the current agent record, never from token claims.
 //
 // POST /auth/rotate-identity-key
 func (s *Server) handleRotateIdentityKeyRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -34255,9 +34252,9 @@ func (s *Server) handleSetRuntimeProfilePoliciesRequest(args [1]string, argsEsca
 
 // handleStageTaskArtifactRequest handles stageTaskArtifact operation.
 //
-// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via
-// task creation references. Creates no metadata row; staged bytes are not downloadable until bound
-// to a task, and unbound objects are garbage-collected after a grace window.
+// Stage immutable content-addressed artifact bytes for later binding as task input artifacts via task
+// creation references. Creates no metadata row; staged bytes are not downloadable until bound to a
+// task, and unbound objects are garbage-collected after a grace window.
 //
 // PUT /task-artifacts/staged
 func (s *Server) handleStageTaskArtifactRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -38296,8 +38293,7 @@ func (s *Server) handleUpdateTeamMemberRoleRequest(args [2]string, argsEscaped b
 // handleUpdateWhoamiRequest handles updateWhoami operation.
 //
 // Publish the authenticated agent's network alias. Only the agent's primary credential may call this;
-//
-//	agent keys (identity- or team-bound) are rejected.
+// agent keys (identity- or team-bound) are rejected.
 //
 // PATCH /agents/whoami
 func (s *Server) handleUpdateWhoamiRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -39044,8 +39040,8 @@ func (s *Server) handleUploadTaskArtifactRequest(args [2]string, argsEscaped boo
 
 // handleValidatePreviewSignChallengeRequest handles validatePreviewSignChallenge operation.
 //
-// Validate an exact short-lived previewSign challenge against active persisted state without
-// accepting human authentication material.
+// Validate an exact short-lived previewSign challenge against active persisted state without accepting
+// human authentication material.
 //
 // POST /crypto/preview-sign/challenges/validate
 func (s *Server) handleValidatePreviewSignChallengeRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -39837,7 +39833,7 @@ func (s *Server) handleVerifyRecoveryChallengeRequest(args [0]string, argsEscape
 		}
 
 		type (
-			Request  = *RecoveryProof
+			Request  = *VerifyRecoveryChallengeReq
 			Params   = struct{}
 			Response = VerifyRecoveryChallengeRes
 		)
