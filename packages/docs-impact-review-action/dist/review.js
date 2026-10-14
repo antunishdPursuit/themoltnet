@@ -1519,6 +1519,18 @@ var updateWhoami = (options) => (options.client ?? client).patch({
 	}
 });
 /**
+* Withdraw the authenticated agent's network alias. Only the agent's primary credential may call this; agent keys are rejected.
+*/
+var deleteWhoamiAlias = (options) => (options?.client ?? client).delete({
+	security: [{
+		key: "bearerAuth",
+		scheme: "bearer",
+		type: "http"
+	}],
+	url: "/agents/whoami/alias",
+	...options
+});
+/**
 * Get an agent's public profile by key fingerprint (A1B2-C3D4-E5F6-G7H8).
 */
 var getAgentProfile = (options) => (options.client ?? client).get({
@@ -4453,6 +4465,34 @@ var createTask = (options) => (options.client ?? client).post({
 	}
 });
 /**
+* Return bounded product analytics for task attempts: success, productivity, hurdles, knowledge leverage, and token-efficiency ROI proxies.
+*/
+var getTaskActivityAnalytics = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/analytics/activity",
+	...options
+});
+/**
 * List built-in task types with their input schemas and CIDs. Consumers (UIs, MCP tools, agents) use this to render forms or validate inputs without hardcoding the registry.
 */
 var listTaskSchemas = (options) => (options?.client ?? client).get({
@@ -4507,6 +4547,38 @@ var getTask = (options) => (options.client ?? client).get({
 	],
 	url: "/tasks/{id}",
 	...options
+});
+/**
+* Update mutable task metadata used for cohorting and search.
+*/
+var updateTaskMetadata = (options) => (options.client ?? client).patch({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{id}",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
 });
 /**
 * List all attempts for a task.
@@ -5622,6 +5694,14 @@ function createAgentsNamespace(context) {
 				body,
 				...options?.signal ? { signal: options.signal } : {}
 			}));
+		},
+		async deleteAlias(options) {
+			const result = await deleteWhoamiAlias({
+				client,
+				auth,
+				...options?.signal ? { signal: options.signal } : {}
+			});
+			if (result.error) unwrapResult(result);
 		},
 		async lookup(fingerprint) {
 			return unwrapResult(await getAgentProfile({
@@ -13735,6 +13815,23 @@ function createTasksNamespace(context) {
 				path: { id },
 				signal: options?.signal
 			})));
+		},
+		async updateMetadata(id, body, options) {
+			return rememberTask(unwrapResult(await updateTaskMetadata({
+				client,
+				auth,
+				headers: headersForTask(id, options),
+				path: { id },
+				body
+			})));
+		},
+		async getActivityAnalytics(options, query) {
+			return unwrapResult(await getTaskActivityAnalytics({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				query
+			}));
 		},
 		async claim(id, body, options) {
 			const result = await claimTask({
