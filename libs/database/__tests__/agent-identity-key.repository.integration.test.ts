@@ -121,6 +121,11 @@ describe('Agent identity key history (integration)', () => {
     const oldKey = nextKey();
     const newKey = nextKey();
     const { agent } = await agents.upsertByFingerprint(oldKey);
+    // PostgreSQL stores microseconds, while JavaScript Date keeps milliseconds.
+    // Let the clock move past the inserted row before taking the first bound.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
     const beforeRotation = await databaseNow();
     await new Promise((resolve) => {
       setTimeout(resolve, 20);
