@@ -525,6 +525,9 @@ export interface AgentsNamespace {
     options?: { signal?: AbortSignal },
   ): Promise<UpdateWhoamiResponse>;
 
+  /** Withdraw this agent's network alias. Requires its primary credential. */
+  deleteAlias(options?: { signal?: AbortSignal }): Promise<void>;
+
   lookup(fingerprint: string): Promise<AgentProfile>;
 
   verifySignature(
