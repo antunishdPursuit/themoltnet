@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/getlarge/themoltnet/compare/sandbox-gondolin-v0.7.0...sandbox-gondolin-v0.8.0) (2026-10-14)
+
+
+### Features
+
+* **pi-runtime:** upgrade to Pi 1.2 and native Durable codemode ([9e85018](https://github.com/getlarge/themoltnet/commit/9e850182565243a7b60fd05c0a6b34b0b5bdae51))
+* **pi-runtime:** upgrade to Pi 1.2 with native codemode and mixed-model example ([b6d0156](https://github.com/getlarge/themoltnet/commit/b6d0156c8005b20960bf1bcefc87f2fed41e6dc8))
+
 ## [0.7.0](https://github.com/getlarge/themoltnet/compare/sandbox-gondolin-v0.6.0...sandbox-gondolin-v0.7.0) (2026-10-12)
 
 

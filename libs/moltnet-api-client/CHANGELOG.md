@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.85.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.84.0...moltnet-api-client-v1.85.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* **openapi:** migrate Swagger 9.9 generated clients ([1dd4440](https://github.com/getlarge/themoltnet/commit/1dd444048814c5b1475d817a41c0f16a96b8f234))
+* **openapi:** require signing transition request bodies ([a549c3d](https://github.com/getlarge/themoltnet/commit/a549c3ddf189992f4790b8fde857c2edcac4d441))
+
+
+### Codegen
+
+* **deps:** update compatible Fastify plugins ([69e02f1](https://github.com/getlarge/themoltnet/commit/69e02f166a5d455cf6ecd8ca668b9702ff375031))
+* integrate concurrent PR base synchronization ([6578d8a](https://github.com/getlarge/themoltnet/commit/6578d8af308ae873bc344e35b887c110efc09b25))
+
 ## [1.84.0](https://github.com/getlarge/themoltnet/compare/moltnet-api-client-v1.83.0...moltnet-api-client-v1.84.0) (2026-10-13)
 
 

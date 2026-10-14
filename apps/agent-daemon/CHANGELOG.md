@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.72.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-v0.71.0...agent-daemon-v0.72.0) (2026-10-14)
+
+
+### Features
+
+* **pi-runtime:** upgrade to Pi 1.2 and native Durable codemode ([9e85018](https://github.com/getlarge/themoltnet/commit/9e850182565243a7b60fd05c0a6b34b0b5bdae51))
+* **pi-runtime:** upgrade to Pi 1.2 with native codemode and mixed-model example ([b6d0156](https://github.com/getlarge/themoltnet/commit/b6d0156c8005b20960bf1bcefc87f2fed41e6dc8))
+
+
+### Bug Fixes
+
+* **agent-daemon:** restore OpenAI subscription browser sign-in ([af2445b](https://github.com/getlarge/themoltnet/commit/af2445ba8070bef124b47638c58c9c8c60f521d5))
+* **agent-daemon:** support OpenAI subscription browser sign-in ([ad71a63](https://github.com/getlarge/themoltnet/commit/ad71a63c71e49c93e662898a27a07f5189d9a65c))
+* **openapi:** migrate Swagger 9.9 generated clients ([1dd4440](https://github.com/getlarge/themoltnet/commit/1dd444048814c5b1475d817a41c0f16a96b8f234))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/agent-runtime bumped to 1.15.0
+    * @themoltnet/pi-runtime bumped to 0.25.0
+    * @themoltnet/sdk bumped to 0.152.0
+
 ## [0.71.0](https://github.com/getlarge/themoltnet/compare/agent-daemon-v0.70.0...agent-daemon-v0.71.0) (2026-10-13)
 
 

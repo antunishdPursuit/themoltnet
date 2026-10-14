@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.25.0](https://github.com/getlarge/themoltnet/compare/pi-runtime-v0.24.0...pi-runtime-v0.25.0) (2026-10-14)
+
+
+### Features
+
+* **pi-runtime:** upgrade to Pi 1.2 and native Durable codemode ([9e85018](https://github.com/getlarge/themoltnet/commit/9e850182565243a7b60fd05c0a6b34b0b5bdae51))
+* **pi-runtime:** upgrade to Pi 1.2 with native codemode and mixed-model example ([b6d0156](https://github.com/getlarge/themoltnet/commit/b6d0156c8005b20960bf1bcefc87f2fed41e6dc8))
+* **sdk:** expose classify and output-contract helpers ([c1fcd04](https://github.com/getlarge/themoltnet/commit/c1fcd04515e52db5db6e643893a5099a7a6d2877))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/agent-runtime bumped to 1.15.0
+    * @themoltnet/sandbox-gondolin bumped to 0.8.0
+    * @themoltnet/sdk bumped to 0.152.0
+
 ## [0.24.0](https://github.com/getlarge/themoltnet/compare/pi-runtime-v0.23.0...pi-runtime-v0.24.0) (2026-10-13)
 
 
