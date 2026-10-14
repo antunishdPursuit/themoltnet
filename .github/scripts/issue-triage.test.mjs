@@ -71,18 +71,25 @@ test('rejects missing and duplicate criterion results before writing', () => {
       issue,
     ),
   );
-  assert.throws(() =>
-    parseVerdict(
-      {
-        result: {
-          criteria: [
-            { ...criteria[0], evidence: ['invented path'] },
-            ...criteria.slice(1),
-          ],
-        },
+  const sanitized = parseVerdict(
+    {
+      result: {
+        criteria: [
+          {
+            ...criteria[0],
+            evidence: ['Done when: status ...', 'Done when: status appears.'],
+          },
+          ...criteria.slice(1),
+        ],
       },
-      issue,
-    ),
+    },
+    issue,
+  );
+  assert.deepEqual(sanitized[0].evidence, ['Done when: status appears.']);
+  assert.deepEqual(
+    buildClassifierSpec(issue, 'getlarge/themoltnet', 'correlation', sanitized)
+      .input.state.evidence['acceptance-criteria'],
+    ['Done when: status appears.'],
   );
 });
 
