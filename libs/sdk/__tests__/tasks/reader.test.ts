@@ -16,7 +16,7 @@ function freeformTask(overrides: Partial<Task> = {}): Task {
   } as Task;
 }
 
-function classifyTask(input: unknown): Task {
+function classifyTask(input: Task['input']): Task {
   return freeformTask({ taskType: 'classify', input });
 }
 
@@ -408,8 +408,6 @@ describe('createResultReader (classify)', () => {
     const task = classifyTask(input);
     const attempt = acceptedAttempt({
       version: 1,
-      provider: 'ollama',
-      model: 'nimble',
       answers: { other: { type: 'bool', probability: 0.2 } },
     });
 
@@ -425,8 +423,6 @@ describe('createResultReader (classify)', () => {
     const task = classifyTask(input);
     const attempt = acceptedAttempt({
       version: 1,
-      provider: 'ollama',
-      model: 'nimble',
       answers: { planned: { type: 'bool', probability: 0.82 } },
     });
 

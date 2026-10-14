@@ -216,14 +216,13 @@ describe('Daemon classification through native Pi HTTP transport', () => {
           expect(result.exitCode).toBe(0);
           expect(result.final.status).toBe('completed');
           expect(result.final.acceptedAttemptN).toBe(result.attempt.attemptN);
-          const output = {
-            version: 1,
+          expect(result.attempt.output).toEqual({ version: 1, answers });
+          expect(result.attempt.usage).toMatchObject({
             provider: 'classifier-fixture',
             model: 'fixture-jev',
-            answers,
-            usage: { inputTokens: 42, outputTokens: 0 },
-          };
-          expect(result.attempt.output).toEqual(output);
+            inputTokens: 42,
+            outputTokens: 0,
+          });
           // The completion API verifies the submitted CID before storing the JSONB output.
           expect(result.attempt.outputCid).toMatch(/^b[a-z2-7]+$/);
           expect(result.attempt.status).toBe('completed');

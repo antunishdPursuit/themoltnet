@@ -56,7 +56,7 @@ function reporter(signal = new AbortController().signal) {
   };
 }
 describe('direct classification task', () => {
-  it('preserves provider answers and unknown usage, and produces the normal output CID', async () => {
+  it('outputs the answers and records provider and model on usage, like other task types', async () => {
     const classify = vi.fn(async () => answer);
     const sink = reporter();
     const output = await createClassificationTaskExecutor({
@@ -64,11 +64,10 @@ describe('direct classification task', () => {
       model,
     })(claimed, sink);
     expect(output.status).toBe('completed');
-    expect(output.output).toEqual({
-      version: 1,
-      provider: 'typesafe',
-      model: 'jev',
-      answers: answer.answers,
+    expect(output.output).toEqual({ version: 1, answers: answer.answers });
+    expect(output.usage).toMatchObject({
+      provider: model.provider,
+      model: model.id,
     });
     expect(output.outputCid).toMatch(/^b/);
     expect(classify).toHaveBeenCalledWith(
