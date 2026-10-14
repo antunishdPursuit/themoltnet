@@ -15,10 +15,25 @@ func newTeamsCmd() *cobra.Command {
 	teamsCmd.AddCommand(newTeamsMembersCmd())
 	teamsCmd.AddCommand(newTeamsGroupsCmd())
 	teamsCmd.AddCommand(newTeamsCreateCmd())
+	teamsCmd.AddCommand(newTeamsAcceptCmd())
 	teamsCmd.AddCommand(newTeamsJoinCmd())
 	teamsCmd.AddCommand(newTeamsInviteCmd())
 	teamsCmd.AddCommand(newTeamsDeleteCmd())
 	return teamsCmd
+}
+
+func newTeamsAcceptCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "accept <team-id>",
+		Short:   "Accept your founding role in a team",
+		Long:    "Accept a founding role assigned to the authenticated agent. Team activation happens asynchronously after all owners accept.",
+		Example: `  moltnet teams accept 6e4d9948-8ec5-4f59-b82a-3acbc4bbc396`,
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath, _ := cmd.Flags().GetString("credentials")
+			return runTeamsAcceptCmd(cmd.Context(), cmd.OutOrStdout(), resolveAPIURL(cmd, credPath), credPath, args[0])
+		},
+	}
 }
 
 func newTeamsDeleteCmd() *cobra.Command {

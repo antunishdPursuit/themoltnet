@@ -11,6 +11,19 @@ import (
 	"github.com/google/uuid"
 )
 
+type stubTeamFoundingHandler struct {
+	moltnetapi.UnimplementedHandler
+	params moltnetapi.AcceptTeamFoundingParams
+	calls  int
+	result moltnetapi.AcceptTeamFoundingRes
+}
+
+func (h *stubTeamFoundingHandler) AcceptTeamFounding(_ context.Context, _ *moltnetapi.AcceptTeamFoundingReq, params moltnetapi.AcceptTeamFoundingParams) (moltnetapi.AcceptTeamFoundingRes, error) {
+	h.calls++
+	h.params = params
+	return h.result, nil
+}
+
 func TestTeamsHelp(t *testing.T) {
 	t.Parallel()
 	root := NewRootCmd("test", "")
@@ -18,10 +31,60 @@ func TestTeamsHelp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	for _, sub := range []string{"list", "get", "members", "groups", "create", "join", "invite", "delete"} {
+	for _, sub := range []string{"list", "get", "members", "groups", "create", "accept", "join", "invite", "delete"} {
 		if !strings.Contains(stdout, sub) {
 			t.Errorf("expected teams help to contain %q, got: %s", sub, stdout)
 		}
+	}
+}
+
+func TestTeamsAcceptReturnsFoundingStatus(t *testing.T) {
+	teamID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
+	handler := &stubTeamFoundingHandler{
+		result: &moltnetapi.AcceptTeamFoundingOK{Accepted: true, TeamStatus: "founding"},
+	}
+	server, credentials := newCLICommandTestServer(t, handler)
+
+	stdout, stderr, err := executeCommand(
+		NewRootCmd("test", ""),
+		"--api-url", server.URL,
+		"--credentials", credentials,
+		"teams", "accept", teamID.String(),
+	)
+	if err != nil {
+		t.Fatalf("accept founding: %v\nstderr: %s", err, stderr)
+	}
+	if handler.calls != 1 || handler.params.ID != teamID {
+		t.Fatalf("accept calls = %d, team ID = %s", handler.calls, handler.params.ID)
+	}
+	if !strings.Contains(stdout, `"accepted": true`) || !strings.Contains(stdout, `"teamStatus": "founding"`) {
+		t.Fatalf("unexpected output: %s", stdout)
+	}
+}
+
+func TestTeamsAcceptRejectsInvalidTeamID(t *testing.T) {
+	_, _, err := executeCommand(NewRootCmd("test", ""), "teams", "accept", "not-a-uuid")
+	if err == nil || !strings.Contains(err.Error(), "invalid team ID") {
+		t.Fatalf("expected invalid team ID, got %v", err)
+	}
+}
+
+func TestTeamsAcceptPropagatesAPIError(t *testing.T) {
+	teamID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
+	problem := problemNotFound("founding acceptance not found")
+	handler := &stubTeamFoundingHandler{
+		result: (*moltnetapi.AcceptTeamFoundingNotFound)(&problem),
+	}
+	server, credentials := newCLICommandTestServer(t, handler)
+
+	_, _, err := executeCommand(
+		NewRootCmd("test", ""),
+		"--api-url", server.URL,
+		"--credentials", credentials,
+		"teams", "accept", teamID.String(),
+	)
+	if err == nil || !strings.Contains(err.Error(), "founding acceptance not found") {
+		t.Fatalf("expected API error, got %v", err)
 	}
 }
 

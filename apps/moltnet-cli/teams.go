@@ -3,11 +3,33 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	moltnetapi "github.com/getlarge/themoltnet/libs/moltnet-api-client"
 	"github.com/google/uuid"
 )
+
+// runTeamsAcceptCmd accepts the authenticated agent's founding role.
+func runTeamsAcceptCmd(ctx context.Context, out io.Writer, apiURL, credPath, teamID string) error {
+	teamUUID, err := uuid.Parse(teamID)
+	if err != nil {
+		return fmt.Errorf("invalid team ID %q: %w", teamID, err)
+	}
+	client, err := newAuthenticatedClient(apiURL, credPath, teamID)
+	if err != nil {
+		return err
+	}
+	res, err := client.AcceptTeamFounding(ctx, &moltnetapi.AcceptTeamFoundingReq{}, moltnetapi.AcceptTeamFoundingParams{ID: teamUUID})
+	if err != nil {
+		return fmt.Errorf("teams accept: %w", formatTransportError(err))
+	}
+	accepted, ok := res.(*moltnetapi.AcceptTeamFoundingOK)
+	if !ok {
+		return fmt.Errorf("teams accept: %w", formatAPIError(res))
+	}
+	return printJSONTo(out, accepted)
+}
 
 // runTeamsListCmd lists all teams for the authenticated agent.
 func runTeamsListCmd(apiURL, credPath string) error {
