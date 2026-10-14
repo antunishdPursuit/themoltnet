@@ -49,6 +49,16 @@
           "cwd": "{workspaceRoot}",
           "command": "node --import tsx tools/src/release/github-action-publisher.ts --project @themoltnet/complexity-review-action --entries prepare.js,check.js,review.js,comment.js --stable-major-tag-prefix complexity-review-action-v --also-include @themoltnet/agent-daemon-action"
         }
+      },
+      "test": {
+        "dependsOn": [
+          "build"
+        ]
+      },
+      "test-ci--src/bundle.test.ts": {
+        "dependsOn": [
+          "build"
+        ]
       }
     }
   }
