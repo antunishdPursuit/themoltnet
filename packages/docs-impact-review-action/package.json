@@ -54,7 +54,17 @@
           "command": "node --import tsx tools/src/release/github-action-publisher.ts --project @themoltnet/docs-impact-review-action --entries prepare.js,check.js,review.js,comment.js --stable-major-tag-prefix docs-impact-review-action-v --also-include @themoltnet/agent-daemon-action"
         }
       },
-      "check:externals": {}
+      "check:externals": {},
+      "test": {
+        "dependsOn": [
+          "build"
+        ]
+      },
+      "test-ci--src/action.test.ts": {
+        "dependsOn": [
+          "build"
+        ]
+      }
     },
     "tags": [
       "type:app",
