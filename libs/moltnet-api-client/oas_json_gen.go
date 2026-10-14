@@ -95211,40 +95211,74 @@ func (s *RecoverAgentCredentialsInternalServerError) UnmarshalJSON(data []byte) 
 }
 
 // Encode implements json.Marshaler.
-func (s *RecoveryChallengeRequest) Encode(e *jx.Encoder) {
+func (s *RecoverAgentCredentialsReq) Encode(e *jx.Encoder) {
 	e.ObjStart()
 	s.encodeFields(e)
 	e.ObjEnd()
 }
 
 // encodeFields encodes fields.
-func (s *RecoveryChallengeRequest) encodeFields(e *jx.Encoder) {
+func (s *RecoverAgentCredentialsReq) encodeFields(e *jx.Encoder) {
+	{
+		e.FieldStart("challenge")
+		e.Str(s.Challenge)
+	}
+	{
+		e.FieldStart("hmac")
+		e.Str(s.Hmac)
+	}
 	{
 		e.FieldStart("publicKey")
 		e.Str(s.PublicKey)
 	}
 	{
-		e.FieldStart("purpose")
-		s.Purpose.Encode(e)
+		e.FieldStart("signature")
+		e.Str(s.Signature)
 	}
 }
 
-var jsonFieldsNameOfRecoveryChallengeRequest = [2]string{
-	0: "publicKey",
-	1: "purpose",
+var jsonFieldsNameOfRecoverAgentCredentialsReq = [4]string{
+	0: "challenge",
+	1: "hmac",
+	2: "publicKey",
+	3: "signature",
 }
 
-// Decode decodes RecoveryChallengeRequest from json.
-func (s *RecoveryChallengeRequest) Decode(d *jx.Decoder) error {
+// Decode decodes RecoverAgentCredentialsReq from json.
+func (s *RecoverAgentCredentialsReq) Decode(d *jx.Decoder) error {
 	if s == nil {
-		return errors.New("invalid: unable to decode RecoveryChallengeRequest to nil")
+		return errors.New("invalid: unable to decode RecoverAgentCredentialsReq to nil")
 	}
 	var requiredBitSet [1]uint8
 
 	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
 		switch string(k) {
-		case "publicKey":
+		case "challenge":
 			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				v, err := d.Str()
+				s.Challenge = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"challenge\"")
+			}
+		case "hmac":
+			requiredBitSet[0] |= 1 << 1
+			if err := func() error {
+				v, err := d.Str()
+				s.Hmac = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"hmac\"")
+			}
+		case "publicKey":
+			requiredBitSet[0] |= 1 << 2
 			if err := func() error {
 				v, err := d.Str()
 				s.PublicKey = string(v)
@@ -95255,27 +95289,29 @@ func (s *RecoveryChallengeRequest) Decode(d *jx.Decoder) error {
 			}(); err != nil {
 				return errors.Wrap(err, "decode field \"publicKey\"")
 			}
-		case "purpose":
-			requiredBitSet[0] |= 1 << 1
+		case "signature":
+			requiredBitSet[0] |= 1 << 3
 			if err := func() error {
-				if err := s.Purpose.Decode(d); err != nil {
+				v, err := d.Str()
+				s.Signature = string(v)
+				if err != nil {
 					return err
 				}
 				return nil
 			}(); err != nil {
-				return errors.Wrap(err, "decode field \"purpose\"")
+				return errors.Wrap(err, "decode field \"signature\"")
 			}
 		default:
 			return errors.Errorf("unexpected field %q", k)
 		}
 		return nil
 	}); err != nil {
-		return errors.Wrap(err, "decode RecoveryChallengeRequest")
+		return errors.Wrap(err, "decode RecoverAgentCredentialsReq")
 	}
 	// Validate required fields.
 	var failures []validate.FieldError
 	for i, mask := range [1]uint8{
-		0b00000011,
+		0b00001111,
 	} {
 		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
 			// Mask only required fields and check equality to mask using XOR.
@@ -95287,8 +95323,8 @@ func (s *RecoveryChallengeRequest) Decode(d *jx.Decoder) error {
 				bitIdx := bits.TrailingZeros8(result)
 				fieldIdx := i*8 + bitIdx
 				var name string
-				if fieldIdx < len(jsonFieldsNameOfRecoveryChallengeRequest) {
-					name = jsonFieldsNameOfRecoveryChallengeRequest[fieldIdx]
+				if fieldIdx < len(jsonFieldsNameOfRecoverAgentCredentialsReq) {
+					name = jsonFieldsNameOfRecoverAgentCredentialsReq[fieldIdx]
 				} else {
 					name = strconv.Itoa(fieldIdx)
 				}
@@ -95309,14 +95345,14 @@ func (s *RecoveryChallengeRequest) Decode(d *jx.Decoder) error {
 }
 
 // MarshalJSON implements stdjson.Marshaler.
-func (s *RecoveryChallengeRequest) MarshalJSON() ([]byte, error) {
+func (s *RecoverAgentCredentialsReq) MarshalJSON() ([]byte, error) {
 	e := jx.Encoder{}
 	s.Encode(&e)
 	return e.Bytes(), nil
 }
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
-func (s *RecoveryChallengeRequest) UnmarshalJSON(data []byte) error {
+func (s *RecoverAgentCredentialsReq) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }
@@ -95543,153 +95579,6 @@ func (s *RecoveryCredentialsResponse) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
 func (s *RecoveryCredentialsResponse) UnmarshalJSON(data []byte) error {
-	d := jx.DecodeBytes(data)
-	return s.Decode(d)
-}
-
-// Encode implements json.Marshaler.
-func (s *RecoveryProof) Encode(e *jx.Encoder) {
-	e.ObjStart()
-	s.encodeFields(e)
-	e.ObjEnd()
-}
-
-// encodeFields encodes fields.
-func (s *RecoveryProof) encodeFields(e *jx.Encoder) {
-	{
-		e.FieldStart("challenge")
-		e.Str(s.Challenge)
-	}
-	{
-		e.FieldStart("hmac")
-		e.Str(s.Hmac)
-	}
-	{
-		e.FieldStart("publicKey")
-		e.Str(s.PublicKey)
-	}
-	{
-		e.FieldStart("signature")
-		e.Str(s.Signature)
-	}
-}
-
-var jsonFieldsNameOfRecoveryProof = [4]string{
-	0: "challenge",
-	1: "hmac",
-	2: "publicKey",
-	3: "signature",
-}
-
-// Decode decodes RecoveryProof from json.
-func (s *RecoveryProof) Decode(d *jx.Decoder) error {
-	if s == nil {
-		return errors.New("invalid: unable to decode RecoveryProof to nil")
-	}
-	var requiredBitSet [1]uint8
-
-	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
-		switch string(k) {
-		case "challenge":
-			requiredBitSet[0] |= 1 << 0
-			if err := func() error {
-				v, err := d.Str()
-				s.Challenge = string(v)
-				if err != nil {
-					return err
-				}
-				return nil
-			}(); err != nil {
-				return errors.Wrap(err, "decode field \"challenge\"")
-			}
-		case "hmac":
-			requiredBitSet[0] |= 1 << 1
-			if err := func() error {
-				v, err := d.Str()
-				s.Hmac = string(v)
-				if err != nil {
-					return err
-				}
-				return nil
-			}(); err != nil {
-				return errors.Wrap(err, "decode field \"hmac\"")
-			}
-		case "publicKey":
-			requiredBitSet[0] |= 1 << 2
-			if err := func() error {
-				v, err := d.Str()
-				s.PublicKey = string(v)
-				if err != nil {
-					return err
-				}
-				return nil
-			}(); err != nil {
-				return errors.Wrap(err, "decode field \"publicKey\"")
-			}
-		case "signature":
-			requiredBitSet[0] |= 1 << 3
-			if err := func() error {
-				v, err := d.Str()
-				s.Signature = string(v)
-				if err != nil {
-					return err
-				}
-				return nil
-			}(); err != nil {
-				return errors.Wrap(err, "decode field \"signature\"")
-			}
-		default:
-			return errors.Errorf("unexpected field %q", k)
-		}
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "decode RecoveryProof")
-	}
-	// Validate required fields.
-	var failures []validate.FieldError
-	for i, mask := range [1]uint8{
-		0b00001111,
-	} {
-		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
-			// Mask only required fields and check equality to mask using XOR.
-			//
-			// If XOR result is not zero, result is not equal to expected, so some fields are missed.
-			// Bits of fields which would be set are actually bits of missed fields.
-			missed := bits.OnesCount8(result)
-			for bitN := 0; bitN < missed; bitN++ {
-				bitIdx := bits.TrailingZeros8(result)
-				fieldIdx := i*8 + bitIdx
-				var name string
-				if fieldIdx < len(jsonFieldsNameOfRecoveryProof) {
-					name = jsonFieldsNameOfRecoveryProof[fieldIdx]
-				} else {
-					name = strconv.Itoa(fieldIdx)
-				}
-				failures = append(failures, validate.FieldError{
-					Name:  name,
-					Error: validate.ErrFieldRequired,
-				})
-				// Reset bit.
-				result &^= 1 << bitIdx
-			}
-		}
-	}
-	if len(failures) > 0 {
-		return &validate.Error{Fields: failures}
-	}
-
-	return nil
-}
-
-// MarshalJSON implements stdjson.Marshaler.
-func (s *RecoveryProof) MarshalJSON() ([]byte, error) {
-	e := jx.Encoder{}
-	s.Encode(&e)
-	return e.Bytes(), nil
-}
-
-// UnmarshalJSON implements stdjson.Unmarshaler.
-func (s *RecoveryProof) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }
@@ -101365,6 +101254,117 @@ func (s *RequestRecoveryChallengeInternalServerError) MarshalJSON() ([]byte, err
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
 func (s *RequestRecoveryChallengeInternalServerError) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode implements json.Marshaler.
+func (s *RequestRecoveryChallengeReq) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields encodes fields.
+func (s *RequestRecoveryChallengeReq) encodeFields(e *jx.Encoder) {
+	{
+		e.FieldStart("publicKey")
+		e.Str(s.PublicKey)
+	}
+	{
+		e.FieldStart("purpose")
+		s.Purpose.Encode(e)
+	}
+}
+
+var jsonFieldsNameOfRequestRecoveryChallengeReq = [2]string{
+	0: "publicKey",
+	1: "purpose",
+}
+
+// Decode decodes RequestRecoveryChallengeReq from json.
+func (s *RequestRecoveryChallengeReq) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode RequestRecoveryChallengeReq to nil")
+	}
+	var requiredBitSet [1]uint8
+
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		switch string(k) {
+		case "publicKey":
+			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				v, err := d.Str()
+				s.PublicKey = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"publicKey\"")
+			}
+		case "purpose":
+			requiredBitSet[0] |= 1 << 1
+			if err := func() error {
+				if err := s.Purpose.Decode(d); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"purpose\"")
+			}
+		default:
+			return errors.Errorf("unexpected field %q", k)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode RequestRecoveryChallengeReq")
+	}
+	// Validate required fields.
+	var failures []validate.FieldError
+	for i, mask := range [1]uint8{
+		0b00000011,
+	} {
+		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
+			// Mask only required fields and check equality to mask using XOR.
+			//
+			// If XOR result is not zero, result is not equal to expected, so some fields are missed.
+			// Bits of fields which would be set are actually bits of missed fields.
+			missed := bits.OnesCount8(result)
+			for bitN := 0; bitN < missed; bitN++ {
+				bitIdx := bits.TrailingZeros8(result)
+				fieldIdx := i*8 + bitIdx
+				var name string
+				if fieldIdx < len(jsonFieldsNameOfRequestRecoveryChallengeReq) {
+					name = jsonFieldsNameOfRequestRecoveryChallengeReq[fieldIdx]
+				} else {
+					name = strconv.Itoa(fieldIdx)
+				}
+				failures = append(failures, validate.FieldError{
+					Name:  name,
+					Error: validate.ErrFieldRequired,
+				})
+				// Reset bit.
+				result &^= 1 << bitIdx
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s *RequestRecoveryChallengeReq) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *RequestRecoveryChallengeReq) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }
@@ -136036,6 +136036,153 @@ func (s *VerifyRecoveryChallengeInternalServerError) MarshalJSON() ([]byte, erro
 
 // UnmarshalJSON implements stdjson.Unmarshaler.
 func (s *VerifyRecoveryChallengeInternalServerError) UnmarshalJSON(data []byte) error {
+	d := jx.DecodeBytes(data)
+	return s.Decode(d)
+}
+
+// Encode implements json.Marshaler.
+func (s *VerifyRecoveryChallengeReq) Encode(e *jx.Encoder) {
+	e.ObjStart()
+	s.encodeFields(e)
+	e.ObjEnd()
+}
+
+// encodeFields encodes fields.
+func (s *VerifyRecoveryChallengeReq) encodeFields(e *jx.Encoder) {
+	{
+		e.FieldStart("challenge")
+		e.Str(s.Challenge)
+	}
+	{
+		e.FieldStart("hmac")
+		e.Str(s.Hmac)
+	}
+	{
+		e.FieldStart("publicKey")
+		e.Str(s.PublicKey)
+	}
+	{
+		e.FieldStart("signature")
+		e.Str(s.Signature)
+	}
+}
+
+var jsonFieldsNameOfVerifyRecoveryChallengeReq = [4]string{
+	0: "challenge",
+	1: "hmac",
+	2: "publicKey",
+	3: "signature",
+}
+
+// Decode decodes VerifyRecoveryChallengeReq from json.
+func (s *VerifyRecoveryChallengeReq) Decode(d *jx.Decoder) error {
+	if s == nil {
+		return errors.New("invalid: unable to decode VerifyRecoveryChallengeReq to nil")
+	}
+	var requiredBitSet [1]uint8
+
+	if err := d.ObjBytes(func(d *jx.Decoder, k []byte) error {
+		switch string(k) {
+		case "challenge":
+			requiredBitSet[0] |= 1 << 0
+			if err := func() error {
+				v, err := d.Str()
+				s.Challenge = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"challenge\"")
+			}
+		case "hmac":
+			requiredBitSet[0] |= 1 << 1
+			if err := func() error {
+				v, err := d.Str()
+				s.Hmac = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"hmac\"")
+			}
+		case "publicKey":
+			requiredBitSet[0] |= 1 << 2
+			if err := func() error {
+				v, err := d.Str()
+				s.PublicKey = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"publicKey\"")
+			}
+		case "signature":
+			requiredBitSet[0] |= 1 << 3
+			if err := func() error {
+				v, err := d.Str()
+				s.Signature = string(v)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return errors.Wrap(err, "decode field \"signature\"")
+			}
+		default:
+			return errors.Errorf("unexpected field %q", k)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "decode VerifyRecoveryChallengeReq")
+	}
+	// Validate required fields.
+	var failures []validate.FieldError
+	for i, mask := range [1]uint8{
+		0b00001111,
+	} {
+		if result := (requiredBitSet[i] & mask) ^ mask; result != 0 {
+			// Mask only required fields and check equality to mask using XOR.
+			//
+			// If XOR result is not zero, result is not equal to expected, so some fields are missed.
+			// Bits of fields which would be set are actually bits of missed fields.
+			missed := bits.OnesCount8(result)
+			for bitN := 0; bitN < missed; bitN++ {
+				bitIdx := bits.TrailingZeros8(result)
+				fieldIdx := i*8 + bitIdx
+				var name string
+				if fieldIdx < len(jsonFieldsNameOfVerifyRecoveryChallengeReq) {
+					name = jsonFieldsNameOfVerifyRecoveryChallengeReq[fieldIdx]
+				} else {
+					name = strconv.Itoa(fieldIdx)
+				}
+				failures = append(failures, validate.FieldError{
+					Name:  name,
+					Error: validate.ErrFieldRequired,
+				})
+				// Reset bit.
+				result &^= 1 << bitIdx
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return &validate.Error{Fields: failures}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements stdjson.Marshaler.
+func (s *VerifyRecoveryChallengeReq) MarshalJSON() ([]byte, error) {
+	e := jx.Encoder{}
+	s.Encode(&e)
+	return e.Bytes(), nil
+}
+
+// UnmarshalJSON implements stdjson.Unmarshaler.
+func (s *VerifyRecoveryChallengeReq) UnmarshalJSON(data []byte) error {
 	d := jx.DecodeBytes(data)
 	return s.Decode(d)
 }

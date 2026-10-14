@@ -132,7 +132,7 @@ func runAgentsCredentialsRecoverCmd(opts agentsCredentialsRecoverOpts) error {
 	defer cancel()
 	challengeRes, err := client.RequestRecoveryChallenge(
 		ctx,
-		&moltnetapi.RecoveryChallengeRequest{
+		&moltnetapi.RequestRecoveryChallengeReq{
 			PublicKey: creds.Keys.PublicKey,
 			Purpose:   moltnetapi.RecoveryPurposeCredentials,
 		},
@@ -156,7 +156,7 @@ func runAgentsCredentialsRecoverCmd(opts agentsCredentialsRecoverOpts) error {
 	}
 	recoveryRes, err := client.RecoverAgentCredentials(
 		ctx,
-		&moltnetapi.RecoveryProof{
+		&moltnetapi.RecoverAgentCredentialsReq{
 			Challenge: challenge.Challenge,
 			Hmac:      challenge.Hmac,
 			PublicKey: creds.Keys.PublicKey,
