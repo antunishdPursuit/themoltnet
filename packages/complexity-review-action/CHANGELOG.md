@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.3](https://github.com/getlarge/themoltnet/compare/complexity-review-action-v0.4.2...complexity-review-action-v0.4.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **actions:** publish bundles only through stable release tags ([1619c80](https://github.com/getlarge/themoltnet/commit/1619c80c952a774357de4b4a4d3fd64b58f8be2a))
+* **actions:** publish bundles only through stable release tags ([c1e2c3e](https://github.com/getlarge/themoltnet/commit/c1e2c3e1d20e7403dd2d00ec1d6b1b621ffd5bb9))
+* **ci:** build complexity bundles before smoke tests ([9d876a1](https://github.com/getlarge/themoltnet/commit/9d876a1c78c89319c873a9e9fbced0c2fe9e6dce))
+
 ## [0.4.2](https://github.com/getlarge/themoltnet/compare/complexity-review-action-v0.4.1...complexity-review-action-v0.4.2) (2026-10-14)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.4](https://github.com/getlarge/themoltnet/compare/agent-daemon-action-v0.6.3...agent-daemon-action-v0.6.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **actions:** publish bundles only through stable release tags ([1619c80](https://github.com/getlarge/themoltnet/commit/1619c80c952a774357de4b4a4d3fd64b58f8be2a))
+* **actions:** publish bundles only through stable release tags ([c1e2c3e](https://github.com/getlarge/themoltnet/commit/c1e2c3e1d20e7403dd2d00ec1d6b1b621ffd5bb9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @themoltnet/sdk bumped to 0.154.0
+
 ## [0.6.3](https://github.com/getlarge/themoltnet/compare/agent-daemon-action-v0.6.2...agent-daemon-action-v0.6.3) (2026-10-14)
 
 
