@@ -7,8 +7,6 @@ function fixture() {
     category: 'feature',
     confidence: 0.9,
     probabilities: { bug: 0.05, feature: 0.9, question: 0.05 },
-    classifierProvider: 'typesafe',
-    classifierModel: 'jev-latest',
     summary: 'Add an issue reader.',
     nextStep: 'Review the read-only tool boundary.',
   };
@@ -26,8 +24,7 @@ function fixture() {
       messages: [
         tool('github_issue_read', { url: result.issueUrl }),
         tool('classify', {
-          provider: result.classifierProvider,
-          model: result.classifierModel,
+          version: 1,
           answers: {
             category: {
               type: 'choice',
@@ -43,7 +40,7 @@ function fixture() {
 }
 
 describe('triage evidence', () => {
-  it('accepts a decision copied from the classifier result', () => {
+  it('accepts the released classifier result without provider/model fields', () => {
     const { output, conversation } = fixture();
     expect(() => verifyTriage(output, conversation)).not.toThrow();
   });
@@ -61,6 +58,17 @@ describe('triage evidence', () => {
       'differs from classifier',
     );
   });
+  it.each(['confidence', 'probabilities'] as const)(
+    'rejects changed %s even when the category matches',
+    (field) => {
+      const { output, conversation } = fixture();
+      if (field === 'confidence') output.result.confidence = 1;
+      else output.result.probabilities.feature = 1;
+      expect(() => verifyTriage(output, conversation)).toThrow(
+        'differs from classifier',
+      );
+    },
+  );
   it('requires complete history', () => {
     const { output, conversation } = fixture();
     expect(() =>

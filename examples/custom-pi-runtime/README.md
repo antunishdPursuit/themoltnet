@@ -44,8 +44,8 @@ must match the pins of the
 a skewed pair loads successfully and then fails later with an unhelpful error.
 
 The `pnpm.overrides` pins also keep Pi's transitive packages on that version.
-Pi 1.0 declares caret ranges internally; without overrides a fresh install can
-mix 1.0 and 1.2 and fail during module loading.
+Pi declares caret ranges internally; these overrides keep a fresh install on
+the same Pi 1.2 release as the daemon.
 
 Check the daemon's pins before bumping any dependency:
 
@@ -457,7 +457,7 @@ and an existing provider setup may also keep host authentication there.
 
 The standalone example pins a compatible set of **published** MoltNet and Pi
 packages. Upgrade their versions together after release; changing only Pi's
-peers can install incompatible runtime type definitions. This example uses Pi 1.0 and the Durable daemon runtime. See
+peers can install incompatible runtime type definitions. This example uses daemon 0.72.1, pi-runtime 0.25.1, and Pi 1.2. See
 [custom Pi runtimes](../../docs/contribute/custom-pi-runtimes.md).
 
 ## Issue triage: chat and classification together
@@ -506,5 +506,9 @@ suggested next step. No labels, comments, or follow-up tasks are created.
 `classify` is the runtime's dedicated tool, enabled by
 `models.classification`. A standalone `classify` task uses that same model
 configuration directly, without a chat-model turn. Neither path requires
-`codemode`. The provider and model names in the output identify the classifier;
-they are separate from the chat model used to orchestrate this task.
+`codemode`. The tool response contains `version` and `answers`; the triage
+output copies the decision, confidence, and probabilities from those answers.
+The runtime profile selects the classifier through `models.classification`.
+For standalone `classify` tasks, actual provider/model attribution and token
+counts are recorded in the accepted attempt's `usage`, separately from its
+classification output.

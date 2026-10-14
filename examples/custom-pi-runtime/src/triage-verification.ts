@@ -5,15 +5,11 @@ interface TriageResult {
   category: string;
   confidence: number;
   probabilities: Record<string, number>;
-  classifierProvider: string;
-  classifierModel: string;
   summary: string;
   nextStep: string;
 }
 interface ToolResult {
   url?: string;
-  provider?: string;
-  model?: string;
   answers?: Record<
     string,
     {
@@ -72,8 +68,6 @@ export function verifyTriage(
     classifiers.some((classified) => {
       const answer = classified.answers?.category;
       return (
-        classified.provider === result.classifierProvider &&
-        classified.model === result.classifierModel &&
         answer?.type === 'choice' &&
         answer.choice === result.category &&
         answer.confidence === result.confidence &&

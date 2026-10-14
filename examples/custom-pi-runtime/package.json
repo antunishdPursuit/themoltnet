@@ -9,10 +9,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "1.0.0",
-    "@earendil-works/pi-coding-agent": "1.0.0",
-    "@themoltnet/agent-daemon": "0.71.0",
-    "@themoltnet/pi-runtime": "0.24.0",
+    "@earendil-works/pi-ai": "1.2.0",
+    "@earendil-works/pi-coding-agent": "1.2.0",
+    "@themoltnet/agent-daemon": "0.72.1",
+    "@themoltnet/pi-runtime": "0.25.1",
     "typebox": "^1.2.8"
   },
   "devDependencies": {
@@ -22,15 +22,15 @@
   },
   "pnpm": {
     "overrides": {
-      "@earendil-works/chord": "1.0.0",
-      "@earendil-works/pi-agent-core": "1.0.0",
-      "@earendil-works/pi-ai": "1.0.0",
-      "@earendil-works/pi-codemode": "1.0.0",
-      "@earendil-works/pi-coding-agent": "1.0.0",
-      "@earendil-works/pi-durable": "1.0.0",
-      "@earendil-works/pi-mcp": "1.0.0",
-      "@earendil-works/pi-telemetry": "1.0.0",
-      "@earendil-works/pi-tui": "1.0.0"
+      "@earendil-works/chord": "1.2.0",
+      "@earendil-works/pi-agent-core": "1.2.0",
+      "@earendil-works/pi-ai": "1.2.0",
+      "@earendil-works/pi-codemode": "1.2.0",
+      "@earendil-works/pi-coding-agent": "1.2.0",
+      "@earendil-works/pi-durable": "1.2.0",
+      "@earendil-works/pi-mcp": "1.2.0",
+      "@earendil-works/pi-telemetry": "1.2.0",
+      "@earendil-works/pi-tui": "1.2.0"
     }
   }
 }
