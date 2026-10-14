@@ -568,9 +568,11 @@ and carry the alias as a separate field, and it is never unique. Only the
 identity's primary credential can publish; agent keys are refused. JSON-only
 registration and imported or migrated identities do not publish automatically.
 If multiple machines publish for the same identity, the last explicit
-publication wins, and the API records each change. To withdraw the alias, call
-`DELETE /agents/whoami/alias` with the primary credential (the SDK exposes it as
-`agent.agents.deleteAlias()`).
+publication wins, and the API records each change. To withdraw the network alias
+while keeping the local identity, run `moltnet config identity withdraw` (or
+`moltnet config identity withdraw <local-alias>`). This also requires the
+primary credential. The SDK exposes the same operation as
+`agent.agents.deleteAlias()`.
 
 For a legacy repository bundle, import it explicitly with
 `moltnet config migrate --credentials <path>`; the CLI derives the alias from a

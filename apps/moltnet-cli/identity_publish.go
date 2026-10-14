@@ -82,6 +82,45 @@ func publishIdentityAlias(
 	return updated, nil
 }
 
+// withdrawIdentityAlias removes the network alias after verifying that the
+// primary credential belongs to the selected local identity. The local alias
+// and identity files are unchanged.
+func withdrawIdentityAlias(
+	ctx context.Context,
+	apiURL, credentialsPath string,
+	creds *CredentialsFile,
+) (bool, error) {
+	if creds == nil {
+		return false, fmt.Errorf("identity credentials not found: %s", credentialsPath)
+	}
+	if !hasOAuth2Configuration(creds) {
+		return false, fmt.Errorf("withdraw identity alias: primary OAuth2 credentials are required")
+	}
+	if strings.TrimSpace(creds.Keys.Fingerprint) == "" {
+		return false, &subjectVerificationError{err: fmt.Errorf(
+			"withdraw identity alias: %s has no signing key fingerprint",
+			credentialsPath,
+		)}
+	}
+	identity, err := authenticateConfigIdentity(
+		ctx, apiURL, credentialsPath, creds, NewSecretProviderRegistry(), true,
+	)
+	if err != nil {
+		return false, fmt.Errorf("withdraw identity alias: %w", err)
+	}
+	if _, present := identity.whoami.Alias.Get(); !present {
+		return false, nil
+	}
+	res, err := identity.client.DeleteWhoamiAlias(ctx)
+	if err != nil {
+		return false, fmt.Errorf("withdraw identity alias: %w", formatTransportError(err))
+	}
+	if _, ok := res.(*moltnetapi.DeleteWhoamiAliasNoContent); !ok {
+		return false, fmt.Errorf("withdraw identity alias: %w", formatAPIError(res))
+	}
+	return true, nil
+}
+
 // attemptIdentityAliasPublication publishes the network alias as a
 // best-effort step after the identity has been stored. A failure is reported
 // on errOut and never fails the surrounding command.

@@ -23,8 +23,19 @@ type identityPublishHandler struct {
 	alias string
 	// updateRes, when set, replaces the successful UpdateWhoami response.
 	updateRes   moltnetapi.UpdateWhoamiRes
+	deleteRes   moltnetapi.DeleteWhoamiAliasRes
+	deleteCalls int
 	whoamiCalls int
 	published   []string
+}
+
+func (h *identityPublishHandler) DeleteWhoamiAlias(_ context.Context) (moltnetapi.DeleteWhoamiAliasRes, error) {
+	h.deleteCalls++
+	if h.deleteRes != nil {
+		return h.deleteRes, nil
+	}
+	h.alias = ""
+	return &moltnetapi.DeleteWhoamiAliasNoContent{}, nil
 }
 
 func (h *identityPublishHandler) GetWhoami(_ context.Context) (moltnetapi.GetWhoamiRes, error) {
@@ -140,6 +151,85 @@ func TestConfigIdentityPublishUsesActiveAliasAndPrintsRedactedJSON(t *testing.T)
 	if !strings.Contains(stdout, `"alias": "Active.Agent"`) ||
 		!strings.Contains(stdout, f.creds.Keys.Fingerprint) {
 		t.Fatalf("unexpected output: %s", stdout)
+	}
+}
+
+func TestConfigIdentityWithdrawUsesSelectedIdentity(t *testing.T) {
+	f := newPublishFixture(t, "Active.Agent")
+	f.handler.alias = "Network.Name"
+	if err := writeIdentitySelector("Active.Agent"); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, err := executeCommand(NewRootCmd("test", ""), "config", "identity", "withdraw")
+	if err != nil {
+		t.Fatalf("withdraw network alias: %v\nstderr: %s", err, stderr)
+	}
+	if f.handler.deleteCalls != 1 || f.handler.alias != "" {
+		t.Fatalf("delete calls = %d, remaining network alias = %q", f.handler.deleteCalls, f.handler.alias)
+	}
+	if !strings.Contains(stdout, `"identity": "Active.Agent"`) || !strings.Contains(stdout, `"withdrawn": true`) {
+		t.Fatalf("unexpected output: %s", stdout)
+	}
+	if strings.Contains(stdout, "publish-secret") || strings.Contains(stdout, f.creds.Keys.PrivateKey) {
+		t.Fatalf("stdout contains secret material: %s", stdout)
+	}
+	if _, err := ReadConfigFrom(f.path); err != nil {
+		t.Fatalf("local identity changed: %v", err)
+	}
+}
+
+func TestConfigIdentityWithdrawSkipsAbsentAlias(t *testing.T) {
+	f := newPublishFixture(t, "no-network-alias")
+
+	stdout, _, err := executeCommand(NewRootCmd("test", ""), "config", "identity", "withdraw", "no-network-alias")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.handler.deleteCalls != 0 || !strings.Contains(stdout, `"withdrawn": false`) {
+		t.Fatalf("unexpected delete or output: calls=%d output=%s", f.handler.deleteCalls, stdout)
+	}
+}
+
+func TestConfigIdentityWithdrawRefusesIdentityMismatch(t *testing.T) {
+	f := newPublishFixture(t, "mismatch")
+	f.handler.alias = "Network.Name"
+	f.handler.subjectID = uuid.New()
+
+	_, err := withdrawIdentityAlias(context.Background(), f.server.URL, f.path, f.creds)
+	if err == nil || !strings.Contains(err.Error(), "local subject_id does not match") {
+		t.Fatalf("expected identity mismatch, got %v", err)
+	}
+	if f.handler.deleteCalls != 0 {
+		t.Fatalf("alias withdrawn despite identity mismatch")
+	}
+}
+
+func TestConfigIdentityWithdrawRequiresPrimaryCredential(t *testing.T) {
+	f := newPublishFixture(t, "agent-key-only")
+	f.handler.alias = "Network.Name"
+	f.creds.OAuth2 = CredentialsOAuth2{}
+
+	_, err := withdrawIdentityAlias(context.Background(), f.server.URL, f.path, f.creds)
+	if err == nil || !strings.Contains(err.Error(), "primary OAuth2 credentials are required") {
+		t.Fatalf("expected primary credential error, got %v", err)
+	}
+	if f.handler.whoamiCalls != 0 || f.handler.deleteCalls != 0 {
+		t.Fatalf("unexpected requests: whoami=%d delete=%d", f.handler.whoamiCalls, f.handler.deleteCalls)
+	}
+}
+
+func TestConfigIdentityWithdrawReportsAPIRejection(t *testing.T) {
+	f := newPublishFixture(t, "rejected")
+	f.handler.alias = "Network.Name"
+	f.handler.deleteRes = &moltnetapi.DeleteWhoamiAliasForbidden{}
+
+	_, err := withdrawIdentityAlias(context.Background(), f.server.URL, f.path, f.creds)
+	if err == nil || !strings.Contains(err.Error(), "withdraw identity alias") {
+		t.Fatalf("expected API rejection, got %v", err)
+	}
+	if f.handler.deleteCalls != 1 {
+		t.Fatalf("delete calls = %d", f.handler.deleteCalls)
 	}
 }
 

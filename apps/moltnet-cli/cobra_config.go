@@ -367,7 +367,46 @@ func newConfigIdentityCmd() *cobra.Command {
 			return printJSONTo(cmd.OutOrStdout(), updated)
 		},
 	}
-	identityCmd.AddCommand(listCmd, showCmd, selectCmd, publishCmd)
+	withdrawCmd := &cobra.Command{
+		Use:   "withdraw [alias]",
+		Short: "Withdraw the selected agent's network alias",
+		Long: `Remove the network alias for the selected local identity. The local
+identity alias and files remain available. The primary OAuth2 credential is
+required; an agent key cannot withdraw an alias.`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			alias := ""
+			if len(args) == 1 {
+				alias = args[0]
+			}
+			alias, err := resolveIdentityAlias(alias)
+			if err != nil {
+				return err
+			}
+			path, err := identityCredentialsPath(alias)
+			if err != nil {
+				return err
+			}
+			creds, err := ReadConfigFrom(path)
+			if err != nil {
+				return err
+			}
+			if creds == nil {
+				return fmt.Errorf("identity %q not found", alias)
+			}
+			withdrawn, err := withdrawIdentityAlias(
+				cmd.Context(), strings.TrimRight(resolveAPIURL(cmd, path), "/"), path, creds,
+			)
+			if err != nil {
+				return err
+			}
+			return printJSONTo(cmd.OutOrStdout(), map[string]interface{}{
+				"identity":  alias,
+				"withdrawn": withdrawn,
+			})
+		},
+	}
+	identityCmd.AddCommand(listCmd, showCmd, selectCmd, publishCmd, withdrawCmd)
 	return identityCmd
 }
 
