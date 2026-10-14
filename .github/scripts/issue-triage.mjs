@@ -405,7 +405,8 @@ function assertCorrelation(snapshot, actual, stage) {
 
 function taskOutput(taskId) {
   const cliPackage =
-    process.env.MOLTNET_CLI_PACKAGE || '@themoltnet/cli@latest';
+    process.env.MOLTNET_CLI_PACKAGE ||
+    `@themoltnet/cli@${process.env.MOLTNET_CLI_VERSION || 'latest'}`;
   return JSON.parse(
     command('npx', [
       '-y',

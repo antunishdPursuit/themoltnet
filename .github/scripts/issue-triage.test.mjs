@@ -254,15 +254,17 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   const classifierPath = join(dir, 'classifier.json');
   const outputPath = join(dir, 'output');
   const callsPath = join(dir, 'gh-calls');
+  const cliPackagesPath = join(dir, 'cli-packages');
   const bodyPath = join(dir, 'gh-body');
   writeFileSync(snapshotPath, JSON.stringify(snapshot));
   writeFileSync(extractionPath, JSON.stringify({ result: { criteria } }));
   writeFileSync(classifierPath, JSON.stringify({ result: { criteria } }));
   writeFileSync(outputPath, '');
   writeFileSync(callsPath, '');
+  writeFileSync(cliPackagesPath, '');
   writeFileSync(
     join(dir, 'npx'),
-    '#!/bin/sh\nif [ "$5" = classifier-task ]; then cat "$CLASSIFIER_FIXTURE"; else cat "$EXTRACTION_FIXTURE"; fi\n',
+    '#!/bin/sh\nprintf "%s\\n" "$2" >> "$CLI_PACKAGES"\nif [ "$5" = classifier-task ]; then cat "$CLASSIFIER_FIXTURE"; else cat "$EXTRACTION_FIXTURE"; fi\n',
     { mode: 0o755 },
   );
   writeFileSync(
@@ -281,6 +283,9 @@ test('prepares the next task from the accepted attempt and preserves labels if c
     EXTRACTION_FIXTURE: extractionPath,
     CLASSIFIER_FIXTURE: classifierPath,
     GH_CALLS: callsPath,
+    CLI_PACKAGES: cliPackagesPath,
+    MOLTNET_CLI_PACKAGE: '',
+    MOLTNET_CLI_VERSION: '3.15.0',
     GH_BODY: bodyPath,
     ISSUE_FIXTURE: JSON.stringify({
       ...issue,
@@ -365,6 +370,9 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   assert.match(comment, /Added `enhancement` label/);
   assert.match(comment, /moltnet-correlation-id: same-correlation/);
   assert.match(comment, /actions\/runs\/123456/);
+  const cliPackages = readFileSync(cliPackagesPath, 'utf8').trim().split('\n');
+  assert.ok(cliPackages.length >= 3);
+  assert.ok(cliPackages.every((name) => name === '@themoltnet/cli@3.15.0'));
   const callsAfterClassification = readFileSync(callsPath, 'utf8');
   assert.equal(
     callsAfterClassification.match(

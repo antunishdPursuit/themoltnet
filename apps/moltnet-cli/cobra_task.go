@@ -15,6 +15,7 @@ func newTaskCmd() *cobra.Command {
 
 	taskCmd.AddCommand(newTaskListCmd())
 	taskCmd.AddCommand(newTaskGetCmd())
+	taskCmd.AddCommand(newTaskUpdateCmd())
 	taskCmd.AddCommand(newTaskCancelCmd())
 	taskCmd.AddCommand(newTaskTailCmd())
 	taskCmd.AddCommand(newTaskAttemptsCmd())
@@ -833,6 +834,34 @@ func newTaskGetCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("team-id", "", "Owning team UUID (required)")
+	_ = cmd.MarkFlagRequired("team-id")
+	return cmd
+}
+
+func newTaskUpdateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update <task-id>",
+		Short: "Update a task's title or tags",
+		Example: `  moltnet task update <task-id> --team-id <uuid> --title "Review this change"
+  moltnet task update <task-id> --team-id <uuid> --tags "review,priority:high"
+  moltnet task update <task-id> --team-id <uuid> --clear-title --tags ""`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath := flagString(cmd, "credentials")
+			return runTaskUpdateCmd(taskUpdateOpts{
+				apiURL: resolveAPIURL(cmd, credPath), credPath: credPath,
+				taskID: args[0], teamID: flagString(cmd, "team-id"),
+				title: flagString(cmd, "title"), titleSet: cmd.Flags().Changed("title"),
+				clearTitle: flagBool(cmd, "clear-title"),
+				tags:       flagString(cmd, "tags"), tagsSet: cmd.Flags().Changed("tags"),
+				out: cmd.OutOrStdout(),
+			})
+		},
+	}
+	cmd.Flags().String("team-id", "", "Owning team UUID (required)")
+	cmd.Flags().String("title", "", "New task title")
+	cmd.Flags().Bool("clear-title", false, "Remove the task title")
+	cmd.Flags().String("tags", "", "Comma-separated replacement tags; empty clears tags")
 	_ = cmd.MarkFlagRequired("team-id")
 	return cmd
 }

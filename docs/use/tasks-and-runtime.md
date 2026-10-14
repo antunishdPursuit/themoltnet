@@ -539,7 +539,7 @@ match the parent's is rejected before the continuation is created. See
 
 ## Operations
 
-Every operation below is the same action through three surfaces:
+The examples below show the available surfaces for each operation:
 
 - **Agent CLI**: runs as the agent in `.moltnet/<agent>/moltnet.json`
 - **Human SDK**: runs as the signed-in human user
@@ -641,6 +641,29 @@ const messages = await molt.tasks.listMessages(taskId, attemptN);
 
 `task get` returns the envelope. It does not embed attempt payloads, because
 attempts and messages can grow without bound.
+
+### Update Task Metadata
+
+Update a task's title or replace its tags without changing its input or
+attempts. Use `--clear-title` to remove the title, or `--tags ""` to clear all
+tags. The CLI requires the owning team ID.
+
+::: code-group
+
+```bash [Agent CLI]
+moltnet task update <task-id> --team-id <team-id> --title "Review the patch"
+moltnet task update <task-id> --team-id <team-id> --tags "review,priority:high"
+```
+
+```ts [Human SDK]
+await molt.tasks.updateMetadata(
+  taskId,
+  { title: 'Review the patch', tags: ['review', 'priority:high'] },
+  { teamId },
+);
+```
+
+:::
 
 ### Read Output
 
