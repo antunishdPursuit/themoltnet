@@ -2003,7 +2003,7 @@ var createDiary = (options) => (options.client ?? client).post({
 /**
 * Search diary entries using hybrid search.
 */
-var searchDiary = (options) => (options?.client ?? client).post({
+var searchDiary = (options) => (options.client ?? client).post({
 	security: [
 		{
 			key: "bearerAuth",
@@ -2029,7 +2029,7 @@ var searchDiary = (options) => (options?.client ?? client).post({
 	...options,
 	headers: {
 		"Content-Type": "application/json",
-		...options?.headers
+		...options.headers
 	}
 });
 /**
@@ -2681,6 +2681,150 @@ var registerExecutorManifest = (options) => (options.client ?? client).post({
 	}
 });
 /**
+* Delete a group. Requires manage_members permission.
+*/
+var deleteGroup = (options) => (options.client ?? client).delete({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/groups/{groupId}",
+	...options
+});
+/**
+* Get group details. Requires team access.
+*/
+var getGroup = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/groups/{groupId}",
+	...options
+});
+/**
+* List group members. Requires team access.
+*/
+var listGroupMembers = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/groups/{groupId}/members",
+	...options
+});
+/**
+* Add a member to a group. Requires manage_members permission.
+*/
+var addGroupMember = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/groups/{groupId}/members",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+/**
+* Remove a member from a group. Requires manage_members permission.
+*/
+var removeGroupMember = (options) => (options.client ?? client).delete({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/groups/{groupId}/members/{subjectId}",
+	...options
+});
+/**
 * Shallow liveness probe.
 */
 var getHealth = (options) => (options?.client ?? client).get({
@@ -3301,6 +3445,154 @@ var updateRenderedPack = (options) => (options.client ?? client).patch({
 	}
 });
 /**
+* List runtime model catalog entries visible to the caller. Global entries are always included; team-scoped entries are appended when `x-moltnet-team-id` is set. Supports `?provider=<id>` for autocomplete narrowing.
+*/
+var listRuntimeModels = (options) => (options?.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-models",
+	...options
+});
+/**
+* Create a team-scoped runtime model catalog entry. Requires `x-moltnet-team-id` and runtime management permission on the active team.
+*/
+var createRuntimeModel = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-models",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+/**
+* Delete a team-scoped runtime model catalog entry. Global entries are not deletable.
+*/
+var deleteRuntimeModel = (options) => (options.client ?? client).delete({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-models/{modelId}",
+	...options
+});
+/**
+* Get one runtime model catalog entry.
+*/
+var getRuntimeModel = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-models/{modelId}",
+	...options
+});
+/**
+* Update a team-scoped runtime model catalog entry. Global entries are not modifiable through this endpoint.
+*/
+var updateRuntimeModel = (options) => (options.client ?? client).patch({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/runtime-models/{modelId}",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
+});
+/**
 * List tool policies for the active team.
 */
 var listRuntimePolicies = (options) => (options.client ?? client).get({
@@ -3479,7 +3771,7 @@ var listRuntimeProfiles = (options) => (options?.client ?? client).get({
 /**
 * Create a runtime profile for the active team context.
 */
-var createRuntimeProfile = (options) => (options?.client ?? client).post({
+var createRuntimeProfile = (options) => (options.client ?? client).post({
 	security: [
 		{
 			key: "bearerAuth",
@@ -3505,7 +3797,7 @@ var createRuntimeProfile = (options) => (options?.client ?? client).post({
 	...options,
 	headers: {
 		"Content-Type": "application/json",
-		...options?.headers
+		...options.headers
 	}
 });
 /**
@@ -4695,6 +4987,34 @@ var listTaskArtifacts = (options) => (options.client ?? client).get({
 	...options
 });
 /**
+* Download immutable task artifact content by CID without naming an attempt. Resolves input artifacts bound at task creation as well as attempt artifacts.
+*/
+var downloadTaskArtifactByCid = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{taskId}/artifacts/{cid}/content",
+	...options
+});
+/**
 * Upload immutable content-addressed artifact content for a task attempt.
 */
 var uploadTaskArtifact = (options) => (options.client ?? client).put({
@@ -4726,6 +5046,34 @@ var uploadTaskArtifact = (options) => (options.client ?? client).put({
 		"Content-Type": "application/octet-stream",
 		...options.headers
 	}
+});
+/**
+* Download immutable task artifact content by CID.
+*/
+var downloadTaskArtifact = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/tasks/{taskId}/attempts/{attemptN}/artifacts/{cid}/content",
+	...options
 });
 /**
 * List teams the caller belongs to.
@@ -4874,6 +5222,66 @@ var getTeam = (options) => (options.client ?? client).get({
 	],
 	url: "/teams/{id}",
 	...options
+});
+/**
+* List groups within a team. Requires team access.
+*/
+var listGroups = (options) => (options.client ?? client).get({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/teams/{id}/groups",
+	...options
+});
+/**
+* Create a group within a team. Requires manage_members permission.
+*/
+var createGroup = (options) => (options.client ?? client).post({
+	security: [
+		{
+			key: "bearerAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			key: "agentKeyAuth",
+			scheme: "bearer",
+			type: "http"
+		},
+		{
+			name: "X-Moltnet-Session-Token",
+			type: "apiKey"
+		},
+		{
+			in: "cookie",
+			name: "ory_kratos_session",
+			type: "apiKey"
+		}
+	],
+	url: "/teams/{id}/groups",
+	...options,
+	headers: {
+		"Content-Type": "application/json",
+		...options.headers
+	}
 });
 /**
 * List invite codes. Requires manage_members permission.
@@ -5187,96 +5595,6 @@ function unwrapRequired(result, message, code) {
 	return result.data;
 }
 //#endregion
-//#region ../../libs/sdk/src/namespaces/query.ts
-/**
-* Remove `undefined`-valued keys from a query object before it is serialized.
-*
-* Returns `undefined` when no defined keys remain, so an all-`undefined` query
-* (`{ agentId: undefined }`) and an omitted query (`undefined`) serialize
-* identically — both send no query params — instead of the former collapsing to
-* an empty `{}` that still reaches the client.
-*/
-function stripUndefinedQuery(query) {
-	if (!query) return;
-	const entries = Object.entries(query).filter(([, value]) => value !== void 0);
-	return entries.length ? Object.fromEntries(entries) : void 0;
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/team-headers.ts
-/**
-* Build the team header from an optional option, or `undefined` when no team
-* context was supplied. Used by diaries and runtime-profiles, whose endpoints
-* accept the header optionally.
-*/
-function teamHeaders(options) {
-	return options?.teamId ? { "x-moltnet-team-id": options.teamId } : void 0;
-}
-/**
-* Build the team header from a required option. Used by tasks and
-* runtime-slots, whose endpoints mandate the header.
-*/
-function requiredTeamHeaders(options) {
-	return { "x-moltnet-team-id": options.teamId };
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/agent-keys.ts
-function bindingHeaders(options) {
-	return options.bindingScope === "identity" ? {} : requiredTeamHeaders(options);
-}
-function bindingQuery(query, options) {
-	return stripUndefinedQuery(options.bindingScope === "identity" ? {
-		...query,
-		bindingScope: "identity"
-	} : query);
-}
-function createAgentKeysNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(query, options) {
-			return unwrapResult(await listAgentKeys({
-				client,
-				auth,
-				headers: bindingHeaders(options),
-				query: bindingQuery(query, options)
-			}));
-		},
-		async create(body, options) {
-			return unwrapResult(await createAgentKey({
-				client,
-				auth,
-				headers: {
-					...bindingHeaders(options),
-					"idempotency-key": options.idempotencyKey
-				},
-				body: options.bindingScope === "identity" ? {
-					...body,
-					bindingScope: "identity"
-				} : body
-			}));
-		},
-		async rotate(keyId, options) {
-			return unwrapResult(await rotateAgentKey({
-				client,
-				auth,
-				headers: bindingHeaders(options),
-				path: { keyId },
-				query: bindingQuery(void 0, options)
-			}));
-		},
-		async revoke(keyId, body, options) {
-			const result = await revokeAgentKey({
-				client,
-				auth,
-				headers: bindingHeaders(options),
-				path: { keyId },
-				query: bindingQuery(void 0, options),
-				body
-			});
-			if (result.error) unwrapResult(result);
-		}
-	};
-}
-//#endregion
 //#region ../../libs/sdk/src/namespaces/whoami.ts
 /**
 * Build a `whoami()` accessor bound to an authenticated context. Returns the
@@ -5332,113 +5650,6 @@ function createAuthNamespace(context) {
 	} };
 }
 //#endregion
-//#region ../../libs/sdk/src/namespaces/crypto.ts
-function createCryptoNamespace(context, signingRequests, signingCredentials) {
-	const { client, auth } = context;
-	return {
-		async identity() {
-			return unwrapResult(await getCryptoIdentity({
-				client,
-				auth
-			}));
-		},
-		async verify(body) {
-			return unwrapResult(await verifyCryptoSignature({
-				client,
-				body
-			}));
-		},
-		signingRequests,
-		signingCredentials
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/diaries.ts
-function createDiariesNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(query, options) {
-			return unwrapResult(await listDiaries({
-				client,
-				auth,
-				query,
-				headers: teamHeaders(options)
-			}));
-		},
-		async create(body, options) {
-			return unwrapResult(await createDiary({
-				client,
-				auth,
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async get(id, options) {
-			return unwrapResult(await getDiary({
-				client,
-				auth,
-				path: { id },
-				headers: teamHeaders(options)
-			}));
-		},
-		async update(id, body, options) {
-			return unwrapResult(await updateDiary({
-				client,
-				auth,
-				path: { id },
-				body,
-				headers: teamHeaders(options)
-			}));
-		},
-		async delete(id, options) {
-			return unwrapResult(await deleteDiary({
-				client,
-				auth,
-				path: { id },
-				headers: teamHeaders(options)
-			}));
-		},
-		async tags(diaryId, query) {
-			return unwrapResult(await listDiaryTags({
-				client,
-				auth,
-				path: { diaryId },
-				query
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/diary-grants.ts
-function createDiaryGrantsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async create(diaryId, body) {
-			return unwrapResult(await createDiaryGrant({
-				client,
-				auth,
-				path: { id: diaryId },
-				body
-			}));
-		},
-		async list(diaryId) {
-			return unwrapResult(await listDiaryGrants({
-				client,
-				auth,
-				path: { id: diaryId }
-			}));
-		},
-		async revoke(diaryId, body) {
-			return unwrapResult(await revokeDiaryGrant({
-				client,
-				auth,
-				path: { id: diaryId },
-				body
-			}));
-		}
-	};
-}
-//#endregion
 //#region ../../libs/sdk/src/namespaces/diary-transfers.ts
 function createDiaryTransfersNamespace(context) {
 	const { client, auth } = context;
@@ -5474,1586 +5685,6 @@ function createDiaryTransfersNamespace(context) {
 	};
 }
 //#endregion
-//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/utils.js
-/*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
-/** Checks if something is Uint8Array. Be careful: nodejs Buffer will return true. */
-function isBytes(a) {
-	return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
-}
-/** Asserts something is Uint8Array. */
-function abytes(b, ...lengths) {
-	if (!isBytes(b)) throw new Error("Uint8Array expected");
-	if (lengths.length > 0 && !lengths.includes(b.length)) throw new Error("Uint8Array expected of length " + lengths + ", got length=" + b.length);
-}
-/** Asserts a hash instance has not been destroyed / finished */
-function aexists(instance, checkFinished = true) {
-	if (instance.destroyed) throw new Error("Hash instance has been destroyed");
-	if (checkFinished && instance.finished) throw new Error("Hash#digest() has already been called");
-}
-/** Asserts output is properly-sized byte array */
-function aoutput(out, instance) {
-	abytes(out);
-	const min = instance.outputLen;
-	if (out.length < min) throw new Error("digestInto() expects output buffer of length at least " + min);
-}
-/** Zeroize a byte array. Warning: JS provides no guarantees. */
-function clean(...arrays) {
-	for (let i = 0; i < arrays.length; i++) arrays[i].fill(0);
-}
-/** Create DataView of an array for easy byte-level manipulation. */
-function createView(arr) {
-	return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
-}
-/** The rotate right (circular right shift) operation for uint32 */
-function rotr(word, shift) {
-	return word << 32 - shift | word >>> shift;
-}
-/**
-* Converts string to bytes using UTF8 encoding.
-* @example utf8ToBytes('abc') // Uint8Array.from([97, 98, 99])
-*/
-function utf8ToBytes$1(str) {
-	if (typeof str !== "string") throw new Error("string expected");
-	return new Uint8Array(new TextEncoder().encode(str));
-}
-/**
-* Normalizes (non-hex) string or Uint8Array to Uint8Array.
-* Warning: when Uint8Array is passed, it would NOT get copied.
-* Keep in mind for future mutable operations.
-*/
-function toBytes(data) {
-	if (typeof data === "string") data = utf8ToBytes$1(data);
-	abytes(data);
-	return data;
-}
-/** For runtime check if class implements interface */
-var Hash = class {};
-/** Wraps hash function, creating an interface on top of it */
-function createHasher(hashCons) {
-	const hashC = (msg) => hashCons().update(toBytes(msg)).digest();
-	const tmp = hashCons();
-	hashC.outputLen = tmp.outputLen;
-	hashC.blockLen = tmp.blockLen;
-	hashC.create = () => hashCons();
-	return hashC;
-}
-//#endregion
-//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/_md.js
-/**
-* Internal Merkle-Damgard hash utils.
-* @module
-*/
-/** Polyfill for Safari 14. https://caniuse.com/mdn-javascript_builtins_dataview_setbiguint64 */
-function setBigUint64(view, byteOffset, value, isLE) {
-	if (typeof view.setBigUint64 === "function") return view.setBigUint64(byteOffset, value, isLE);
-	const _32n = BigInt(32);
-	const _u32_max = BigInt(4294967295);
-	const wh = Number(value >> _32n & _u32_max);
-	const wl = Number(value & _u32_max);
-	const h = isLE ? 4 : 0;
-	const l = isLE ? 0 : 4;
-	view.setUint32(byteOffset + h, wh, isLE);
-	view.setUint32(byteOffset + l, wl, isLE);
-}
-/** Choice: a ? b : c */
-function Chi(a, b, c) {
-	return a & b ^ ~a & c;
-}
-/** Majority function, true if any two inputs is true. */
-function Maj(a, b, c) {
-	return a & b ^ a & c ^ b & c;
-}
-/**
-* Merkle-Damgard hash construction base class.
-* Could be used to create MD5, RIPEMD, SHA1, SHA2.
-*/
-var HashMD = class extends Hash {
-	constructor(blockLen, outputLen, padOffset, isLE) {
-		super();
-		this.finished = false;
-		this.length = 0;
-		this.pos = 0;
-		this.destroyed = false;
-		this.blockLen = blockLen;
-		this.outputLen = outputLen;
-		this.padOffset = padOffset;
-		this.isLE = isLE;
-		this.buffer = new Uint8Array(blockLen);
-		this.view = createView(this.buffer);
-	}
-	update(data) {
-		aexists(this);
-		data = toBytes(data);
-		abytes(data);
-		const { view, buffer, blockLen } = this;
-		const len = data.length;
-		for (let pos = 0; pos < len;) {
-			const take = Math.min(blockLen - this.pos, len - pos);
-			if (take === blockLen) {
-				const dataView = createView(data);
-				for (; blockLen <= len - pos; pos += blockLen) this.process(dataView, pos);
-				continue;
-			}
-			buffer.set(data.subarray(pos, pos + take), this.pos);
-			this.pos += take;
-			pos += take;
-			if (this.pos === blockLen) {
-				this.process(view, 0);
-				this.pos = 0;
-			}
-		}
-		this.length += data.length;
-		this.roundClean();
-		return this;
-	}
-	digestInto(out) {
-		aexists(this);
-		aoutput(out, this);
-		this.finished = true;
-		const { buffer, view, blockLen, isLE } = this;
-		let { pos } = this;
-		buffer[pos++] = 128;
-		clean(this.buffer.subarray(pos));
-		if (this.padOffset > blockLen - pos) {
-			this.process(view, 0);
-			pos = 0;
-		}
-		for (let i = pos; i < blockLen; i++) buffer[i] = 0;
-		setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
-		this.process(view, 0);
-		const oview = createView(out);
-		const len = this.outputLen;
-		if (len % 4) throw new Error("_sha2: outputLen should be aligned to 32bit");
-		const outLen = len / 4;
-		const state = this.get();
-		if (outLen > state.length) throw new Error("_sha2: outputLen bigger than state");
-		for (let i = 0; i < outLen; i++) oview.setUint32(4 * i, state[i], isLE);
-	}
-	digest() {
-		const { buffer, outputLen } = this;
-		this.digestInto(buffer);
-		const res = buffer.slice(0, outputLen);
-		this.destroy();
-		return res;
-	}
-	_cloneInto(to) {
-		to || (to = new this.constructor());
-		to.set(...this.get());
-		const { blockLen, buffer, length, finished, destroyed, pos } = this;
-		to.destroyed = destroyed;
-		to.finished = finished;
-		to.length = length;
-		to.pos = pos;
-		if (length % blockLen) to.buffer.set(buffer);
-		return to;
-	}
-	clone() {
-		return this._cloneInto();
-	}
-};
-/**
-* Initial SHA-2 state: fractional parts of square roots of first 16 primes 2..53.
-* Check out `test/misc/sha2-gen-iv.js` for recomputation guide.
-*/
-/** Initial SHA256 state. Bits 0..32 of frac part of sqrt of primes 2..19 */
-var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
-	1779033703,
-	3144134277,
-	1013904242,
-	2773480762,
-	1359893119,
-	2600822924,
-	528734635,
-	1541459225
-]);
-//#endregion
-//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/sha2.js
-/**
-* SHA2 hash function. A.k.a. sha256, sha384, sha512, sha512_224, sha512_256.
-* SHA256 is the fastest hash implementable in JS, even faster than Blake3.
-* Check out [RFC 4634](https://datatracker.ietf.org/doc/html/rfc4634) and
-* [FIPS 180-4](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf).
-* @module
-*/
-/**
-* Round constants:
-* First 32 bits of fractional parts of the cube roots of the first 64 primes 2..311)
-*/
-var SHA256_K = /* @__PURE__ */ Uint32Array.from([
-	1116352408,
-	1899447441,
-	3049323471,
-	3921009573,
-	961987163,
-	1508970993,
-	2453635748,
-	2870763221,
-	3624381080,
-	310598401,
-	607225278,
-	1426881987,
-	1925078388,
-	2162078206,
-	2614888103,
-	3248222580,
-	3835390401,
-	4022224774,
-	264347078,
-	604807628,
-	770255983,
-	1249150122,
-	1555081692,
-	1996064986,
-	2554220882,
-	2821834349,
-	2952996808,
-	3210313671,
-	3336571891,
-	3584528711,
-	113926993,
-	338241895,
-	666307205,
-	773529912,
-	1294757372,
-	1396182291,
-	1695183700,
-	1986661051,
-	2177026350,
-	2456956037,
-	2730485921,
-	2820302411,
-	3259730800,
-	3345764771,
-	3516065817,
-	3600352804,
-	4094571909,
-	275423344,
-	430227734,
-	506948616,
-	659060556,
-	883997877,
-	958139571,
-	1322822218,
-	1537002063,
-	1747873779,
-	1955562222,
-	2024104815,
-	2227730452,
-	2361852424,
-	2428436474,
-	2756734187,
-	3204031479,
-	3329325298
-]);
-/** Reusable temporary buffer. "W" comes straight from spec. */
-var SHA256_W = /* @__PURE__ */ new Uint32Array(64);
-var SHA256 = class extends HashMD {
-	constructor(outputLen = 32) {
-		super(64, outputLen, 8, false);
-		this.A = SHA256_IV[0] | 0;
-		this.B = SHA256_IV[1] | 0;
-		this.C = SHA256_IV[2] | 0;
-		this.D = SHA256_IV[3] | 0;
-		this.E = SHA256_IV[4] | 0;
-		this.F = SHA256_IV[5] | 0;
-		this.G = SHA256_IV[6] | 0;
-		this.H = SHA256_IV[7] | 0;
-	}
-	get() {
-		const { A, B, C, D, E, F, G, H } = this;
-		return [
-			A,
-			B,
-			C,
-			D,
-			E,
-			F,
-			G,
-			H
-		];
-	}
-	set(A, B, C, D, E, F, G, H) {
-		this.A = A | 0;
-		this.B = B | 0;
-		this.C = C | 0;
-		this.D = D | 0;
-		this.E = E | 0;
-		this.F = F | 0;
-		this.G = G | 0;
-		this.H = H | 0;
-	}
-	process(view, offset) {
-		for (let i = 0; i < 16; i++, offset += 4) SHA256_W[i] = view.getUint32(offset, false);
-		for (let i = 16; i < 64; i++) {
-			const W15 = SHA256_W[i - 15];
-			const W2 = SHA256_W[i - 2];
-			const s0 = rotr(W15, 7) ^ rotr(W15, 18) ^ W15 >>> 3;
-			const s1 = rotr(W2, 17) ^ rotr(W2, 19) ^ W2 >>> 10;
-			SHA256_W[i] = s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16] | 0;
-		}
-		let { A, B, C, D, E, F, G, H } = this;
-		for (let i = 0; i < 64; i++) {
-			const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
-			const T1 = H + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i] | 0;
-			const T2 = (rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22)) + Maj(A, B, C) | 0;
-			H = G;
-			G = F;
-			F = E;
-			E = D + T1 | 0;
-			D = C;
-			C = B;
-			B = A;
-			A = T1 + T2 | 0;
-		}
-		A = A + this.A | 0;
-		B = B + this.B | 0;
-		C = C + this.C | 0;
-		D = D + this.D | 0;
-		E = E + this.E | 0;
-		F = F + this.F | 0;
-		G = G + this.G | 0;
-		H = H + this.H | 0;
-		this.set(A, B, C, D, E, F, G, H);
-	}
-	roundClean() {
-		clean(SHA256_W);
-	}
-	destroy() {
-		this.set(0, 0, 0, 0, 0, 0, 0, 0);
-		clean(this.buffer);
-	}
-};
-/**
-* SHA2-256 hash function from RFC 4634.
-*
-* It is the fastest JS hash, even faster than Blake3.
-* To break sha256 using birthday attack, attackers need to try 2^128 hashes.
-* BTC network is doing 2^70 hashes/sec (2^95 hashes/year) as per 2025.
-*/
-var sha256$1 = /* @__PURE__ */ createHasher(() => new SHA256());
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bytes.js
-function equals$1(aa, bb) {
-	if (aa === bb) return true;
-	if (aa.byteLength !== bb.byteLength) return false;
-	for (let ii = 0; ii < aa.byteLength; ii++) if (aa[ii] !== bb[ii]) return false;
-	return true;
-}
-function coerce(o) {
-	if (o instanceof Uint8Array && o.constructor.name === "Uint8Array") return o;
-	if (o instanceof ArrayBuffer) return new Uint8Array(o);
-	if (ArrayBuffer.isView(o)) return new Uint8Array(o.buffer, o.byteOffset, o.byteLength);
-	throw new Error("Unknown type, must be binary type");
-}
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/vendor/base-x.js
-/**
-* @param {string} ALPHABET
-* @param {any} name
-*/
-function base(ALPHABET, name) {
-	if (ALPHABET.length >= 255) throw new TypeError("Alphabet too long");
-	var BASE_MAP = /* @__PURE__ */ new Uint8Array(256);
-	for (var j = 0; j < BASE_MAP.length; j++) BASE_MAP[j] = 255;
-	for (var i = 0; i < ALPHABET.length; i++) {
-		var x = ALPHABET.charAt(i);
-		var xc = x.charCodeAt(0);
-		if (BASE_MAP[xc] !== 255) throw new TypeError(x + " is ambiguous");
-		BASE_MAP[xc] = i;
-	}
-	var BASE = ALPHABET.length;
-	var LEADER = ALPHABET.charAt(0);
-	var FACTOR = Math.log(BASE) / Math.log(256);
-	var iFACTOR = Math.log(256) / Math.log(BASE);
-	/**
-	* @param {any[] | Iterable<number>} source
-	*/
-	function encode(source) {
-		if (source instanceof Uint8Array);
-		else if (ArrayBuffer.isView(source)) source = new Uint8Array(source.buffer, source.byteOffset, source.byteLength);
-		else if (Array.isArray(source)) source = Uint8Array.from(source);
-		if (!(source instanceof Uint8Array)) throw new TypeError("Expected Uint8Array");
-		if (source.length === 0) return "";
-		var zeroes = 0;
-		var length = 0;
-		var pbegin = 0;
-		var pend = source.length;
-		while (pbegin !== pend && source[pbegin] === 0) {
-			pbegin++;
-			zeroes++;
-		}
-		var size = (pend - pbegin) * iFACTOR + 1 >>> 0;
-		var b58 = new Uint8Array(size);
-		while (pbegin !== pend) {
-			var carry = source[pbegin];
-			var i = 0;
-			for (var it1 = size - 1; (carry !== 0 || i < length) && it1 !== -1; it1--, i++) {
-				carry += 256 * b58[it1] >>> 0;
-				b58[it1] = carry % BASE >>> 0;
-				carry = carry / BASE >>> 0;
-			}
-			if (carry !== 0) throw new Error("Non-zero carry");
-			length = i;
-			pbegin++;
-		}
-		var it2 = size - length;
-		while (it2 !== size && b58[it2] === 0) it2++;
-		var str = LEADER.repeat(zeroes);
-		for (; it2 < size; ++it2) str += ALPHABET.charAt(b58[it2]);
-		return str;
-	}
-	/**
-	* @param {string | string[]} source
-	*/
-	function decodeUnsafe(source) {
-		if (typeof source !== "string") throw new TypeError("Expected String");
-		if (source.length === 0) return /* @__PURE__ */ new Uint8Array();
-		var psz = 0;
-		if (source[psz] === " ") return;
-		var zeroes = 0;
-		var length = 0;
-		while (source[psz] === LEADER) {
-			zeroes++;
-			psz++;
-		}
-		var size = (source.length - psz) * FACTOR + 1 >>> 0;
-		var b256 = new Uint8Array(size);
-		while (source[psz]) {
-			var carry = BASE_MAP[source.charCodeAt(psz)];
-			if (carry === 255) return;
-			var i = 0;
-			for (var it3 = size - 1; (carry !== 0 || i < length) && it3 !== -1; it3--, i++) {
-				carry += BASE * b256[it3] >>> 0;
-				b256[it3] = carry % 256 >>> 0;
-				carry = carry / 256 >>> 0;
-			}
-			if (carry !== 0) throw new Error("Non-zero carry");
-			length = i;
-			psz++;
-		}
-		if (source[psz] === " ") return;
-		var it4 = size - length;
-		while (it4 !== size && b256[it4] === 0) it4++;
-		var vch = new Uint8Array(zeroes + (size - it4));
-		var j = zeroes;
-		while (it4 !== size) vch[j++] = b256[it4++];
-		return vch;
-	}
-	/**
-	* @param {string | string[]} string
-	*/
-	function decode(string) {
-		var buffer = decodeUnsafe(string);
-		if (buffer) return buffer;
-		throw new Error(`Non-${name} character`);
-	}
-	return {
-		encode,
-		decodeUnsafe,
-		decode
-	};
-}
-var _brrp__multiformats_scope_baseX = base;
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base.js
-/**
-* Class represents both BaseEncoder and MultibaseEncoder meaning it
-* can be used to encode to multibase or base encode without multibase
-* prefix.
-*/
-var Encoder = class {
-	name;
-	prefix;
-	baseEncode;
-	constructor(name, prefix, baseEncode) {
-		this.name = name;
-		this.prefix = prefix;
-		this.baseEncode = baseEncode;
-	}
-	encode(bytes) {
-		if (bytes instanceof Uint8Array) return `${this.prefix}${this.baseEncode(bytes)}`;
-		else throw Error("Unknown type, must be binary type");
-	}
-};
-/**
-* Class represents both BaseDecoder and MultibaseDecoder so it could be used
-* to decode multibases (with matching prefix) or just base decode strings
-* with corresponding base encoding.
-*/
-var Decoder = class {
-	name;
-	prefix;
-	baseDecode;
-	prefixCodePoint;
-	constructor(name, prefix, baseDecode) {
-		this.name = name;
-		this.prefix = prefix;
-		const prefixCodePoint = prefix.codePointAt(0);
-		/* c8 ignore next 3 */
-		if (prefixCodePoint === void 0) throw new Error("Invalid prefix character");
-		this.prefixCodePoint = prefixCodePoint;
-		this.baseDecode = baseDecode;
-	}
-	decode(text) {
-		if (typeof text === "string") {
-			if (text.codePointAt(0) !== this.prefixCodePoint) throw Error(`Unable to decode multibase string ${JSON.stringify(text)}, ${this.name} decoder only supports inputs prefixed with ${this.prefix}`);
-			return this.baseDecode(text.slice(this.prefix.length));
-		} else throw Error("Can only multibase decode strings");
-	}
-	or(decoder) {
-		return or(this, decoder);
-	}
-};
-var ComposedDecoder = class {
-	decoders;
-	constructor(decoders) {
-		this.decoders = decoders;
-	}
-	or(decoder) {
-		return or(this, decoder);
-	}
-	decode(input) {
-		const prefix = input[0];
-		const decoder = this.decoders[prefix];
-		if (decoder != null) return decoder.decode(input);
-		else throw RangeError(`Unable to decode multibase string ${JSON.stringify(input)}, only inputs prefixed with ${Object.keys(this.decoders)} are supported`);
-	}
-};
-function or(left, right) {
-	return new ComposedDecoder({
-		...left.decoders ?? { [left.prefix]: left },
-		...right.decoders ?? { [right.prefix]: right }
-	});
-}
-var Codec = class {
-	name;
-	prefix;
-	baseEncode;
-	baseDecode;
-	encoder;
-	decoder;
-	constructor(name, prefix, baseEncode, baseDecode) {
-		this.name = name;
-		this.prefix = prefix;
-		this.baseEncode = baseEncode;
-		this.baseDecode = baseDecode;
-		this.encoder = new Encoder(name, prefix, baseEncode);
-		this.decoder = new Decoder(name, prefix, baseDecode);
-	}
-	encode(input) {
-		return this.encoder.encode(input);
-	}
-	decode(input) {
-		return this.decoder.decode(input);
-	}
-};
-function from$1({ name, prefix, encode, decode }) {
-	return new Codec(name, prefix, encode, decode);
-}
-function baseX({ name, prefix, alphabet }) {
-	const { encode, decode } = _brrp__multiformats_scope_baseX(alphabet, name);
-	return from$1({
-		prefix,
-		name,
-		encode,
-		decode: (text) => coerce(decode(text))
-	});
-}
-function decode$3(string, alphabetIdx, bitsPerChar, name) {
-	let end = string.length;
-	while (string[end - 1] === "=") --end;
-	const out = new Uint8Array(end * bitsPerChar / 8 | 0);
-	let bits = 0;
-	let buffer = 0;
-	let written = 0;
-	for (let i = 0; i < end; ++i) {
-		const value = alphabetIdx[string[i]];
-		if (value === void 0) throw new SyntaxError(`Non-${name} character`);
-		buffer = buffer << bitsPerChar | value;
-		bits += bitsPerChar;
-		if (bits >= 8) {
-			bits -= 8;
-			out[written++] = 255 & buffer >> bits;
-		}
-	}
-	if (bits >= bitsPerChar || (255 & buffer << 8 - bits) !== 0) throw new SyntaxError("Unexpected end of data");
-	return out;
-}
-function encode$1(data, alphabet, bitsPerChar) {
-	const pad = alphabet[alphabet.length - 1] === "=";
-	const mask = (1 << bitsPerChar) - 1;
-	let out = "";
-	let bits = 0;
-	let buffer = 0;
-	for (let i = 0; i < data.length; ++i) {
-		buffer = buffer << 8 | data[i];
-		bits += 8;
-		while (bits > bitsPerChar) {
-			bits -= bitsPerChar;
-			out += alphabet[mask & buffer >> bits];
-		}
-	}
-	if (bits !== 0) out += alphabet[mask & buffer << bitsPerChar - bits];
-	if (pad) while ((out.length * bitsPerChar & 7) !== 0) out += "=";
-	return out;
-}
-function createAlphabetIdx(alphabet) {
-	const alphabetIdx = {};
-	for (let i = 0; i < alphabet.length; ++i) alphabetIdx[alphabet[i]] = i;
-	return alphabetIdx;
-}
-/**
-* RFC4648 Factory
-*/
-function rfc4648({ name, prefix, bitsPerChar, alphabet }) {
-	const alphabetIdx = createAlphabetIdx(alphabet);
-	return from$1({
-		prefix,
-		name,
-		encode(input) {
-			return encode$1(input, alphabet, bitsPerChar);
-		},
-		decode(input) {
-			return decode$3(input, alphabetIdx, bitsPerChar, name);
-		}
-	});
-}
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base32.js
-var base32 = rfc4648({
-	prefix: "b",
-	name: "base32",
-	alphabet: "abcdefghijklmnopqrstuvwxyz234567",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "B",
-	name: "base32upper",
-	alphabet: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "c",
-	name: "base32pad",
-	alphabet: "abcdefghijklmnopqrstuvwxyz234567=",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "C",
-	name: "base32padupper",
-	alphabet: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "v",
-	name: "base32hex",
-	alphabet: "0123456789abcdefghijklmnopqrstuv",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "V",
-	name: "base32hexupper",
-	alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUV",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "t",
-	name: "base32hexpad",
-	alphabet: "0123456789abcdefghijklmnopqrstuv=",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "T",
-	name: "base32hexpadupper",
-	alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUV=",
-	bitsPerChar: 5
-});
-rfc4648({
-	prefix: "h",
-	name: "base32z",
-	alphabet: "ybndrfg8ejkmcpqxot1uwisza345h769",
-	bitsPerChar: 5
-});
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base36.js
-var base36 = baseX({
-	prefix: "k",
-	name: "base36",
-	alphabet: "0123456789abcdefghijklmnopqrstuvwxyz"
-});
-baseX({
-	prefix: "K",
-	name: "base36upper",
-	alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-});
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base58.js
-var base58btc = baseX({
-	name: "base58btc",
-	prefix: "z",
-	alphabet: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-});
-baseX({
-	name: "base58flickr",
-	prefix: "Z",
-	alphabet: "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
-});
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/vendor/varint.js
-var encode_1 = encode;
-var MSB = 128;
-var MSBALL = -128;
-var INT = Math.pow(2, 31);
-/**
-* @param {number} num
-* @param {number[]} out
-* @param {number} offset
-*/
-function encode(num, out, offset) {
-	out = out || [];
-	offset = offset || 0;
-	var oldOffset = offset;
-	while (num >= INT) {
-		out[offset++] = num & 255 | MSB;
-		num /= 128;
-	}
-	while (num & MSBALL) {
-		out[offset++] = num & 255 | MSB;
-		num >>>= 7;
-	}
-	out[offset] = num | 0;
-	encode.bytes = offset - oldOffset + 1;
-	return out;
-}
-var decode$2 = read;
-var MSB$1 = 128;
-var REST$1 = 127;
-/**
-* @param {string | any[]} buf
-* @param {number} offset
-*/
-function read(buf, offset) {
-	var res = 0, offset = offset || 0, shift = 0, counter = offset, b, l = buf.length;
-	do {
-		if (counter >= l) {
-			read.bytes = 0;
-			throw new RangeError("Could not decode varint");
-		}
-		b = buf[counter++];
-		res += shift < 28 ? (b & REST$1) << shift : (b & REST$1) * Math.pow(2, shift);
-		shift += 7;
-	} while (b >= MSB$1);
-	read.bytes = counter - offset;
-	return res;
-}
-var N1 = Math.pow(2, 7);
-var N2 = Math.pow(2, 14);
-var N3 = Math.pow(2, 21);
-var N4 = Math.pow(2, 28);
-var N5 = Math.pow(2, 35);
-var N6 = Math.pow(2, 42);
-var N7 = Math.pow(2, 49);
-var N8 = Math.pow(2, 56);
-var N9 = Math.pow(2, 63);
-var length = function(value) {
-	return value < N1 ? 1 : value < N2 ? 2 : value < N3 ? 3 : value < N4 ? 4 : value < N5 ? 5 : value < N6 ? 6 : value < N7 ? 7 : value < N8 ? 8 : value < N9 ? 9 : 10;
-};
-var _brrp_varint = {
-	encode: encode_1,
-	decode: decode$2,
-	encodingLength: length
-};
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/varint.js
-function decode$1(data, offset = 0) {
-	return [_brrp_varint.decode(data, offset), _brrp_varint.decode.bytes];
-}
-function encodeTo(int, target, offset = 0) {
-	_brrp_varint.encode(int, target, offset);
-	return target;
-}
-function encodingLength(int) {
-	return _brrp_varint.encodingLength(int);
-}
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/hashes/digest.js
-/**
-* Creates a multihash digest.
-*/
-function create(code, digest) {
-	const size = digest.byteLength;
-	const sizeOffset = encodingLength(code);
-	const digestOffset = sizeOffset + encodingLength(size);
-	const bytes = new Uint8Array(digestOffset + size);
-	encodeTo(code, bytes, 0);
-	encodeTo(size, bytes, sizeOffset);
-	bytes.set(digest, digestOffset);
-	return new Digest(code, size, digest, bytes);
-}
-/**
-* Turns bytes representation of multihash digest into an instance.
-*/
-function decode(multihash) {
-	const bytes = coerce(multihash);
-	const [code, sizeOffset] = decode$1(bytes);
-	const [size, digestOffset] = decode$1(bytes.subarray(sizeOffset));
-	const digest = bytes.subarray(sizeOffset + digestOffset);
-	if (digest.byteLength !== size) throw new Error("Incorrect length");
-	return new Digest(code, size, digest, bytes);
-}
-function equals(a, b) {
-	if (a === b) return true;
-	else {
-		const data = b;
-		return a.code === data.code && a.size === data.size && data.bytes instanceof Uint8Array && equals$1(a.bytes, data.bytes);
-	}
-}
-/**
-* Represents a multihash digest which carries information about the
-* hashing algorithm and an actual hash digest.
-*/
-var Digest = class {
-	code;
-	size;
-	digest;
-	bytes;
-	/**
-	* Creates a multihash digest.
-	*/
-	constructor(code, size, digest, bytes) {
-		this.code = code;
-		this.size = size;
-		this.digest = digest;
-		this.bytes = bytes;
-	}
-};
-//#endregion
-//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/cid.js
-function format(link, base) {
-	const { bytes, version } = link;
-	switch (version) {
-		case 0: return toStringV0(bytes, baseCache(link), base ?? base58btc.encoder);
-		default: return toStringV1(bytes, baseCache(link), base ?? base32.encoder);
-	}
-}
-var cache = /* @__PURE__ */ new WeakMap();
-function baseCache(cid) {
-	const baseCache = cache.get(cid);
-	if (baseCache == null) {
-		const baseCache = /* @__PURE__ */ new Map();
-		cache.set(cid, baseCache);
-		return baseCache;
-	}
-	return baseCache;
-}
-var CID = class CID {
-	code;
-	version;
-	multihash;
-	bytes;
-	"/";
-	/**
-	* @param version - Version of the CID
-	* @param code - Code of the codec content is encoded in, see https://github.com/multiformats/multicodec/blob/master/table.csv
-	* @param multihash - (Multi)hash of the of the content.
-	*/
-	constructor(version, code, multihash, bytes) {
-		this.code = code;
-		this.version = version;
-		this.multihash = multihash;
-		this.bytes = bytes;
-		this["/"] = bytes;
-	}
-	/**
-	* Signalling `cid.asCID === cid` has been replaced with `cid['/'] === cid.bytes`
-	* please either use `CID.asCID(cid)` or switch to new signalling mechanism
-	*
-	* @deprecated
-	*/
-	get asCID() {
-		return this;
-	}
-	get byteOffset() {
-		return this.bytes.byteOffset;
-	}
-	get byteLength() {
-		return this.bytes.byteLength;
-	}
-	toV0() {
-		switch (this.version) {
-			case 0: return this;
-			case 1: {
-				const { code, multihash } = this;
-				if (code !== DAG_PB_CODE) throw new Error("Cannot convert a non dag-pb CID to CIDv0");
-				if (multihash.code !== SHA_256_CODE) throw new Error("Cannot convert non sha2-256 multihash CID to CIDv0");
-				return CID.createV0(multihash);
-			}
-			default: throw Error(`Can not convert CID version ${this.version} to version 0. This is a bug please report`);
-		}
-	}
-	toV1() {
-		switch (this.version) {
-			case 0: {
-				const { code, digest } = this.multihash;
-				const multihash = create(code, digest);
-				return CID.createV1(this.code, multihash);
-			}
-			case 1: return this;
-			default: throw Error(`Can not convert CID version ${this.version} to version 1. This is a bug please report`);
-		}
-	}
-	equals(other) {
-		return CID.equals(this, other);
-	}
-	static equals(self, other) {
-		const unknown = other;
-		return unknown != null && self.code === unknown.code && self.version === unknown.version && equals(self.multihash, unknown.multihash);
-	}
-	toString(base) {
-		return format(this, base);
-	}
-	toJSON() {
-		return { "/": format(this) };
-	}
-	link() {
-		return this;
-	}
-	[Symbol.toStringTag] = "CID";
-	[Symbol.for("nodejs.util.inspect.custom")]() {
-		return `CID(${this.toString()})`;
-	}
-	/**
-	* Takes any input `value` and returns a `CID` instance if it was
-	* a `CID` otherwise returns `null`. If `value` is instanceof `CID`
-	* it will return value back. If `value` is not instance of this CID
-	* class, but is compatible CID it will return new instance of this
-	* `CID` class. Otherwise returns null.
-	*
-	* This allows two different incompatible versions of CID library to
-	* co-exist and interop as long as binary interface is compatible.
-	*/
-	static asCID(input) {
-		if (input == null) return null;
-		const value = input;
-		if (value instanceof CID) return value;
-		else if (value["/"] != null && value["/"] === value.bytes || value.asCID === value) {
-			const { version, code, multihash, bytes } = value;
-			return new CID(version, code, multihash, bytes ?? encodeCID(version, code, multihash.bytes));
-		} else if (value[cidSymbol] === true) {
-			const { version, multihash, code } = value;
-			const digest = decode(multihash);
-			return CID.create(version, code, digest);
-		} else return null;
-	}
-	/**
-	* @param version - Version of the CID
-	* @param code - Code of the codec content is encoded in, see https://github.com/multiformats/multicodec/blob/master/table.csv
-	* @param digest - (Multi)hash of the of the content.
-	*/
-	static create(version, code, digest) {
-		if (typeof code !== "number") throw new Error("String codecs are no longer supported");
-		if (!(digest.bytes instanceof Uint8Array)) throw new Error("Invalid digest");
-		switch (version) {
-			case 0: if (code !== DAG_PB_CODE) throw new Error(`Version 0 CID must use dag-pb (code: ${DAG_PB_CODE}) block encoding`);
-			else return new CID(version, code, digest, digest.bytes);
-			case 1: {
-				const bytes = encodeCID(version, code, digest.bytes);
-				return new CID(version, code, digest, bytes);
-			}
-			default: throw new Error("Invalid version");
-		}
-	}
-	/**
-	* Simplified version of `create` for CIDv0.
-	*/
-	static createV0(digest) {
-		return CID.create(0, DAG_PB_CODE, digest);
-	}
-	/**
-	* Simplified version of `create` for CIDv1.
-	*
-	* @param code - Content encoding format code.
-	* @param digest - Multihash of the content.
-	*/
-	static createV1(code, digest) {
-		return CID.create(1, code, digest);
-	}
-	/**
-	* Decoded a CID from its binary representation. The byte array must contain
-	* only the CID with no additional bytes.
-	*
-	* An error will be thrown if the bytes provided do not contain a valid
-	* binary representation of a CID.
-	*/
-	static decode(bytes) {
-		const [cid, remainder] = CID.decodeFirst(bytes);
-		if (remainder.length !== 0) throw new Error("Incorrect length");
-		return cid;
-	}
-	/**
-	* Decoded a CID from its binary representation at the beginning of a byte
-	* array.
-	*
-	* Returns an array with the first element containing the CID and the second
-	* element containing the remainder of the original byte array. The remainder
-	* will be a zero-length byte array if the provided bytes only contained a
-	* binary CID representation.
-	*/
-	static decodeFirst(bytes) {
-		const specs = CID.inspectBytes(bytes);
-		const prefixSize = specs.size - specs.multihashSize;
-		const multihashBytes = coerce(bytes.subarray(prefixSize, prefixSize + specs.multihashSize));
-		if (multihashBytes.byteLength !== specs.multihashSize) throw new Error("Incorrect length");
-		const digestBytes = multihashBytes.subarray(specs.multihashSize - specs.digestSize);
-		const digest = new Digest(specs.multihashCode, specs.digestSize, digestBytes, multihashBytes);
-		return [specs.version === 0 ? CID.createV0(digest) : CID.createV1(specs.codec, digest), bytes.subarray(specs.size)];
-	}
-	/**
-	* Inspect the initial bytes of a CID to determine its properties.
-	*
-	* Involves decoding up to 4 varints. Typically this will require only 4 to 6
-	* bytes but for larger multicodec code values and larger multihash digest
-	* lengths these varints can be quite large. It is recommended that at least
-	* 10 bytes be made available in the `initialBytes` argument for a complete
-	* inspection.
-	*/
-	static inspectBytes(initialBytes) {
-		let offset = 0;
-		const next = () => {
-			const [i, length] = decode$1(initialBytes.subarray(offset));
-			offset += length;
-			return i;
-		};
-		let version = next();
-		let codec = DAG_PB_CODE;
-		if (version === 18) {
-			version = 0;
-			offset = 0;
-		} else codec = next();
-		if (version !== 0 && version !== 1) throw new RangeError(`Invalid CID version ${version}`);
-		const prefixSize = offset;
-		const multihashCode = next();
-		const digestSize = next();
-		const size = offset + digestSize;
-		const multihashSize = size - prefixSize;
-		return {
-			version,
-			codec,
-			multihashCode,
-			digestSize,
-			multihashSize,
-			size
-		};
-	}
-	/**
-	* Takes cid in a string representation and creates an instance. If `base`
-	* decoder is not provided will use a default from the configuration. It will
-	* throw an error if encoding of the CID is not compatible with supplied (or
-	* a default decoder).
-	*/
-	static parse(source, base) {
-		const [prefix, bytes] = parseCIDtoBytes(source, base);
-		const cid = CID.decode(bytes);
-		if (cid.version === 0 && source[0] !== "Q") throw Error("Version 0 CID string must not include multibase prefix");
-		baseCache(cid).set(prefix, source);
-		return cid;
-	}
-};
-function parseCIDtoBytes(source, base) {
-	switch (source[0]) {
-		case "Q": {
-			const decoder = base ?? base58btc;
-			return [base58btc.prefix, decoder.decode(`${base58btc.prefix}${source}`)];
-		}
-		case base58btc.prefix: {
-			const decoder = base ?? base58btc;
-			return [base58btc.prefix, decoder.decode(source)];
-		}
-		case base32.prefix: {
-			const decoder = base ?? base32;
-			return [base32.prefix, decoder.decode(source)];
-		}
-		case base36.prefix: {
-			const decoder = base ?? base36;
-			return [base36.prefix, decoder.decode(source)];
-		}
-		default:
-			if (base == null) throw Error("To parse non base32, base36 or base58btc encoded CID multibase decoder must be provided");
-			return [source[0], base.decode(source)];
-	}
-}
-function toStringV0(bytes, cache, base) {
-	const { prefix } = base;
-	if (prefix !== base58btc.prefix) throw Error(`Cannot string encode V0 in ${base.name} encoding`);
-	const cid = cache.get(prefix);
-	if (cid == null) {
-		const cid = base.encode(bytes).slice(1);
-		cache.set(prefix, cid);
-		return cid;
-	} else return cid;
-}
-function toStringV1(bytes, cache, base) {
-	const { prefix } = base;
-	const cid = cache.get(prefix);
-	if (cid == null) {
-		const cid = base.encode(bytes);
-		cache.set(prefix, cid);
-		return cid;
-	} else return cid;
-}
-var DAG_PB_CODE = 112;
-var SHA_256_CODE = 18;
-function encodeCID(version, code, multihash) {
-	const codeOffset = encodingLength(version);
-	const hashOffset = codeOffset + encodingLength(code);
-	const bytes = new Uint8Array(hashOffset + multihash.byteLength);
-	encodeTo(version, bytes, 0);
-	encodeTo(code, bytes, codeOffset);
-	bytes.set(multihash, hashOffset);
-	return bytes;
-}
-var cidSymbol = Symbol.for("@ipld/js-cid/CID");
-//#endregion
-//#region ../../libs/crypto-service/src/content-cid.ts
-/**
-* Content CID — Canonical content hashing for diary entries
-*
-* Produces CIDv1 content identifiers (sha2-256, raw codec, base32lower)
-* for immutable diary entry signing.
-*
-* Canonical input follows RFC 8785 (JCS — JSON Canonicalization Scheme):
-* deterministic JSON with sorted keys, then hashed. JSON string escaping
-* naturally prevents field delimiter collision.
-*/
-/** SHA-256 multicodec code per multihash table */
-var SHA2_256_CODE = 18;
-/**
-* Build the canonical JSON input for content hashing.
-*
-* Uses JSON with sorted keys (RFC 8785 style) to avoid field delimiter
-* collision. Nulls are normalized: null title → empty string, null tags → [].
-* Tags are sorted for determinism.
-*/
-function buildCanonicalInput(entryType, title, content, tags) {
-	const canonical = {
-		c: content,
-		t: title ?? "",
-		tags: tags ? [...tags].sort() : [],
-		type: entryType,
-		v: "moltnet:diary:v1"
-	};
-	return JSON.stringify(canonical);
-}
-/**
-* Compute the raw SHA-256 hash of canonical diary entry content.
-*/
-function computeCanonicalHash(entryType, title, content, tags) {
-	const input = buildCanonicalInput(entryType, title, content, tags);
-	return sha256$1(new TextEncoder().encode(input));
-}
-/**
-* Compute a CIDv1 content identifier for a diary entry.
-*
-* Format: CIDv1 with sha2-256 hash, raw codec, base32lower multibase.
-* Example output: "bafkreig..."
-*/
-function computeContentCid(entryType, title, content, tags) {
-	const digest = create(SHA2_256_CODE, computeCanonicalHash(entryType, title, content, tags));
-	return CID.createV1(85, digest).toString(base32);
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/entries.ts
-/**
-* Thrown when a signed entry's signing request completed but the final entry
-* creation failed. Carries `signingRequestId` so the caller can reconcile the
-* partial completion — the request is already signed; retry the create with
-* this id rather than starting a new sign cycle.
-*/
-var SignedEntryCreateError = class extends Error {
-	signingRequestId;
-	constructor(signingRequestId, cause) {
-		super(`signed entry creation failed after the signing request completed (signingRequestId=${signingRequestId}); retry the create with this id to avoid duplicating the request or entry`, { cause });
-		this.name = "SignedEntryCreateError";
-		this.signingRequestId = signingRequestId;
-	}
-};
-function createEntriesNamespace(context) {
-	const { client, auth } = context;
-	async function createSignedEntry(diaryId, body, sign) {
-		const contentCid = computeContentCid(body.entryType ?? "semantic", body.title ?? null, body.content, body.tags ?? null);
-		const signingRequest = unwrapResult(await createSigningRequest({
-			client,
-			auth,
-			body: {
-				message: contentCid,
-				verificationMethod: "agent-ed25519"
-			}
-		}));
-		await sign(signingRequest);
-		try {
-			return unwrapResult(await createDiaryEntry({
-				client,
-				auth,
-				path: { diaryId },
-				body: {
-					...body,
-					signingRequestId: signingRequest.id
-				}
-			}));
-		} catch (error) {
-			throw new SignedEntryCreateError(signingRequest.id, error);
-		}
-	}
-	return {
-		async create(diaryId, body) {
-			return unwrapResult(await createDiaryEntry({
-				client,
-				auth,
-				body,
-				path: { diaryId }
-			}));
-		},
-		async list(diaryId, query) {
-			return unwrapResult(await listDiaryEntries({
-				client,
-				auth,
-				query,
-				path: { diaryId }
-			}));
-		},
-		async get(entryId) {
-			return unwrapResult(await getDiaryEntryById({
-				client,
-				auth,
-				path: { entryId }
-			}));
-		},
-		async update(entryId, body) {
-			return unwrapResult(await updateDiaryEntryById({
-				client,
-				auth,
-				path: { entryId },
-				body
-			}));
-		},
-		async delete(entryId) {
-			return unwrapResult(await deleteDiaryEntryById({
-				client,
-				auth,
-				path: { entryId }
-			}));
-		},
-		async deleteMany(body) {
-			return unwrapResult(await batchDeleteDiaryEntries({
-				client,
-				auth,
-				body
-			}));
-		},
-		async search(body) {
-			return unwrapResult(await searchDiary({
-				client,
-				auth,
-				body
-			}));
-		},
-		async verify(entryId) {
-			return unwrapResult(await verifyDiaryEntryById({
-				client,
-				auth,
-				path: { entryId }
-			}));
-		},
-		async createSigned(diaryId, body, privateKey) {
-			const privateKeyBytes = new Uint8Array(Buffer.from(privateKey, "base64"));
-			return createSignedEntry(diaryId, body, async (signingRequest) => {
-				const signature = await signAsync(new Uint8Array(Buffer.from(signingRequest.signingInput, "base64")), privateKeyBytes);
-				unwrapResult(await submitSignature({
-					client,
-					auth,
-					path: { id: signingRequest.id },
-					body: { signature: Buffer.from(signature).toString("base64") }
-				}));
-			});
-		},
-		async createSignedWith(diaryId, body, signer) {
-			return createSignedEntry(diaryId, body, async ({ id }) => {
-				await signer.signDiaryEntry({ signingRequestId: id });
-			});
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/legreffier.ts
-function createLegreffierNamespace(context) {
-	const { client } = context;
-	return {
-		async startOnboarding(body, idempotencyKey) {
-			return unwrapResult(await startLegreffierOnboarding({
-				client,
-				body,
-				headers: { "idempotency-key": idempotencyKey }
-			}));
-		},
-		async getOnboardingStatus(workflowId) {
-			return unwrapResult(await getLegreffierOnboardingStatus({
-				client,
-				path: { workflowId }
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/packs.ts
-function createPacksNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async get(id, query) {
-			return unwrapResult(await getContextPackById({
-				client,
-				auth,
-				path: { id },
-				query
-			}));
-		},
-		async diff(fromId, toId) {
-			return unwrapResult(await diffContextPacksById({
-				client,
-				auth,
-				path: {
-					id: fromId,
-					otherId: toId
-				}
-			}));
-		},
-		async diffByCid(fromCid, toCid) {
-			return unwrapResult(await diffContextPacksByCid({
-				client,
-				auth,
-				path: {
-					cid: fromCid,
-					otherCid: toCid
-				}
-			}));
-		},
-		async list(selector) {
-			if ("diaryId" in selector) {
-				const { diaryId, ...query } = selector;
-				return unwrapResult(await listDiaryPacks({
-					client,
-					auth,
-					path: { id: diaryId },
-					query
-				}));
-			}
-			const { containsEntry, ...query } = selector;
-			return unwrapResult(await listContextPacks({
-				client,
-				auth,
-				query: {
-					...query,
-					containsEntry
-				}
-			}));
-		},
-		async getProvenance(id, query) {
-			return unwrapResult(await getContextPackProvenanceById({
-				client,
-				auth,
-				path: { id },
-				query
-			}));
-		},
-		async getProvenanceByCid(cid, query) {
-			return unwrapResult(await getContextPackProvenanceByCid({
-				client,
-				auth,
-				path: { cid },
-				query
-			}));
-		},
-		async previewRendered(id, body) {
-			return unwrapResult(await previewRenderedPack({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async render(id, body) {
-			return unwrapResult(await renderContextPack({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async getLatestRendered(id, query) {
-			return unwrapResult(await getLatestRenderedPack({
-				client,
-				auth,
-				path: { id },
-				query
-			}));
-		},
-		async listRendered(diaryId, query) {
-			return unwrapResult(await listDiaryRenderedPacks({
-				client,
-				auth,
-				path: { id: diaryId },
-				query
-			}));
-		},
-		async getRendered(id, query) {
-			return unwrapResult(await getRenderedPackById({
-				client,
-				auth,
-				path: { id },
-				query
-			}));
-		},
-		async update(id, body) {
-			return unwrapResult(await updateContextPack({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async updateRendered(id, body) {
-			return unwrapResult(await updateRenderedPack({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async create(diaryId, body) {
-			return unwrapResult(await createDiaryCustomPack({
-				client,
-				auth,
-				path: { id: diaryId },
-				body
-			}));
-		},
-		async preview(diaryId, body) {
-			return unwrapResult(await previewDiaryCustomPack({
-				client,
-				auth,
-				path: { id: diaryId },
-				body
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/problems.ts
-function createProblemsNamespace(context) {
-	const { client } = context;
-	return {
-		async list() {
-			return unwrapRequired(await listProblemTypes({ client }), "Failed to list problem types", "PROBLEMS_FAILED");
-		},
-		async get(type) {
-			return unwrapRequired(await getProblemType({
-				client,
-				path: { type }
-			}), `Failed to get problem type: ${type}`, "PROBLEM_TYPE_FAILED");
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/projects.ts
-function createProjectsNamespace({ client, auth }) {
-	return {
-		async create(body, options) {
-			return unwrapResult(await createProject({
-				client,
-				auth,
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async list(query, options) {
-			return unwrapResult(await listProjects({
-				client,
-				auth,
-				query,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async get(projectId, options) {
-			return unwrapResult(await getProject({
-				client,
-				auth,
-				path: { projectId },
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async update(projectId, body, options) {
-			return unwrapResult(await updateProject({
-				client,
-				auth,
-				path: { projectId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async archive(projectId, options) {
-			return unwrapResult(await updateProject({
-				client,
-				auth,
-				path: { projectId },
-				body: { archived: true },
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async unarchive(projectId, options) {
-			return unwrapResult(await updateProject({
-				client,
-				auth,
-				path: { projectId },
-				body: { archived: false },
-				headers: requiredTeamHeaders(options)
-			}));
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/public.ts
-function createPublicNamespace(context) {
-	const { client } = context;
-	return {
-		async feed(query) {
-			return unwrapResult(await getPublicFeed({
-				client,
-				query
-			}));
-		},
-		async searchFeed(query) {
-			return unwrapResult(await searchPublicFeed({
-				client,
-				query
-			}));
-		},
-		async entry(id) {
-			return unwrapResult(await getPublicEntry({
-				client,
-				path: { id }
-			}));
-		},
-		async networkInfo() {
-			return unwrapRequired(await getNetworkInfo({ client }), "Failed to fetch network info", "NETWORK_INFO_FAILED");
-		},
-		async llmsTxt() {
-			return unwrapRequired(await getLlmsTxt({ client }), "Failed to fetch llms.txt", "LLMS_TXT_FAILED");
-		},
-		async health() {
-			return unwrapRequired(await getHealth({ client }), "Failed to fetch health", "HEALTH_FAILED");
-		}
-	};
-}
-//#endregion
 //#region ../../libs/sdk/src/namespaces/recovery.ts
 function createRecoveryNamespace(context) {
 	const { client } = context;
@@ -7079,43 +5710,21 @@ function createRecoveryNamespace(context) {
 	};
 }
 //#endregion
-//#region ../../libs/sdk/src/namespaces/relations.ts
-function createRelationsNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async create(entryId, body) {
-			return unwrapResult(await createEntryRelation({
-				client,
-				auth,
-				path: { entryId },
-				body
-			}));
-		},
-		async list(entryId, query) {
-			return unwrapResult(await listEntryRelations({
-				client,
-				auth,
-				path: { entryId },
-				query
-			}));
-		},
-		async update(id, body) {
-			return unwrapResult(await updateEntryRelationStatus({
-				client,
-				auth,
-				path: { id },
-				body
-			}));
-		},
-		async delete(id) {
-			const result = await deleteEntryRelation({
-				client,
-				auth,
-				path: { id }
-			});
-			if (result.error) unwrapResult(result);
-		}
-	};
+//#region ../../libs/sdk/src/namespaces/team-headers.ts
+/**
+* Build the team header from an optional option, or `undefined` when no team
+* context was supplied. Used by diaries and runtime-profiles, whose endpoints
+* accept the header optionally.
+*/
+function teamHeaders(options) {
+	return options?.teamId ? { "x-moltnet-team-id": options.teamId } : void 0;
+}
+/**
+* Build the team header from a required option. Used by tasks and
+* runtime-slots, whose endpoints mandate the header.
+*/
+function requiredTeamHeaders(options) {
+	return { "x-moltnet-team-id": options.teamId };
 }
 //#endregion
 //#region ../../libs/sdk/src/namespaces/runtime-policies.ts
@@ -7162,78 +5771,6 @@ function createRuntimePoliciesNamespace(context) {
 				headers: requiredTeamHeaders(options)
 			});
 			if (result.error) unwrapResult(result);
-		}
-	};
-}
-//#endregion
-//#region ../../libs/sdk/src/namespaces/runtime-profiles.ts
-function createRuntimeProfilesNamespace(context) {
-	const { client, auth } = context;
-	return {
-		async list(options) {
-			return unwrapResult(await listRuntimeProfiles({
-				client,
-				auth,
-				headers: teamHeaders(options)
-			}));
-		},
-		async create(body, options) {
-			return unwrapResult(await createRuntimeProfile({
-				client,
-				auth,
-				headers: teamHeaders(options),
-				body
-			}));
-		},
-		async get(profileId) {
-			return unwrapResult(await getRuntimeProfile({
-				client,
-				auth,
-				path: { profileId }
-			}));
-		},
-		async update(profileId, body) {
-			return unwrapResult(await updateRuntimeProfile({
-				client,
-				auth,
-				path: { profileId },
-				body
-			}));
-		},
-		async delete(profileId) {
-			const result = await deleteRuntimeProfile({
-				client,
-				auth,
-				path: { profileId }
-			});
-			if (result.error) unwrapResult(result);
-		},
-		async allowedTools(profileId, options) {
-			return unwrapResult(await getRuntimeProfileAllowedTools({
-				signal: options.signal,
-				client,
-				auth,
-				path: { profileId },
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async setPolicies(profileId, policyIds, options) {
-			const result = await setRuntimeProfilePolicies({
-				client,
-				auth,
-				path: { profileId },
-				headers: requiredTeamHeaders(options),
-				body: { policyIds }
-			});
-			if (result.error) unwrapResult(result);
-		},
-		async getPolicies(profileId, options) {
-			return unwrapResult(await getRuntimeProfilePolicies({
-				client,
-				auth,
-				path: { profileId },
-				headers: requiredTeamHeaders(options)
-			}));
 		}
 	};
 }
@@ -9276,6 +7813,21 @@ async function* storeLines(stream) {
 	}
 }
 //#endregion
+//#region ../../libs/sdk/src/namespaces/query.ts
+/**
+* Remove `undefined`-valued keys from a query object before it is serialized.
+*
+* Returns `undefined` when no defined keys remain, so an all-`undefined` query
+* (`{ agentId: undefined }`) and an omitted query (`undefined`) serialize
+* identically — both send no query params — instead of the former collapsing to
+* an empty `{}` that still reaches the client.
+*/
+function stripUndefinedQuery(query) {
+	if (!query) return;
+	const entries = Object.entries(query).filter(([, value]) => value !== void 0);
+	return entries.length ? Object.fromEntries(entries) : void 0;
+}
+//#endregion
 //#region ../../libs/sdk/src/namespaces/runtime-slots.ts
 function createRuntimeSlotsNamespace(context) {
 	const { client, auth } = context;
@@ -9316,6 +7868,2002 @@ function createRuntimeSlotsNamespace(context) {
 				headers: requiredTeamHeaders(options),
 				query: stripUndefinedQuery(query)
 			})).items;
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/task-grants.ts
+function createTaskGrantsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(taskId, body, options) {
+			return unwrapResult(await createTaskGrant({
+				client,
+				auth,
+				path: { id: taskId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async list(taskId, options) {
+			return unwrapResult(await listTaskGrants({
+				client,
+				auth,
+				path: { id: taskId },
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async revoke(taskId, body, options) {
+			return unwrapResult(await revokeTaskGrant({
+				client,
+				auth,
+				path: { id: taskId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/agent-keys.ts
+function bindingHeaders(options) {
+	return options.bindingScope === "identity" ? {} : requiredTeamHeaders(options);
+}
+function bindingQuery(query, options) {
+	return stripUndefinedQuery(options.bindingScope === "identity" ? {
+		...query,
+		bindingScope: "identity"
+	} : query);
+}
+function createAgentKeysNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(query, options) {
+			return unwrapResult(await listAgentKeys({
+				client,
+				auth,
+				headers: bindingHeaders(options),
+				query: bindingQuery(query, options)
+			}));
+		},
+		async create(body, options) {
+			return unwrapResult(await createAgentKey({
+				client,
+				auth,
+				headers: {
+					...bindingHeaders(options),
+					"idempotency-key": options.idempotencyKey
+				},
+				body: options.bindingScope === "identity" ? {
+					...body,
+					bindingScope: "identity"
+				} : body
+			}));
+		},
+		async rotate(keyId, options) {
+			return unwrapResult(await rotateAgentKey({
+				client,
+				auth,
+				headers: bindingHeaders(options),
+				path: { keyId },
+				query: bindingQuery(void 0, options)
+			}));
+		},
+		async revoke(keyId, body, options) {
+			const result = await revokeAgentKey({
+				client,
+				auth,
+				headers: bindingHeaders(options),
+				path: { keyId },
+				query: bindingQuery(void 0, options),
+				body
+			});
+			if (result.error) unwrapResult(result);
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/crypto.ts
+function createCryptoNamespace(context, signingRequests, signingCredentials) {
+	const { client, auth } = context;
+	return {
+		async identity() {
+			return unwrapResult(await getCryptoIdentity({
+				client,
+				auth
+			}));
+		},
+		async verify(body) {
+			return unwrapResult(await verifyCryptoSignature({
+				client,
+				body
+			}));
+		},
+		signingRequests,
+		signingCredentials
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/diaries.ts
+function createDiariesNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(query, options) {
+			return unwrapResult(await listDiaries({
+				client,
+				auth,
+				query,
+				headers: teamHeaders(options)
+			}));
+		},
+		async create(body, options) {
+			return unwrapResult(await createDiary({
+				client,
+				auth,
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async get(id, options) {
+			return unwrapResult(await getDiary({
+				client,
+				auth,
+				path: { id },
+				headers: teamHeaders(options)
+			}));
+		},
+		async update(id, body, options) {
+			return unwrapResult(await updateDiary({
+				client,
+				auth,
+				path: { id },
+				body,
+				headers: teamHeaders(options)
+			}));
+		},
+		async delete(id, options) {
+			return unwrapResult(await deleteDiary({
+				client,
+				auth,
+				path: { id },
+				headers: teamHeaders(options)
+			}));
+		},
+		async tags(diaryId, query) {
+			return unwrapResult(await listDiaryTags({
+				client,
+				auth,
+				path: { diaryId },
+				query
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/diary-grants.ts
+function createDiaryGrantsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(diaryId, body) {
+			return unwrapResult(await createDiaryGrant({
+				client,
+				auth,
+				path: { id: diaryId },
+				body
+			}));
+		},
+		async list(diaryId) {
+			return unwrapResult(await listDiaryGrants({
+				client,
+				auth,
+				path: { id: diaryId }
+			}));
+		},
+		async revoke(diaryId, body) {
+			return unwrapResult(await revokeDiaryGrant({
+				client,
+				auth,
+				path: { id: diaryId },
+				body
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/utils.js
+/*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+/** Checks if something is Uint8Array. Be careful: nodejs Buffer will return true. */
+function isBytes(a) {
+	return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
+}
+/** Asserts something is Uint8Array. */
+function abytes(b, ...lengths) {
+	if (!isBytes(b)) throw new Error("Uint8Array expected");
+	if (lengths.length > 0 && !lengths.includes(b.length)) throw new Error("Uint8Array expected of length " + lengths + ", got length=" + b.length);
+}
+/** Asserts a hash instance has not been destroyed / finished */
+function aexists(instance, checkFinished = true) {
+	if (instance.destroyed) throw new Error("Hash instance has been destroyed");
+	if (checkFinished && instance.finished) throw new Error("Hash#digest() has already been called");
+}
+/** Asserts output is properly-sized byte array */
+function aoutput(out, instance) {
+	abytes(out);
+	const min = instance.outputLen;
+	if (out.length < min) throw new Error("digestInto() expects output buffer of length at least " + min);
+}
+/** Zeroize a byte array. Warning: JS provides no guarantees. */
+function clean(...arrays) {
+	for (let i = 0; i < arrays.length; i++) arrays[i].fill(0);
+}
+/** Create DataView of an array for easy byte-level manipulation. */
+function createView(arr) {
+	return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+}
+/** The rotate right (circular right shift) operation for uint32 */
+function rotr(word, shift) {
+	return word << 32 - shift | word >>> shift;
+}
+/**
+* Converts string to bytes using UTF8 encoding.
+* @example utf8ToBytes('abc') // Uint8Array.from([97, 98, 99])
+*/
+function utf8ToBytes$1(str) {
+	if (typeof str !== "string") throw new Error("string expected");
+	return new Uint8Array(new TextEncoder().encode(str));
+}
+/**
+* Normalizes (non-hex) string or Uint8Array to Uint8Array.
+* Warning: when Uint8Array is passed, it would NOT get copied.
+* Keep in mind for future mutable operations.
+*/
+function toBytes(data) {
+	if (typeof data === "string") data = utf8ToBytes$1(data);
+	abytes(data);
+	return data;
+}
+/** For runtime check if class implements interface */
+var Hash = class {};
+/** Wraps hash function, creating an interface on top of it */
+function createHasher(hashCons) {
+	const hashC = (msg) => hashCons().update(toBytes(msg)).digest();
+	const tmp = hashCons();
+	hashC.outputLen = tmp.outputLen;
+	hashC.blockLen = tmp.blockLen;
+	hashC.create = () => hashCons();
+	return hashC;
+}
+//#endregion
+//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/_md.js
+/**
+* Internal Merkle-Damgard hash utils.
+* @module
+*/
+/** Polyfill for Safari 14. https://caniuse.com/mdn-javascript_builtins_dataview_setbiguint64 */
+function setBigUint64(view, byteOffset, value, isLE) {
+	if (typeof view.setBigUint64 === "function") return view.setBigUint64(byteOffset, value, isLE);
+	const _32n = BigInt(32);
+	const _u32_max = BigInt(4294967295);
+	const wh = Number(value >> _32n & _u32_max);
+	const wl = Number(value & _u32_max);
+	const h = isLE ? 4 : 0;
+	const l = isLE ? 0 : 4;
+	view.setUint32(byteOffset + h, wh, isLE);
+	view.setUint32(byteOffset + l, wl, isLE);
+}
+/** Choice: a ? b : c */
+function Chi(a, b, c) {
+	return a & b ^ ~a & c;
+}
+/** Majority function, true if any two inputs is true. */
+function Maj(a, b, c) {
+	return a & b ^ a & c ^ b & c;
+}
+/**
+* Merkle-Damgard hash construction base class.
+* Could be used to create MD5, RIPEMD, SHA1, SHA2.
+*/
+var HashMD = class extends Hash {
+	constructor(blockLen, outputLen, padOffset, isLE) {
+		super();
+		this.finished = false;
+		this.length = 0;
+		this.pos = 0;
+		this.destroyed = false;
+		this.blockLen = blockLen;
+		this.outputLen = outputLen;
+		this.padOffset = padOffset;
+		this.isLE = isLE;
+		this.buffer = new Uint8Array(blockLen);
+		this.view = createView(this.buffer);
+	}
+	update(data) {
+		aexists(this);
+		data = toBytes(data);
+		abytes(data);
+		const { view, buffer, blockLen } = this;
+		const len = data.length;
+		for (let pos = 0; pos < len;) {
+			const take = Math.min(blockLen - this.pos, len - pos);
+			if (take === blockLen) {
+				const dataView = createView(data);
+				for (; blockLen <= len - pos; pos += blockLen) this.process(dataView, pos);
+				continue;
+			}
+			buffer.set(data.subarray(pos, pos + take), this.pos);
+			this.pos += take;
+			pos += take;
+			if (this.pos === blockLen) {
+				this.process(view, 0);
+				this.pos = 0;
+			}
+		}
+		this.length += data.length;
+		this.roundClean();
+		return this;
+	}
+	digestInto(out) {
+		aexists(this);
+		aoutput(out, this);
+		this.finished = true;
+		const { buffer, view, blockLen, isLE } = this;
+		let { pos } = this;
+		buffer[pos++] = 128;
+		clean(this.buffer.subarray(pos));
+		if (this.padOffset > blockLen - pos) {
+			this.process(view, 0);
+			pos = 0;
+		}
+		for (let i = pos; i < blockLen; i++) buffer[i] = 0;
+		setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
+		this.process(view, 0);
+		const oview = createView(out);
+		const len = this.outputLen;
+		if (len % 4) throw new Error("_sha2: outputLen should be aligned to 32bit");
+		const outLen = len / 4;
+		const state = this.get();
+		if (outLen > state.length) throw new Error("_sha2: outputLen bigger than state");
+		for (let i = 0; i < outLen; i++) oview.setUint32(4 * i, state[i], isLE);
+	}
+	digest() {
+		const { buffer, outputLen } = this;
+		this.digestInto(buffer);
+		const res = buffer.slice(0, outputLen);
+		this.destroy();
+		return res;
+	}
+	_cloneInto(to) {
+		to || (to = new this.constructor());
+		to.set(...this.get());
+		const { blockLen, buffer, length, finished, destroyed, pos } = this;
+		to.destroyed = destroyed;
+		to.finished = finished;
+		to.length = length;
+		to.pos = pos;
+		if (length % blockLen) to.buffer.set(buffer);
+		return to;
+	}
+	clone() {
+		return this._cloneInto();
+	}
+};
+/**
+* Initial SHA-2 state: fractional parts of square roots of first 16 primes 2..53.
+* Check out `test/misc/sha2-gen-iv.js` for recomputation guide.
+*/
+/** Initial SHA256 state. Bits 0..32 of frac part of sqrt of primes 2..19 */
+var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
+	1779033703,
+	3144134277,
+	1013904242,
+	2773480762,
+	1359893119,
+	2600822924,
+	528734635,
+	1541459225
+]);
+//#endregion
+//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/sha2.js
+/**
+* SHA2 hash function. A.k.a. sha256, sha384, sha512, sha512_224, sha512_256.
+* SHA256 is the fastest hash implementable in JS, even faster than Blake3.
+* Check out [RFC 4634](https://datatracker.ietf.org/doc/html/rfc4634) and
+* [FIPS 180-4](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf).
+* @module
+*/
+/**
+* Round constants:
+* First 32 bits of fractional parts of the cube roots of the first 64 primes 2..311)
+*/
+var SHA256_K = /* @__PURE__ */ Uint32Array.from([
+	1116352408,
+	1899447441,
+	3049323471,
+	3921009573,
+	961987163,
+	1508970993,
+	2453635748,
+	2870763221,
+	3624381080,
+	310598401,
+	607225278,
+	1426881987,
+	1925078388,
+	2162078206,
+	2614888103,
+	3248222580,
+	3835390401,
+	4022224774,
+	264347078,
+	604807628,
+	770255983,
+	1249150122,
+	1555081692,
+	1996064986,
+	2554220882,
+	2821834349,
+	2952996808,
+	3210313671,
+	3336571891,
+	3584528711,
+	113926993,
+	338241895,
+	666307205,
+	773529912,
+	1294757372,
+	1396182291,
+	1695183700,
+	1986661051,
+	2177026350,
+	2456956037,
+	2730485921,
+	2820302411,
+	3259730800,
+	3345764771,
+	3516065817,
+	3600352804,
+	4094571909,
+	275423344,
+	430227734,
+	506948616,
+	659060556,
+	883997877,
+	958139571,
+	1322822218,
+	1537002063,
+	1747873779,
+	1955562222,
+	2024104815,
+	2227730452,
+	2361852424,
+	2428436474,
+	2756734187,
+	3204031479,
+	3329325298
+]);
+/** Reusable temporary buffer. "W" comes straight from spec. */
+var SHA256_W = /* @__PURE__ */ new Uint32Array(64);
+var SHA256 = class extends HashMD {
+	constructor(outputLen = 32) {
+		super(64, outputLen, 8, false);
+		this.A = SHA256_IV[0] | 0;
+		this.B = SHA256_IV[1] | 0;
+		this.C = SHA256_IV[2] | 0;
+		this.D = SHA256_IV[3] | 0;
+		this.E = SHA256_IV[4] | 0;
+		this.F = SHA256_IV[5] | 0;
+		this.G = SHA256_IV[6] | 0;
+		this.H = SHA256_IV[7] | 0;
+	}
+	get() {
+		const { A, B, C, D, E, F, G, H } = this;
+		return [
+			A,
+			B,
+			C,
+			D,
+			E,
+			F,
+			G,
+			H
+		];
+	}
+	set(A, B, C, D, E, F, G, H) {
+		this.A = A | 0;
+		this.B = B | 0;
+		this.C = C | 0;
+		this.D = D | 0;
+		this.E = E | 0;
+		this.F = F | 0;
+		this.G = G | 0;
+		this.H = H | 0;
+	}
+	process(view, offset) {
+		for (let i = 0; i < 16; i++, offset += 4) SHA256_W[i] = view.getUint32(offset, false);
+		for (let i = 16; i < 64; i++) {
+			const W15 = SHA256_W[i - 15];
+			const W2 = SHA256_W[i - 2];
+			const s0 = rotr(W15, 7) ^ rotr(W15, 18) ^ W15 >>> 3;
+			const s1 = rotr(W2, 17) ^ rotr(W2, 19) ^ W2 >>> 10;
+			SHA256_W[i] = s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16] | 0;
+		}
+		let { A, B, C, D, E, F, G, H } = this;
+		for (let i = 0; i < 64; i++) {
+			const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
+			const T1 = H + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i] | 0;
+			const T2 = (rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22)) + Maj(A, B, C) | 0;
+			H = G;
+			G = F;
+			F = E;
+			E = D + T1 | 0;
+			D = C;
+			C = B;
+			B = A;
+			A = T1 + T2 | 0;
+		}
+		A = A + this.A | 0;
+		B = B + this.B | 0;
+		C = C + this.C | 0;
+		D = D + this.D | 0;
+		E = E + this.E | 0;
+		F = F + this.F | 0;
+		G = G + this.G | 0;
+		H = H + this.H | 0;
+		this.set(A, B, C, D, E, F, G, H);
+	}
+	roundClean() {
+		clean(SHA256_W);
+	}
+	destroy() {
+		this.set(0, 0, 0, 0, 0, 0, 0, 0);
+		clean(this.buffer);
+	}
+};
+/**
+* SHA2-256 hash function from RFC 4634.
+*
+* It is the fastest JS hash, even faster than Blake3.
+* To break sha256 using birthday attack, attackers need to try 2^128 hashes.
+* BTC network is doing 2^70 hashes/sec (2^95 hashes/year) as per 2025.
+*/
+var sha256$1 = /* @__PURE__ */ createHasher(() => new SHA256());
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bytes.js
+function equals$1(aa, bb) {
+	if (aa === bb) return true;
+	if (aa.byteLength !== bb.byteLength) return false;
+	for (let ii = 0; ii < aa.byteLength; ii++) if (aa[ii] !== bb[ii]) return false;
+	return true;
+}
+function coerce(o) {
+	if (o instanceof Uint8Array && o.constructor.name === "Uint8Array") return o;
+	if (o instanceof ArrayBuffer) return new Uint8Array(o);
+	if (ArrayBuffer.isView(o)) return new Uint8Array(o.buffer, o.byteOffset, o.byteLength);
+	throw new Error("Unknown type, must be binary type");
+}
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/vendor/base-x.js
+/**
+* @param {string} ALPHABET
+* @param {any} name
+*/
+function base(ALPHABET, name) {
+	if (ALPHABET.length >= 255) throw new TypeError("Alphabet too long");
+	var BASE_MAP = /* @__PURE__ */ new Uint8Array(256);
+	for (var j = 0; j < BASE_MAP.length; j++) BASE_MAP[j] = 255;
+	for (var i = 0; i < ALPHABET.length; i++) {
+		var x = ALPHABET.charAt(i);
+		var xc = x.charCodeAt(0);
+		if (BASE_MAP[xc] !== 255) throw new TypeError(x + " is ambiguous");
+		BASE_MAP[xc] = i;
+	}
+	var BASE = ALPHABET.length;
+	var LEADER = ALPHABET.charAt(0);
+	var FACTOR = Math.log(BASE) / Math.log(256);
+	var iFACTOR = Math.log(256) / Math.log(BASE);
+	/**
+	* @param {any[] | Iterable<number>} source
+	*/
+	function encode(source) {
+		if (source instanceof Uint8Array);
+		else if (ArrayBuffer.isView(source)) source = new Uint8Array(source.buffer, source.byteOffset, source.byteLength);
+		else if (Array.isArray(source)) source = Uint8Array.from(source);
+		if (!(source instanceof Uint8Array)) throw new TypeError("Expected Uint8Array");
+		if (source.length === 0) return "";
+		var zeroes = 0;
+		var length = 0;
+		var pbegin = 0;
+		var pend = source.length;
+		while (pbegin !== pend && source[pbegin] === 0) {
+			pbegin++;
+			zeroes++;
+		}
+		var size = (pend - pbegin) * iFACTOR + 1 >>> 0;
+		var b58 = new Uint8Array(size);
+		while (pbegin !== pend) {
+			var carry = source[pbegin];
+			var i = 0;
+			for (var it1 = size - 1; (carry !== 0 || i < length) && it1 !== -1; it1--, i++) {
+				carry += 256 * b58[it1] >>> 0;
+				b58[it1] = carry % BASE >>> 0;
+				carry = carry / BASE >>> 0;
+			}
+			if (carry !== 0) throw new Error("Non-zero carry");
+			length = i;
+			pbegin++;
+		}
+		var it2 = size - length;
+		while (it2 !== size && b58[it2] === 0) it2++;
+		var str = LEADER.repeat(zeroes);
+		for (; it2 < size; ++it2) str += ALPHABET.charAt(b58[it2]);
+		return str;
+	}
+	/**
+	* @param {string | string[]} source
+	*/
+	function decodeUnsafe(source) {
+		if (typeof source !== "string") throw new TypeError("Expected String");
+		if (source.length === 0) return /* @__PURE__ */ new Uint8Array();
+		var psz = 0;
+		if (source[psz] === " ") return;
+		var zeroes = 0;
+		var length = 0;
+		while (source[psz] === LEADER) {
+			zeroes++;
+			psz++;
+		}
+		var size = (source.length - psz) * FACTOR + 1 >>> 0;
+		var b256 = new Uint8Array(size);
+		while (source[psz]) {
+			var carry = BASE_MAP[source.charCodeAt(psz)];
+			if (carry === 255) return;
+			var i = 0;
+			for (var it3 = size - 1; (carry !== 0 || i < length) && it3 !== -1; it3--, i++) {
+				carry += BASE * b256[it3] >>> 0;
+				b256[it3] = carry % 256 >>> 0;
+				carry = carry / 256 >>> 0;
+			}
+			if (carry !== 0) throw new Error("Non-zero carry");
+			length = i;
+			psz++;
+		}
+		if (source[psz] === " ") return;
+		var it4 = size - length;
+		while (it4 !== size && b256[it4] === 0) it4++;
+		var vch = new Uint8Array(zeroes + (size - it4));
+		var j = zeroes;
+		while (it4 !== size) vch[j++] = b256[it4++];
+		return vch;
+	}
+	/**
+	* @param {string | string[]} string
+	*/
+	function decode(string) {
+		var buffer = decodeUnsafe(string);
+		if (buffer) return buffer;
+		throw new Error(`Non-${name} character`);
+	}
+	return {
+		encode,
+		decodeUnsafe,
+		decode
+	};
+}
+var _brrp__multiformats_scope_baseX = base;
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base.js
+/**
+* Class represents both BaseEncoder and MultibaseEncoder meaning it
+* can be used to encode to multibase or base encode without multibase
+* prefix.
+*/
+var Encoder = class {
+	name;
+	prefix;
+	baseEncode;
+	constructor(name, prefix, baseEncode) {
+		this.name = name;
+		this.prefix = prefix;
+		this.baseEncode = baseEncode;
+	}
+	encode(bytes) {
+		if (bytes instanceof Uint8Array) return `${this.prefix}${this.baseEncode(bytes)}`;
+		else throw Error("Unknown type, must be binary type");
+	}
+};
+/**
+* Class represents both BaseDecoder and MultibaseDecoder so it could be used
+* to decode multibases (with matching prefix) or just base decode strings
+* with corresponding base encoding.
+*/
+var Decoder = class {
+	name;
+	prefix;
+	baseDecode;
+	prefixCodePoint;
+	constructor(name, prefix, baseDecode) {
+		this.name = name;
+		this.prefix = prefix;
+		const prefixCodePoint = prefix.codePointAt(0);
+		/* c8 ignore next 3 */
+		if (prefixCodePoint === void 0) throw new Error("Invalid prefix character");
+		this.prefixCodePoint = prefixCodePoint;
+		this.baseDecode = baseDecode;
+	}
+	decode(text) {
+		if (typeof text === "string") {
+			if (text.codePointAt(0) !== this.prefixCodePoint) throw Error(`Unable to decode multibase string ${JSON.stringify(text)}, ${this.name} decoder only supports inputs prefixed with ${this.prefix}`);
+			return this.baseDecode(text.slice(this.prefix.length));
+		} else throw Error("Can only multibase decode strings");
+	}
+	or(decoder) {
+		return or(this, decoder);
+	}
+};
+var ComposedDecoder = class {
+	decoders;
+	constructor(decoders) {
+		this.decoders = decoders;
+	}
+	or(decoder) {
+		return or(this, decoder);
+	}
+	decode(input) {
+		const prefix = input[0];
+		const decoder = this.decoders[prefix];
+		if (decoder != null) return decoder.decode(input);
+		else throw RangeError(`Unable to decode multibase string ${JSON.stringify(input)}, only inputs prefixed with ${Object.keys(this.decoders)} are supported`);
+	}
+};
+function or(left, right) {
+	return new ComposedDecoder({
+		...left.decoders ?? { [left.prefix]: left },
+		...right.decoders ?? { [right.prefix]: right }
+	});
+}
+var Codec = class {
+	name;
+	prefix;
+	baseEncode;
+	baseDecode;
+	encoder;
+	decoder;
+	constructor(name, prefix, baseEncode, baseDecode) {
+		this.name = name;
+		this.prefix = prefix;
+		this.baseEncode = baseEncode;
+		this.baseDecode = baseDecode;
+		this.encoder = new Encoder(name, prefix, baseEncode);
+		this.decoder = new Decoder(name, prefix, baseDecode);
+	}
+	encode(input) {
+		return this.encoder.encode(input);
+	}
+	decode(input) {
+		return this.decoder.decode(input);
+	}
+};
+function from$1({ name, prefix, encode, decode }) {
+	return new Codec(name, prefix, encode, decode);
+}
+function baseX({ name, prefix, alphabet }) {
+	const { encode, decode } = _brrp__multiformats_scope_baseX(alphabet, name);
+	return from$1({
+		prefix,
+		name,
+		encode,
+		decode: (text) => coerce(decode(text))
+	});
+}
+function decode$3(string, alphabetIdx, bitsPerChar, name) {
+	let end = string.length;
+	while (string[end - 1] === "=") --end;
+	const out = new Uint8Array(end * bitsPerChar / 8 | 0);
+	let bits = 0;
+	let buffer = 0;
+	let written = 0;
+	for (let i = 0; i < end; ++i) {
+		const value = alphabetIdx[string[i]];
+		if (value === void 0) throw new SyntaxError(`Non-${name} character`);
+		buffer = buffer << bitsPerChar | value;
+		bits += bitsPerChar;
+		if (bits >= 8) {
+			bits -= 8;
+			out[written++] = 255 & buffer >> bits;
+		}
+	}
+	if (bits >= bitsPerChar || (255 & buffer << 8 - bits) !== 0) throw new SyntaxError("Unexpected end of data");
+	return out;
+}
+function encode$1(data, alphabet, bitsPerChar) {
+	const pad = alphabet[alphabet.length - 1] === "=";
+	const mask = (1 << bitsPerChar) - 1;
+	let out = "";
+	let bits = 0;
+	let buffer = 0;
+	for (let i = 0; i < data.length; ++i) {
+		buffer = buffer << 8 | data[i];
+		bits += 8;
+		while (bits > bitsPerChar) {
+			bits -= bitsPerChar;
+			out += alphabet[mask & buffer >> bits];
+		}
+	}
+	if (bits !== 0) out += alphabet[mask & buffer << bitsPerChar - bits];
+	if (pad) while ((out.length * bitsPerChar & 7) !== 0) out += "=";
+	return out;
+}
+function createAlphabetIdx(alphabet) {
+	const alphabetIdx = {};
+	for (let i = 0; i < alphabet.length; ++i) alphabetIdx[alphabet[i]] = i;
+	return alphabetIdx;
+}
+/**
+* RFC4648 Factory
+*/
+function rfc4648({ name, prefix, bitsPerChar, alphabet }) {
+	const alphabetIdx = createAlphabetIdx(alphabet);
+	return from$1({
+		prefix,
+		name,
+		encode(input) {
+			return encode$1(input, alphabet, bitsPerChar);
+		},
+		decode(input) {
+			return decode$3(input, alphabetIdx, bitsPerChar, name);
+		}
+	});
+}
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base32.js
+var base32 = rfc4648({
+	prefix: "b",
+	name: "base32",
+	alphabet: "abcdefghijklmnopqrstuvwxyz234567",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "B",
+	name: "base32upper",
+	alphabet: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "c",
+	name: "base32pad",
+	alphabet: "abcdefghijklmnopqrstuvwxyz234567=",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "C",
+	name: "base32padupper",
+	alphabet: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "v",
+	name: "base32hex",
+	alphabet: "0123456789abcdefghijklmnopqrstuv",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "V",
+	name: "base32hexupper",
+	alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUV",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "t",
+	name: "base32hexpad",
+	alphabet: "0123456789abcdefghijklmnopqrstuv=",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "T",
+	name: "base32hexpadupper",
+	alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUV=",
+	bitsPerChar: 5
+});
+rfc4648({
+	prefix: "h",
+	name: "base32z",
+	alphabet: "ybndrfg8ejkmcpqxot1uwisza345h769",
+	bitsPerChar: 5
+});
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base36.js
+var base36 = baseX({
+	prefix: "k",
+	name: "base36",
+	alphabet: "0123456789abcdefghijklmnopqrstuvwxyz"
+});
+baseX({
+	prefix: "K",
+	name: "base36upper",
+	alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+});
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/bases/base58.js
+var base58btc = baseX({
+	name: "base58btc",
+	prefix: "z",
+	alphabet: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+});
+baseX({
+	name: "base58flickr",
+	prefix: "Z",
+	alphabet: "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
+});
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/vendor/varint.js
+var encode_1 = encode;
+var MSB = 128;
+var MSBALL = -128;
+var INT = Math.pow(2, 31);
+/**
+* @param {number} num
+* @param {number[]} out
+* @param {number} offset
+*/
+function encode(num, out, offset) {
+	out = out || [];
+	offset = offset || 0;
+	var oldOffset = offset;
+	while (num >= INT) {
+		out[offset++] = num & 255 | MSB;
+		num /= 128;
+	}
+	while (num & MSBALL) {
+		out[offset++] = num & 255 | MSB;
+		num >>>= 7;
+	}
+	out[offset] = num | 0;
+	encode.bytes = offset - oldOffset + 1;
+	return out;
+}
+var decode$2 = read;
+var MSB$1 = 128;
+var REST$1 = 127;
+/**
+* @param {string | any[]} buf
+* @param {number} offset
+*/
+function read(buf, offset) {
+	var res = 0, offset = offset || 0, shift = 0, counter = offset, b, l = buf.length;
+	do {
+		if (counter >= l) {
+			read.bytes = 0;
+			throw new RangeError("Could not decode varint");
+		}
+		b = buf[counter++];
+		res += shift < 28 ? (b & REST$1) << shift : (b & REST$1) * Math.pow(2, shift);
+		shift += 7;
+	} while (b >= MSB$1);
+	read.bytes = counter - offset;
+	return res;
+}
+var N1 = Math.pow(2, 7);
+var N2 = Math.pow(2, 14);
+var N3 = Math.pow(2, 21);
+var N4 = Math.pow(2, 28);
+var N5 = Math.pow(2, 35);
+var N6 = Math.pow(2, 42);
+var N7 = Math.pow(2, 49);
+var N8 = Math.pow(2, 56);
+var N9 = Math.pow(2, 63);
+var length = function(value) {
+	return value < N1 ? 1 : value < N2 ? 2 : value < N3 ? 3 : value < N4 ? 4 : value < N5 ? 5 : value < N6 ? 6 : value < N7 ? 7 : value < N8 ? 8 : value < N9 ? 9 : 10;
+};
+var _brrp_varint = {
+	encode: encode_1,
+	decode: decode$2,
+	encodingLength: length
+};
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/varint.js
+function decode$1(data, offset = 0) {
+	return [_brrp_varint.decode(data, offset), _brrp_varint.decode.bytes];
+}
+function encodeTo(int, target, offset = 0) {
+	_brrp_varint.encode(int, target, offset);
+	return target;
+}
+function encodingLength(int) {
+	return _brrp_varint.encodingLength(int);
+}
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/hashes/digest.js
+/**
+* Creates a multihash digest.
+*/
+function create(code, digest) {
+	const size = digest.byteLength;
+	const sizeOffset = encodingLength(code);
+	const digestOffset = sizeOffset + encodingLength(size);
+	const bytes = new Uint8Array(digestOffset + size);
+	encodeTo(code, bytes, 0);
+	encodeTo(size, bytes, sizeOffset);
+	bytes.set(digest, digestOffset);
+	return new Digest(code, size, digest, bytes);
+}
+/**
+* Turns bytes representation of multihash digest into an instance.
+*/
+function decode(multihash) {
+	const bytes = coerce(multihash);
+	const [code, sizeOffset] = decode$1(bytes);
+	const [size, digestOffset] = decode$1(bytes.subarray(sizeOffset));
+	const digest = bytes.subarray(sizeOffset + digestOffset);
+	if (digest.byteLength !== size) throw new Error("Incorrect length");
+	return new Digest(code, size, digest, bytes);
+}
+function equals(a, b) {
+	if (a === b) return true;
+	else {
+		const data = b;
+		return a.code === data.code && a.size === data.size && data.bytes instanceof Uint8Array && equals$1(a.bytes, data.bytes);
+	}
+}
+/**
+* Represents a multihash digest which carries information about the
+* hashing algorithm and an actual hash digest.
+*/
+var Digest = class {
+	code;
+	size;
+	digest;
+	bytes;
+	/**
+	* Creates a multihash digest.
+	*/
+	constructor(code, size, digest, bytes) {
+		this.code = code;
+		this.size = size;
+		this.digest = digest;
+		this.bytes = bytes;
+	}
+};
+//#endregion
+//#region ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/cid.js
+function format(link, base) {
+	const { bytes, version } = link;
+	switch (version) {
+		case 0: return toStringV0(bytes, baseCache(link), base ?? base58btc.encoder);
+		default: return toStringV1(bytes, baseCache(link), base ?? base32.encoder);
+	}
+}
+var cache = /* @__PURE__ */ new WeakMap();
+function baseCache(cid) {
+	const baseCache = cache.get(cid);
+	if (baseCache == null) {
+		const baseCache = /* @__PURE__ */ new Map();
+		cache.set(cid, baseCache);
+		return baseCache;
+	}
+	return baseCache;
+}
+var CID = class CID {
+	code;
+	version;
+	multihash;
+	bytes;
+	"/";
+	/**
+	* @param version - Version of the CID
+	* @param code - Code of the codec content is encoded in, see https://github.com/multiformats/multicodec/blob/master/table.csv
+	* @param multihash - (Multi)hash of the of the content.
+	*/
+	constructor(version, code, multihash, bytes) {
+		this.code = code;
+		this.version = version;
+		this.multihash = multihash;
+		this.bytes = bytes;
+		this["/"] = bytes;
+	}
+	/**
+	* Signalling `cid.asCID === cid` has been replaced with `cid['/'] === cid.bytes`
+	* please either use `CID.asCID(cid)` or switch to new signalling mechanism
+	*
+	* @deprecated
+	*/
+	get asCID() {
+		return this;
+	}
+	get byteOffset() {
+		return this.bytes.byteOffset;
+	}
+	get byteLength() {
+		return this.bytes.byteLength;
+	}
+	toV0() {
+		switch (this.version) {
+			case 0: return this;
+			case 1: {
+				const { code, multihash } = this;
+				if (code !== DAG_PB_CODE) throw new Error("Cannot convert a non dag-pb CID to CIDv0");
+				if (multihash.code !== SHA_256_CODE) throw new Error("Cannot convert non sha2-256 multihash CID to CIDv0");
+				return CID.createV0(multihash);
+			}
+			default: throw Error(`Can not convert CID version ${this.version} to version 0. This is a bug please report`);
+		}
+	}
+	toV1() {
+		switch (this.version) {
+			case 0: {
+				const { code, digest } = this.multihash;
+				const multihash = create(code, digest);
+				return CID.createV1(this.code, multihash);
+			}
+			case 1: return this;
+			default: throw Error(`Can not convert CID version ${this.version} to version 1. This is a bug please report`);
+		}
+	}
+	equals(other) {
+		return CID.equals(this, other);
+	}
+	static equals(self, other) {
+		const unknown = other;
+		return unknown != null && self.code === unknown.code && self.version === unknown.version && equals(self.multihash, unknown.multihash);
+	}
+	toString(base) {
+		return format(this, base);
+	}
+	toJSON() {
+		return { "/": format(this) };
+	}
+	link() {
+		return this;
+	}
+	[Symbol.toStringTag] = "CID";
+	[Symbol.for("nodejs.util.inspect.custom")]() {
+		return `CID(${this.toString()})`;
+	}
+	/**
+	* Takes any input `value` and returns a `CID` instance if it was
+	* a `CID` otherwise returns `null`. If `value` is instanceof `CID`
+	* it will return value back. If `value` is not instance of this CID
+	* class, but is compatible CID it will return new instance of this
+	* `CID` class. Otherwise returns null.
+	*
+	* This allows two different incompatible versions of CID library to
+	* co-exist and interop as long as binary interface is compatible.
+	*/
+	static asCID(input) {
+		if (input == null) return null;
+		const value = input;
+		if (value instanceof CID) return value;
+		else if (value["/"] != null && value["/"] === value.bytes || value.asCID === value) {
+			const { version, code, multihash, bytes } = value;
+			return new CID(version, code, multihash, bytes ?? encodeCID(version, code, multihash.bytes));
+		} else if (value[cidSymbol] === true) {
+			const { version, multihash, code } = value;
+			const digest = decode(multihash);
+			return CID.create(version, code, digest);
+		} else return null;
+	}
+	/**
+	* @param version - Version of the CID
+	* @param code - Code of the codec content is encoded in, see https://github.com/multiformats/multicodec/blob/master/table.csv
+	* @param digest - (Multi)hash of the of the content.
+	*/
+	static create(version, code, digest) {
+		if (typeof code !== "number") throw new Error("String codecs are no longer supported");
+		if (!(digest.bytes instanceof Uint8Array)) throw new Error("Invalid digest");
+		switch (version) {
+			case 0: if (code !== DAG_PB_CODE) throw new Error(`Version 0 CID must use dag-pb (code: ${DAG_PB_CODE}) block encoding`);
+			else return new CID(version, code, digest, digest.bytes);
+			case 1: {
+				const bytes = encodeCID(version, code, digest.bytes);
+				return new CID(version, code, digest, bytes);
+			}
+			default: throw new Error("Invalid version");
+		}
+	}
+	/**
+	* Simplified version of `create` for CIDv0.
+	*/
+	static createV0(digest) {
+		return CID.create(0, DAG_PB_CODE, digest);
+	}
+	/**
+	* Simplified version of `create` for CIDv1.
+	*
+	* @param code - Content encoding format code.
+	* @param digest - Multihash of the content.
+	*/
+	static createV1(code, digest) {
+		return CID.create(1, code, digest);
+	}
+	/**
+	* Decoded a CID from its binary representation. The byte array must contain
+	* only the CID with no additional bytes.
+	*
+	* An error will be thrown if the bytes provided do not contain a valid
+	* binary representation of a CID.
+	*/
+	static decode(bytes) {
+		const [cid, remainder] = CID.decodeFirst(bytes);
+		if (remainder.length !== 0) throw new Error("Incorrect length");
+		return cid;
+	}
+	/**
+	* Decoded a CID from its binary representation at the beginning of a byte
+	* array.
+	*
+	* Returns an array with the first element containing the CID and the second
+	* element containing the remainder of the original byte array. The remainder
+	* will be a zero-length byte array if the provided bytes only contained a
+	* binary CID representation.
+	*/
+	static decodeFirst(bytes) {
+		const specs = CID.inspectBytes(bytes);
+		const prefixSize = specs.size - specs.multihashSize;
+		const multihashBytes = coerce(bytes.subarray(prefixSize, prefixSize + specs.multihashSize));
+		if (multihashBytes.byteLength !== specs.multihashSize) throw new Error("Incorrect length");
+		const digestBytes = multihashBytes.subarray(specs.multihashSize - specs.digestSize);
+		const digest = new Digest(specs.multihashCode, specs.digestSize, digestBytes, multihashBytes);
+		return [specs.version === 0 ? CID.createV0(digest) : CID.createV1(specs.codec, digest), bytes.subarray(specs.size)];
+	}
+	/**
+	* Inspect the initial bytes of a CID to determine its properties.
+	*
+	* Involves decoding up to 4 varints. Typically this will require only 4 to 6
+	* bytes but for larger multicodec code values and larger multihash digest
+	* lengths these varints can be quite large. It is recommended that at least
+	* 10 bytes be made available in the `initialBytes` argument for a complete
+	* inspection.
+	*/
+	static inspectBytes(initialBytes) {
+		let offset = 0;
+		const next = () => {
+			const [i, length] = decode$1(initialBytes.subarray(offset));
+			offset += length;
+			return i;
+		};
+		let version = next();
+		let codec = DAG_PB_CODE;
+		if (version === 18) {
+			version = 0;
+			offset = 0;
+		} else codec = next();
+		if (version !== 0 && version !== 1) throw new RangeError(`Invalid CID version ${version}`);
+		const prefixSize = offset;
+		const multihashCode = next();
+		const digestSize = next();
+		const size = offset + digestSize;
+		const multihashSize = size - prefixSize;
+		return {
+			version,
+			codec,
+			multihashCode,
+			digestSize,
+			multihashSize,
+			size
+		};
+	}
+	/**
+	* Takes cid in a string representation and creates an instance. If `base`
+	* decoder is not provided will use a default from the configuration. It will
+	* throw an error if encoding of the CID is not compatible with supplied (or
+	* a default decoder).
+	*/
+	static parse(source, base) {
+		const [prefix, bytes] = parseCIDtoBytes(source, base);
+		const cid = CID.decode(bytes);
+		if (cid.version === 0 && source[0] !== "Q") throw Error("Version 0 CID string must not include multibase prefix");
+		baseCache(cid).set(prefix, source);
+		return cid;
+	}
+};
+function parseCIDtoBytes(source, base) {
+	switch (source[0]) {
+		case "Q": {
+			const decoder = base ?? base58btc;
+			return [base58btc.prefix, decoder.decode(`${base58btc.prefix}${source}`)];
+		}
+		case base58btc.prefix: {
+			const decoder = base ?? base58btc;
+			return [base58btc.prefix, decoder.decode(source)];
+		}
+		case base32.prefix: {
+			const decoder = base ?? base32;
+			return [base32.prefix, decoder.decode(source)];
+		}
+		case base36.prefix: {
+			const decoder = base ?? base36;
+			return [base36.prefix, decoder.decode(source)];
+		}
+		default:
+			if (base == null) throw Error("To parse non base32, base36 or base58btc encoded CID multibase decoder must be provided");
+			return [source[0], base.decode(source)];
+	}
+}
+function toStringV0(bytes, cache, base) {
+	const { prefix } = base;
+	if (prefix !== base58btc.prefix) throw Error(`Cannot string encode V0 in ${base.name} encoding`);
+	const cid = cache.get(prefix);
+	if (cid == null) {
+		const cid = base.encode(bytes).slice(1);
+		cache.set(prefix, cid);
+		return cid;
+	} else return cid;
+}
+function toStringV1(bytes, cache, base) {
+	const { prefix } = base;
+	const cid = cache.get(prefix);
+	if (cid == null) {
+		const cid = base.encode(bytes);
+		cache.set(prefix, cid);
+		return cid;
+	} else return cid;
+}
+var DAG_PB_CODE = 112;
+var SHA_256_CODE = 18;
+function encodeCID(version, code, multihash) {
+	const codeOffset = encodingLength(version);
+	const hashOffset = codeOffset + encodingLength(code);
+	const bytes = new Uint8Array(hashOffset + multihash.byteLength);
+	encodeTo(version, bytes, 0);
+	encodeTo(code, bytes, codeOffset);
+	bytes.set(multihash, hashOffset);
+	return bytes;
+}
+var cidSymbol = Symbol.for("@ipld/js-cid/CID");
+//#endregion
+//#region ../../libs/crypto-service/src/content-cid.ts
+/**
+* Content CID — Canonical content hashing for diary entries
+*
+* Produces CIDv1 content identifiers (sha2-256, raw codec, base32lower)
+* for immutable diary entry signing.
+*
+* Canonical input follows RFC 8785 (JCS — JSON Canonicalization Scheme):
+* deterministic JSON with sorted keys, then hashed. JSON string escaping
+* naturally prevents field delimiter collision.
+*/
+/** SHA-256 multicodec code per multihash table */
+var SHA2_256_CODE = 18;
+/**
+* Build the canonical JSON input for content hashing.
+*
+* Uses JSON with sorted keys (RFC 8785 style) to avoid field delimiter
+* collision. Nulls are normalized: null title → empty string, null tags → [].
+* Tags are sorted for determinism.
+*/
+function buildCanonicalInput(entryType, title, content, tags) {
+	const canonical = {
+		c: content,
+		t: title ?? "",
+		tags: tags ? [...tags].sort() : [],
+		type: entryType,
+		v: "moltnet:diary:v1"
+	};
+	return JSON.stringify(canonical);
+}
+/**
+* Compute the raw SHA-256 hash of canonical diary entry content.
+*/
+function computeCanonicalHash(entryType, title, content, tags) {
+	const input = buildCanonicalInput(entryType, title, content, tags);
+	return sha256$1(new TextEncoder().encode(input));
+}
+/**
+* Compute a CIDv1 content identifier for a diary entry.
+*
+* Format: CIDv1 with sha2-256 hash, raw codec, base32lower multibase.
+* Example output: "bafkreig..."
+*/
+function computeContentCid(entryType, title, content, tags) {
+	const digest = create(SHA2_256_CODE, computeCanonicalHash(entryType, title, content, tags));
+	return CID.createV1(85, digest).toString(base32);
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/entries.ts
+/**
+* Thrown when a signed entry's signing request completed but the final entry
+* creation failed. Carries `signingRequestId` so the caller can reconcile the
+* partial completion — the request is already signed; retry the create with
+* this id rather than starting a new sign cycle.
+*/
+var SignedEntryCreateError = class extends Error {
+	signingRequestId;
+	constructor(signingRequestId, cause) {
+		super(`signed entry creation failed after the signing request completed (signingRequestId=${signingRequestId}); retry the create with this id to avoid duplicating the request or entry`, { cause });
+		this.name = "SignedEntryCreateError";
+		this.signingRequestId = signingRequestId;
+	}
+};
+function createEntriesNamespace(context) {
+	const { client, auth } = context;
+	async function createSignedEntry(diaryId, body, sign) {
+		const contentCid = computeContentCid(body.entryType ?? "semantic", body.title ?? null, body.content, body.tags ?? null);
+		const signingRequest = unwrapResult(await createSigningRequest({
+			client,
+			auth,
+			body: {
+				message: contentCid,
+				verificationMethod: "agent-ed25519"
+			}
+		}));
+		await sign(signingRequest);
+		try {
+			return unwrapResult(await createDiaryEntry({
+				client,
+				auth,
+				path: { diaryId },
+				body: {
+					...body,
+					signingRequestId: signingRequest.id
+				}
+			}));
+		} catch (error) {
+			throw new SignedEntryCreateError(signingRequest.id, error);
+		}
+	}
+	return {
+		async create(diaryId, body) {
+			return unwrapResult(await createDiaryEntry({
+				client,
+				auth,
+				body,
+				path: { diaryId }
+			}));
+		},
+		async list(diaryId, query) {
+			return unwrapResult(await listDiaryEntries({
+				client,
+				auth,
+				query,
+				path: { diaryId }
+			}));
+		},
+		async get(entryId) {
+			return unwrapResult(await getDiaryEntryById({
+				client,
+				auth,
+				path: { entryId }
+			}));
+		},
+		async update(entryId, body) {
+			return unwrapResult(await updateDiaryEntryById({
+				client,
+				auth,
+				path: { entryId },
+				body
+			}));
+		},
+		async delete(entryId) {
+			return unwrapResult(await deleteDiaryEntryById({
+				client,
+				auth,
+				path: { entryId }
+			}));
+		},
+		async deleteMany(body) {
+			return unwrapResult(await batchDeleteDiaryEntries({
+				client,
+				auth,
+				body
+			}));
+		},
+		async search(body) {
+			return unwrapResult(await searchDiary({
+				client,
+				auth,
+				body
+			}));
+		},
+		async verify(entryId) {
+			return unwrapResult(await verifyDiaryEntryById({
+				client,
+				auth,
+				path: { entryId }
+			}));
+		},
+		async createSigned(diaryId, body, privateKey) {
+			const privateKeyBytes = new Uint8Array(Buffer.from(privateKey, "base64"));
+			return createSignedEntry(diaryId, body, async (signingRequest) => {
+				const signature = await signAsync(new Uint8Array(Buffer.from(signingRequest.signingInput, "base64")), privateKeyBytes);
+				unwrapResult(await submitSignature({
+					client,
+					auth,
+					path: { id: signingRequest.id },
+					body: { signature: Buffer.from(signature).toString("base64") }
+				}));
+			});
+		},
+		async createSignedWith(diaryId, body, signer) {
+			return createSignedEntry(diaryId, body, async ({ id }) => {
+				await signer.signDiaryEntry({ signingRequestId: id });
+			});
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/groups.ts
+function createGroupsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(teamId, body) {
+			return unwrapResult(await createGroup({
+				client,
+				auth,
+				path: { id: teamId },
+				body
+			}));
+		},
+		async list(teamId) {
+			return unwrapResult(await listGroups({
+				client,
+				auth,
+				path: { id: teamId }
+			}));
+		},
+		async get(groupId) {
+			return unwrapResult(await getGroup({
+				client,
+				auth,
+				path: { groupId }
+			}));
+		},
+		async delete(groupId) {
+			return unwrapResult(await deleteGroup({
+				client,
+				auth,
+				path: { groupId }
+			}));
+		},
+		async addMember(groupId, body) {
+			return unwrapResult(await addGroupMember({
+				client,
+				auth,
+				path: { groupId },
+				body
+			}));
+		},
+		async listMembers(groupId) {
+			return unwrapResult(await listGroupMembers({
+				client,
+				auth,
+				path: { groupId }
+			}));
+		},
+		async removeMember(groupId, subjectId) {
+			return unwrapResult(await removeGroupMember({
+				client,
+				auth,
+				path: {
+					groupId,
+					subjectId
+				}
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/legreffier.ts
+function createLegreffierNamespace(context) {
+	const { client } = context;
+	return {
+		async startOnboarding(body, idempotencyKey) {
+			return unwrapResult(await startLegreffierOnboarding({
+				client,
+				body,
+				headers: { "idempotency-key": idempotencyKey }
+			}));
+		},
+		async getOnboardingStatus(workflowId) {
+			return unwrapResult(await getLegreffierOnboardingStatus({
+				client,
+				path: { workflowId }
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/packs.ts
+function createPacksNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async get(id, query) {
+			return unwrapResult(await getContextPackById({
+				client,
+				auth,
+				path: { id },
+				query
+			}));
+		},
+		async diff(fromId, toId) {
+			return unwrapResult(await diffContextPacksById({
+				client,
+				auth,
+				path: {
+					id: fromId,
+					otherId: toId
+				}
+			}));
+		},
+		async diffByCid(fromCid, toCid) {
+			return unwrapResult(await diffContextPacksByCid({
+				client,
+				auth,
+				path: {
+					cid: fromCid,
+					otherCid: toCid
+				}
+			}));
+		},
+		async list(selector) {
+			if ("diaryId" in selector) {
+				const { diaryId, ...query } = selector;
+				return unwrapResult(await listDiaryPacks({
+					client,
+					auth,
+					path: { id: diaryId },
+					query
+				}));
+			}
+			const { containsEntry, ...query } = selector;
+			return unwrapResult(await listContextPacks({
+				client,
+				auth,
+				query: {
+					...query,
+					containsEntry
+				}
+			}));
+		},
+		async getProvenance(id, query) {
+			return unwrapResult(await getContextPackProvenanceById({
+				client,
+				auth,
+				path: { id },
+				query
+			}));
+		},
+		async getProvenanceByCid(cid, query) {
+			return unwrapResult(await getContextPackProvenanceByCid({
+				client,
+				auth,
+				path: { cid },
+				query
+			}));
+		},
+		async previewRendered(id, body) {
+			return unwrapResult(await previewRenderedPack({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async render(id, body) {
+			return unwrapResult(await renderContextPack({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async getLatestRendered(id, query) {
+			return unwrapResult(await getLatestRenderedPack({
+				client,
+				auth,
+				path: { id },
+				query
+			}));
+		},
+		async listRendered(diaryId, query) {
+			return unwrapResult(await listDiaryRenderedPacks({
+				client,
+				auth,
+				path: { id: diaryId },
+				query
+			}));
+		},
+		async getRendered(id, query) {
+			return unwrapResult(await getRenderedPackById({
+				client,
+				auth,
+				path: { id },
+				query
+			}));
+		},
+		async update(id, body) {
+			return unwrapResult(await updateContextPack({
+				client,
+				auth,
+				path: { id },
+				body: body ?? {}
+			}));
+		},
+		async updateRendered(id, body) {
+			return unwrapResult(await updateRenderedPack({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async create(diaryId, body) {
+			return unwrapResult(await createDiaryCustomPack({
+				client,
+				auth,
+				path: { id: diaryId },
+				body
+			}));
+		},
+		async preview(diaryId, body) {
+			return unwrapResult(await previewDiaryCustomPack({
+				client,
+				auth,
+				path: { id: diaryId },
+				body
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/problems.ts
+function createProblemsNamespace(context) {
+	const { client } = context;
+	return {
+		async list() {
+			return unwrapRequired(await listProblemTypes({ client }), "Failed to list problem types", "PROBLEMS_FAILED");
+		},
+		async get(type) {
+			return unwrapRequired(await getProblemType({
+				client,
+				path: { type }
+			}), `Failed to get problem type: ${type}`, "PROBLEM_TYPE_FAILED");
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/projects.ts
+function createProjectsNamespace({ client, auth }) {
+	return {
+		async create(body, options) {
+			return unwrapResult(await createProject({
+				client,
+				auth,
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async list(query, options) {
+			return unwrapResult(await listProjects({
+				client,
+				auth,
+				query,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async get(projectId, options) {
+			return unwrapResult(await getProject({
+				client,
+				auth,
+				path: { projectId },
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async update(projectId, body, options) {
+			return unwrapResult(await updateProject({
+				client,
+				auth,
+				path: { projectId },
+				body,
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async archive(projectId, options) {
+			return unwrapResult(await updateProject({
+				client,
+				auth,
+				path: { projectId },
+				body: { archived: true },
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async unarchive(projectId, options) {
+			return unwrapResult(await updateProject({
+				client,
+				auth,
+				path: { projectId },
+				body: { archived: false },
+				headers: requiredTeamHeaders(options)
+			}));
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/public.ts
+function createPublicNamespace(context) {
+	const { client } = context;
+	return {
+		async feed(query) {
+			return unwrapResult(await getPublicFeed({
+				client,
+				query
+			}));
+		},
+		async searchFeed(query) {
+			return unwrapResult(await searchPublicFeed({
+				client,
+				query
+			}));
+		},
+		async entry(id) {
+			return unwrapResult(await getPublicEntry({
+				client,
+				path: { id }
+			}));
+		},
+		async networkInfo() {
+			return unwrapRequired(await getNetworkInfo({ client }), "Failed to fetch network info", "NETWORK_INFO_FAILED");
+		},
+		async llmsTxt() {
+			return unwrapRequired(await getLlmsTxt({ client }), "Failed to fetch llms.txt", "LLMS_TXT_FAILED");
+		},
+		async health() {
+			return unwrapRequired(await getHealth({ client }), "Failed to fetch health", "HEALTH_FAILED");
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/relations.ts
+function createRelationsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async create(entryId, body) {
+			return unwrapResult(await createEntryRelation({
+				client,
+				auth,
+				path: { entryId },
+				body
+			}));
+		},
+		async list(entryId, query) {
+			return unwrapResult(await listEntryRelations({
+				client,
+				auth,
+				path: { entryId },
+				query
+			}));
+		},
+		async update(id, body) {
+			return unwrapResult(await updateEntryRelationStatus({
+				client,
+				auth,
+				path: { id },
+				body
+			}));
+		},
+		async delete(id) {
+			const result = await deleteEntryRelation({
+				client,
+				auth,
+				path: { id }
+			});
+			if (result.error) unwrapResult(result);
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/runtime-models.ts
+function createRuntimeModelsNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(options) {
+			return unwrapResult(await listRuntimeModels({
+				client,
+				auth,
+				headers: teamHeaders(options),
+				query: options?.provider ? { provider: options.provider } : void 0
+			}));
+		},
+		async create(body, options) {
+			return unwrapResult(await createRuntimeModel({
+				client,
+				auth,
+				headers: requiredTeamHeaders(options),
+				body
+			}));
+		},
+		async get(modelId) {
+			return unwrapResult(await getRuntimeModel({
+				client,
+				auth,
+				path: { modelId }
+			}));
+		},
+		async update(modelId, body) {
+			return unwrapResult(await updateRuntimeModel({
+				client,
+				auth,
+				path: { modelId },
+				body
+			}));
+		},
+		async delete(modelId) {
+			const result = await deleteRuntimeModel({
+				client,
+				auth,
+				path: { modelId }
+			});
+			if (result.error) unwrapResult(result);
+		}
+	};
+}
+//#endregion
+//#region ../../libs/sdk/src/namespaces/runtime-profiles.ts
+function createRuntimeProfilesNamespace(context) {
+	const { client, auth } = context;
+	return {
+		async list(options) {
+			return unwrapResult(await listRuntimeProfiles({
+				client,
+				auth,
+				headers: teamHeaders(options)
+			}));
+		},
+		async create(body, options) {
+			return unwrapResult(await createRuntimeProfile({
+				client,
+				auth,
+				headers: teamHeaders(options),
+				body
+			}));
+		},
+		async get(profileId) {
+			return unwrapResult(await getRuntimeProfile({
+				client,
+				auth,
+				path: { profileId }
+			}));
+		},
+		async update(profileId, body) {
+			return unwrapResult(await updateRuntimeProfile({
+				client,
+				auth,
+				path: { profileId },
+				body
+			}));
+		},
+		async delete(profileId) {
+			const result = await deleteRuntimeProfile({
+				client,
+				auth,
+				path: { profileId }
+			});
+			if (result.error) unwrapResult(result);
+		},
+		async allowedTools(profileId, options) {
+			return unwrapResult(await getRuntimeProfileAllowedTools({
+				signal: options.signal,
+				client,
+				auth,
+				path: { profileId },
+				headers: requiredTeamHeaders(options)
+			}));
+		},
+		async setPolicies(profileId, policyIds, options) {
+			const result = await setRuntimeProfilePolicies({
+				client,
+				auth,
+				path: { profileId },
+				headers: requiredTeamHeaders(options),
+				body: { policyIds }
+			});
+			if (result.error) unwrapResult(result);
+		},
+		async getPolicies(profileId, options) {
+			return unwrapResult(await getRuntimeProfilePolicies({
+				client,
+				auth,
+				path: { profileId },
+				headers: requiredTeamHeaders(options)
+			}));
 		}
 	};
 }
@@ -9362,7 +9910,8 @@ function createSigningCredentialsNamespace(context) {
 				client,
 				auth,
 				headers: requiredTeamHeaders(options),
-				path: { id }
+				path: { id },
+				body: {}
 			}));
 		},
 		async suspend(id, options) {
@@ -9370,7 +9919,8 @@ function createSigningCredentialsNamespace(context) {
 				client,
 				auth,
 				headers: requiredTeamHeaders(options),
-				path: { id }
+				path: { id },
+				body: {}
 			}));
 		},
 		async revoke(id, options) {
@@ -9378,7 +9928,8 @@ function createSigningCredentialsNamespace(context) {
 				client,
 				auth,
 				headers: requiredTeamHeaders(options),
-				path: { id }
+				path: { id },
+				body: {}
 			}));
 		}
 	};
@@ -9447,36 +9998,138 @@ function createSigningRequestsNamespace(context) {
 	};
 }
 //#endregion
-//#region ../../libs/sdk/src/namespaces/task-grants.ts
-function createTaskGrantsNamespace(context) {
-	const { client, auth } = context;
+//#region ../../libs/task-schemas/src/output-contract-schema.ts
+/** Types a contract node may declare. `null` only pairs with one of these. */
+var PRIMITIVE_TYPES = [
+	"string",
+	"number",
+	"integer",
+	"boolean"
+];
+/** JavaScript kinds a literal or enum value may have; `integer` is not one. */
+var LITERAL_KINDS = [
+	"string",
+	"number",
+	"boolean"
+];
+/** Allowed on every contract node. */
+var ANNOTATION_KEYS = ["description", "title"];
+/** The bounds the contract keeps, per primitive type. */
+var BOUND_KEYS = {
+	string: ["minLength", "maxLength"],
+	number: ["minimum", "maximum"],
+	integer: ["minimum", "maximum"],
+	boolean: []
+};
+/** The task contract validator rejects schemas nested deeper than this. */
+var MAX_DEPTH = 10;
+function unsupported(message) {
+	throw new Error(`unsupported output contract schema: ${message}`);
+}
+function isSchema(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function annotations(source) {
+	const result = {};
+	for (const key of ANNOTATION_KEYS) if (typeof source[key] === "string") result[key] = source[key];
+	return result;
+}
+/** Literal values sharing one JavaScript kind, as a typed enum node. */
+function literalEnum(values) {
+	const kind = typeof values[0];
+	if (values.length === 0 || !LITERAL_KINDS.includes(kind) || values.some((value) => typeof value !== kind)) unsupported("literals and enums must hold values of one primitive type");
 	return {
-		async create(taskId, body, options) {
-			return unwrapResult(await createTaskGrant({
-				client,
-				auth,
-				path: { id: taskId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async list(taskId, options) {
-			return unwrapResult(await listTaskGrants({
-				client,
-				auth,
-				path: { id: taskId },
-				headers: requiredTeamHeaders(options)
-			}));
-		},
-		async revoke(taskId, body, options) {
-			return unwrapResult(await revokeTaskGrant({
-				client,
-				auth,
-				path: { id: taskId },
-				body,
-				headers: requiredTeamHeaders(options)
-			}));
-		}
+		type: kind,
+		enum: values
+	};
+}
+/**
+* Project a TypeBox schema onto the small JSON Schema subset accepted by task
+* output contracts. Callers retain their full schema for local validation of
+* constraints such as string patterns that this transport cannot express.
+*
+* A schema already inside the subset projects to itself, so the projection
+* can be applied to both TypeBox and plain JSON Schema inputs.
+*/
+function toOutputContractSchema(schema) {
+	return project(schema, 0);
+}
+function project(source, depth) {
+	if (depth > MAX_DEPTH) unsupported(`nested deeper than ${MAX_DEPTH} levels`);
+	if (Array.isArray(source.anyOf)) return projectUnion(source, depth);
+	if ("const" in source) return {
+		...literalEnum([source.const]),
+		...annotations(source)
+	};
+	if (Array.isArray(source.enum) && source.type === void 0) return {
+		...literalEnum(source.enum),
+		...annotations(source)
+	};
+	if (source.type === "object") {
+		if (!isSchema(source.properties)) unsupported("objects need declared properties");
+		return {
+			type: "object",
+			properties: Object.fromEntries(Object.entries(source.properties).map(([name, child]) => [name, project(child, depth + 1)])),
+			required: source.required ?? [],
+			additionalProperties: false,
+			...annotations(source)
+		};
+	}
+	if (source.type === "array") {
+		if (!isSchema(source.items)) unsupported("arrays need an items schema");
+		const result = {
+			type: "array",
+			items: project(source.items, depth + 1)
+		};
+		for (const key of ["minItems", "maxItems"]) if (source[key] !== void 0) result[key] = source[key];
+		return {
+			...result,
+			...annotations(source)
+		};
+	}
+	return projectPrimitive(source);
+}
+/** A primitive, or `[primitive, 'null']`, with its bounds and enum. */
+function projectPrimitive(source) {
+	const type = source.type;
+	const nullable = Array.isArray(type) && type.length === 2 && type.includes("null");
+	const base = nullable ? type.find((value) => value !== "null") : type;
+	if (!PRIMITIVE_TYPES.includes(base)) unsupported(`type ${JSON.stringify(type)}`);
+	const result = { type };
+	for (const key of BOUND_KEYS[base]) if (source[key] !== void 0) result[key] = source[key];
+	if (source.enum !== void 0) {
+		const values = source.enum;
+		if (!Array.isArray(values) || values.length === 0 || values.some((value) => value === null ? !nullable : base === "integer" ? !Number.isInteger(value) : typeof value !== base)) unsupported(`enum values must be of type ${String(base)}`);
+		result.enum = values;
+	}
+	return {
+		...result,
+		...annotations(source)
+	};
+}
+/** Literal unions, and `T | null` for a primitive or literal-union `T`. */
+function projectUnion(source, depth) {
+	const members = source.anyOf;
+	const others = members.filter((member) => !(isSchema(member) && member.type === "null"));
+	const nulls = members.length - others.length;
+	if (others.length === 0 || nulls > 1) unsupported("unions need at least one non-null member and at most one null");
+	let projected;
+	if (others.length === 1) projected = project(others[0], depth);
+	else {
+		const values = others.map((member) => isSchema(member) && "const" in member ? member.const : void 0);
+		if (values.includes(void 0)) unsupported("unions must be literals of one primitive type, or T | null");
+		projected = literalEnum(values);
+	}
+	if (nulls === 0) return {
+		...projected,
+		...annotations(source)
+	};
+	if (!PRIMITIVE_TYPES.includes(projected.type)) unsupported("only primitives can be nullable");
+	return {
+		...projected,
+		type: [projected.type, "null"],
+		...Array.isArray(projected.enum) ? { enum: [...projected.enum, null] } : {},
+		...annotations(source)
 	};
 }
 //#endregion
@@ -10477,15 +11130,13 @@ var ClassificationAnswer = Union([
 		probability
 	}, strict)
 ]);
+/**
+* The answers only. Like every task type, the attempt's `usage` records the
+* provider, model, and token counts that produced them.
+*/
 var ClassifyOutput = _Object_({
 	version: Literal(1),
-	provider: text,
-	model: text,
-	answers: Record(text, ClassificationAnswer),
-	usage: Optional(_Object_({
-		inputTokens: Integer({ minimum: 0 }),
-		outputTokens: Integer({ minimum: 0 })
-	}, strict))
+	answers: Record(text, ClassificationAnswer)
 }, {
 	$id: "ClassifyOutput",
 	...strict
@@ -12101,15 +12752,38 @@ var TaskBuilder = class {
 		};
 		return this;
 	}
-	/** Require a typed `output.result` for a freeform task. */
+	/**
+	* Require a typed `output.result` for a freeform task.
+	*
+	* Accepts a TypeBox schema or a plain JSON Schema. Either is projected onto
+	* the JSON Schema subset an output contract supports (see
+	* {@link toOutputContractSchema}): constraints outside it, such as string
+	* `pattern`, are dropped from the contract, so keep validating the result
+	* with the full schema. A plain schema already inside the subset is stored
+	* unchanged.
+	*
+	* @param schema - The result schema.
+	* @returns This builder, for chaining.
+	* @throws {TaskBuildError} for a non-freeform task, or a schema with no
+	*   contract projection (for example a union of objects).
+	*/
 	outputSchema(schema) {
 		if (this.taskType !== "freeform") throw new TaskBuildError([{
 			field: "input/outputContract",
 			message: "outputSchema is supported for freeform tasks only"
 		}]);
+		let projected;
+		try {
+			projected = toOutputContractSchema(schema);
+		} catch (error) {
+			throw new TaskBuildError([{
+				field: "input/outputContract/schema",
+				message: error.message
+			}]);
+		}
 		this.inputData.outputContract = {
 			version: 1,
-			schema
+			schema: projected
 		};
 		return this;
 	}
@@ -12503,6 +13177,33 @@ function buildFreeform(input) {
 	return buildTask("freeform", input);
 }
 /**
+* Build a `classify` task: typed questions about a JSON `state`, answered by a
+* decision model with probabilities instead of generated text. Each question
+* is a `choice`, `score`, or `bool`; the accepted output is a
+* {@link ClassifyOutput} with one answer per question key.
+*
+* The task is served by a runtime profile whose `models.classification` names
+* the decision model; pin it with `.allowProfiles(...)`.
+*
+* @param input - Classify input; `state` and at least one question mandatory.
+* @returns A typed {@link TaskBuilder}.
+* @example
+* agent.tasks.buildClassify({
+*   version: 1,
+*   state: { finding },
+*   questions: {
+*     planned: {
+*       type: 'bool',
+*       instructions: 'Do the operator notes attribute this to a planned event?',
+*       criteria: { true: 'planned event', false: 'no such attribution' },
+*     },
+*   },
+* }).team(teamId).diary(diaryId).build();
+*/
+function buildClassify(input) {
+	return buildTask("classify", input);
+}
+/**
 * Build a `fulfill_brief` task. `brief` is required.
 *
 * @param input - Fulfill-brief input; `brief` mandatory.
@@ -12589,6 +13290,17 @@ function buildJudgeEvalAttemptForRunEval(target, options) {
 function canonicalJson(value) {
 	return JSON.stringify(value, (_key, node) => node && typeof node === "object" && !Array.isArray(node) ? Object.fromEntries(Object.entries(node).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : node);
 }
+/** The contract projection of `schema`, or the reason it has none. */
+function projectContract(schema) {
+	try {
+		return toOutputContractSchema(schema);
+	} catch (error) {
+		throw new TaskResultError([{
+			field: "input/outputContract/schema",
+			message: `the schema passed to result() has no contract projection: ${error.message}`
+		}]);
+	}
+}
 function matches$1(a, filter) {
 	if (filter === void 0) return true;
 	if (typeof filter === "string") return a.kind === filter;
@@ -12663,11 +13375,18 @@ var TaskResultReader = class {
 			field: "input/outputContract",
 			message: "task has no output contract, so it has no typed result"
 		}]);
-		if (schema !== void 0 && canonicalJson(schema) !== canonicalJson(this.#outputContract.schema)) throw new TaskResultError([{
+		const result = this.output.result;
+		if (schema === void 0) return result;
+		if (canonicalJson(projectContract(schema)) !== canonicalJson(this.#outputContract.schema)) throw new TaskResultError([{
 			field: "input/outputContract/schema",
 			message: "does not match the schema passed to result()"
 		}]);
-		return this.output.result;
+		const errors = [...Errors(schema, result)];
+		if (errors.length > 0) throw new TaskResultError(errors.map((error) => ({
+			field: `output/result${error.instancePath}`,
+			message: error.message
+		})));
+		return result;
 	}
 	/**
 	* All artifacts (optionally filtered). Empty for output types without an
@@ -12923,22 +13642,16 @@ function createTasksNamespace(context) {
 			async download(path, options) {
 				const request = {
 					auth,
+					client,
 					headers: requiredTeamHeaders(options),
-					method: "GET",
-					parseAs: "stream",
-					security: [{
-						scheme: "bearer",
-						type: "http"
-					}]
+					parseAs: "stream"
 				};
-				const result = "attemptN" in path ? await client.request({
+				const result = "attemptN" in path ? await downloadTaskArtifact({
 					...request,
-					path,
-					url: "/tasks/{taskId}/attempts/{attemptN}/artifacts/{cid}/content"
-				}) : await client.request({
+					path
+				}) : await downloadTaskArtifactByCid({
 					...request,
-					path,
-					url: "/tasks/{taskId}/artifacts/{cid}/content"
+					path
 				});
 				const normalizedStream = normalizeDownloadStream(unwrapResult(result));
 				if (normalizedStream) return {
@@ -12982,6 +13695,7 @@ function createTasksNamespace(context) {
 		},
 		buildTask,
 		buildFreeform,
+		buildClassify,
 		buildFulfillBrief,
 		buildCuratePack,
 		buildRenderPack,
@@ -13053,7 +13767,7 @@ function createTasksNamespace(context) {
 					id,
 					n
 				},
-				body,
+				body: body ?? {},
 				signal: options?.signal
 			}));
 		},
@@ -13090,7 +13804,7 @@ function createTasksNamespace(context) {
 					id,
 					n
 				},
-				body
+				body: body ?? {}
 			})));
 		},
 		async cancel(id, body, options) {
@@ -13250,7 +13964,7 @@ function createTeamsNamespace(context) {
 					client,
 					auth,
 					path: { id: teamId },
-					body
+					body: body ?? {}
 				}));
 			},
 			async list(teamId) {
@@ -13274,6 +13988,30 @@ function createTeamsNamespace(context) {
 	};
 }
 //#endregion
+//#region ../../libs/sdk/src/shared-namespaces.ts
+function createSharedNamespaces(context) {
+	const signingRequests = createSigningRequestsNamespace(context);
+	const signingCredentials = createSigningCredentialsNamespace(context);
+	return {
+		agentKeys: createAgentKeysNamespace(context),
+		diaries: createDiariesNamespace(context),
+		diaryGrants: createDiaryGrantsNamespace(context),
+		runtimeProfiles: createRuntimeProfilesNamespace(context),
+		runtimeModels: createRuntimeModelsNamespace(context),
+		packs: createPacksNamespace(context),
+		entries: createEntriesNamespace(context),
+		relations: createRelationsNamespace(context),
+		public: createPublicNamespace(context),
+		legreffier: createLegreffierNamespace(context),
+		problems: createProblemsNamespace(context),
+		teams: createTeamsNamespace(context),
+		groups: createGroupsNamespace(context),
+		projects: createProjectsNamespace(context),
+		tasks: createTasksNamespace(context),
+		crypto: createCryptoNamespace(context, signingRequests, signingCredentials)
+	};
+}
+//#endregion
 //#region ../../libs/sdk/src/agent.ts
 function createAgent(options) {
 	const { client, tokenManager, auth } = options;
@@ -13281,47 +14019,22 @@ function createAgent(options) {
 		client,
 		auth: auth ? (scheme) => scheme.scheme === "bearer" ? auth() : void 0 : void 0
 	};
-	const diaries = createDiariesNamespace(context);
-	const agentKeys = createAgentKeysNamespace(context);
-	const diaryGrants = createDiaryGrantsNamespace(context);
+	const shared = createSharedNamespaces(context);
 	const diaryTransfers = createDiaryTransfersNamespace(context);
-	const packs = createPacksNamespace(context);
-	const entries = createEntriesNamespace(context);
-	const relations = createRelationsNamespace(context);
 	const agents = createAgentsNamespace(context);
-	const crypto = createCryptoNamespace(context, createSigningRequestsNamespace(context), createSigningCredentialsNamespace(context));
 	const authNs = createAuthNamespace(context);
 	const recovery = createRecoveryNamespace(context);
-	const publicNs = createPublicNamespace(context);
-	const legreffierNs = createLegreffierNamespace(context);
-	const problemsNs = createProblemsNamespace(context);
-	const teams = createTeamsNamespace(context);
-	const runtimeProfiles = createRuntimeProfilesNamespace(context);
 	const runtimePolicies = createRuntimePoliciesNamespace(context);
-	const tasks = createTasksNamespace(context);
 	const taskGrants = createTaskGrantsNamespace(context);
 	const runtimeSlots = createRuntimeSlotsNamespace(context);
 	const runtimeSessions = createRuntimeSessionsNamespace(context);
 	return {
-		agentKeys,
-		diaries,
-		diaryGrants,
+		...shared,
 		diaryTransfers,
-		packs,
-		entries,
-		relations,
 		agents,
-		crypto,
 		auth: authNs,
 		recovery,
-		public: publicNs,
-		legreffier: legreffierNs,
-		problems: problemsNs,
-		teams,
-		projects: createProjectsNamespace(context),
-		runtimeProfiles,
 		runtimePolicies,
-		tasks,
 		taskGrants,
 		runtimeSlots,
 		runtimeSessions,
@@ -21547,73 +22260,6 @@ function extractExcerpt(markdown, terms, maxBytes) {
 		return needles.some((needle) => text.includes(needle));
 	});
 	return truncateAtLine(`${outline}${(matching.length > 0 ? matching : sections.slice(0, 1)).map(render).join("\n")}`, maxBytes);
-}
-//#endregion
-//#region ../../libs/task-schemas/src/output-contract-schema.ts
-/**
-* Project a TypeBox schema onto the small JSON Schema subset accepted by task
-* output contracts. Callers retain their full schema for local validation of
-* constraints such as string patterns that this transport cannot express.
-*/
-function toOutputContractSchema(schema) {
-	const source = schema;
-	if ("const" in source) {
-		const value = source.const;
-		if (![
-			"string",
-			"number",
-			"boolean"
-		].includes(typeof value)) throw new Error("output contract literals must be primitive values");
-		return {
-			type: typeof value,
-			enum: [value]
-		};
-	}
-	if (Array.isArray(source.anyOf)) {
-		const values = source.anyOf.map((member) => member && typeof member === "object" ? member.const : void 0);
-		const kind = typeof values[0];
-		if (values.length === 0 || ![
-			"string",
-			"number",
-			"boolean"
-		].includes(kind) || values.some((value) => value === void 0 || typeof value !== kind)) throw new Error("output contract unions must contain literals of one primitive type");
-		return {
-			type: kind,
-			enum: values
-		};
-	}
-	const type = source.type;
-	if (type === "object") {
-		const properties = source.properties;
-		return {
-			type,
-			properties: Object.fromEntries(Object.entries(properties).map(([name, child]) => [name, toOutputContractSchema(child)])),
-			required: source.required ?? [],
-			additionalProperties: false
-		};
-	}
-	if (type === "array") {
-		const result = {
-			type,
-			items: toOutputContractSchema(source.items)
-		};
-		for (const key of ["minItems", "maxItems"]) if (source[key] !== void 0) result[key] = source[key];
-		return result;
-	}
-	if (![
-		"string",
-		"number",
-		"integer",
-		"boolean"
-	].includes(type)) throw new Error(`unsupported output contract schema type ${String(type)}`);
-	const result = { type };
-	for (const key of [
-		"minLength",
-		"maxLength",
-		"minimum",
-		"maximum"
-	]) if (source[key] !== void 0) result[key] = source[key];
-	return result;
 }
 //#endregion
 //#region ../../libs/docs-impact-review/src/types.ts
