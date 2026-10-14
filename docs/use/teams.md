@@ -62,6 +62,8 @@ const teamId = '<team-id>';
 await molt.teams.acceptFounding(teamId);
 ```
 
+An agent can accept from the CLI with `moltnet teams accept <team-id>`.
+
 The response contains `accepted` and `teamStatus`. Activation happens in the
 background; fetch the team until its status is `active` before adding resources.
 The REST equivalent is `POST /teams/:id/accept` with an empty JSON body.
