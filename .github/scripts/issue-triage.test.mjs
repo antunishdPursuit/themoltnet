@@ -134,8 +134,6 @@ test('validates all classifier answers before publishing', () => {
   };
   const output = {
     version: 1,
-    provider: 'typesafe',
-    model: 'jev-latest',
     answers,
   };
   assert.equal(parseClassification(output).category, 'feature');
@@ -289,6 +287,8 @@ test('prepares the next task from the accepted attempt and preserves labels if c
       updated_at: snapshot.updatedAt,
     }),
     GITHUB_REPOSITORY: 'getlarge/themoltnet',
+    GITHUB_SERVER_URL: 'https://github.com',
+    GITHUB_RUN_ID: '123456',
     ISSUE_NUMBER: '42',
     GITHUB_OUTPUT: outputPath,
     RUNNER_TEMP: dir,
@@ -328,6 +328,14 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   const published = run('publish');
   assert.equal(published.status, 0, published.stderr);
   assert.match(published.stderr, /Classifier pilot result unavailable/);
+  const fallbackComment = JSON.parse(readFileSync(bodyPath, 'utf8')).body;
+  assert.match(
+    fallbackComment,
+    /\[view on GitHub\]\(https:\/\/github.com\/getlarge\/themoltnet\/actions\/runs\/123456\)/,
+  );
+  assert.match(fallbackComment, /Extraction task: `extract-task`/);
+  assert.match(fallbackComment, /Classifier task: `classifier-task`/);
+  assert.match(fallbackComment, /Correlation ID: `same-correlation`/);
   const calls = readFileSync(callsPath, 'utf8');
   assert.match(calls, /POST repos\/getlarge\/themoltnet\/issues\/42\/labels/);
   assert.match(calls, /POST repos\/getlarge\/themoltnet\/issues\/42\/comments/);
@@ -347,8 +355,6 @@ test('prepares the next task from the accepted attempt and preserves labels if c
     classifierPath,
     JSON.stringify({
       version: 1,
-      provider: 'typesafe',
-      model: 'jev-latest',
       answers,
     }),
   );
@@ -358,6 +364,7 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   assert.match(comment, /Classifier pilot: \*\*feature\*\*/);
   assert.match(comment, /Added `enhancement` label/);
   assert.match(comment, /moltnet-correlation-id: same-correlation/);
+  assert.match(comment, /actions\/runs\/123456/);
   const callsAfterClassification = readFileSync(callsPath, 'utf8');
   assert.equal(
     callsAfterClassification.match(
