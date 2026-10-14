@@ -32,6 +32,11 @@ type stubTasksHandler struct {
 	updateCalls                     int
 	updateParams                    moltnetapi.UpdateTaskMetadataParams
 	updateReq                       *moltnetapi.UpdateTaskMetadataReq
+	analyticsCalls                  int
+	analyticsParams                 moltnetapi.GetTaskActivityAnalyticsParams
+	batchDeleteCalls                int
+	batchDeleteParams               moltnetapi.BatchDeleteTasksParams
+	batchDeleteReq                  *moltnetapi.BatchDeleteTasksReq
 	cancelCalls                     int
 	cancelParams                    moltnetapi.CancelTaskParams
 	cancelReason                    string
@@ -77,6 +82,30 @@ func (h *stubTasksHandler) UpdateTaskMetadata(_ context.Context, req *moltnetapi
 	h.updateReq = req
 	h.updateParams = params
 	return newTaskFixture(params.ID, params.XMoltnetTeamID.Value), nil
+}
+
+func (h *stubTasksHandler) GetTaskActivityAnalytics(_ context.Context, params moltnetapi.GetTaskActivityAnalyticsParams) (moltnetapi.GetTaskActivityAnalyticsRes, error) {
+	h.analyticsCalls++
+	h.analyticsParams = params
+	return &moltnetapi.TaskActivityAnalyticsResponse{
+		Groups: []moltnetapi.TaskActivityAnalyticsResponseGroupsItem{},
+		Range: moltnetapi.TaskActivityAnalyticsResponseRange{
+			CompletedAfter:  time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+			CompletedBefore: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC),
+		},
+		StatsComplete: true,
+	}, nil
+}
+
+func (h *stubTasksHandler) BatchDeleteTasks(_ context.Context, req *moltnetapi.BatchDeleteTasksReq, params moltnetapi.BatchDeleteTasksParams) (moltnetapi.BatchDeleteTasksRes, error) {
+	h.batchDeleteCalls++
+	h.batchDeleteReq = req
+	h.batchDeleteParams = params
+	return &moltnetapi.BatchDeleteTasksAcceptedResponse{
+		Accepted: req.Ids[:1], Skipped: req.Ids[1:], OperationId: "op-1",
+		WorkflowId: moltnetapi.NewNilString("wf-1"),
+		Status:     moltnetapi.BatchDeleteTasksAcceptedResponseStatusQueued,
+	}, nil
 }
 
 func (h *stubTasksHandler) CancelTask(_ context.Context, req *moltnetapi.CancelTaskReq, params moltnetapi.CancelTaskParams) (moltnetapi.CancelTaskRes, error) {
