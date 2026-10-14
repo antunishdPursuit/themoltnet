@@ -261,7 +261,7 @@ export function parseClassification(output) {
   };
 }
 
-export function renderComment(criteria, classification) {
+export function renderComment(criteria, classification, correlationId) {
   const ready = criteria.every((item) => item.passed);
   const lines = criteria.map(
     (item) =>
@@ -269,6 +269,9 @@ export function renderComment(criteria, classification) {
   );
   return [
     '<!-- moltnet-issue-triage -->',
+    ...(correlationId
+      ? [`<!-- moltnet-correlation-id: ${correlationId} -->`]
+      : []),
     ready
       ? 'Triage: all quality criteria pass. Ready for agent pickup.'
       : 'Triage: this issue needs more detail.',
@@ -308,9 +311,15 @@ function prepare() {
   );
   writeFileSync(
     process.env.GITHUB_OUTPUT,
-    `eligible=true\nspec=${dir}/issue-triage-spec.json\nsnapshot=${dir}/issue-triage-snapshot.json\n`,
+    `eligible=true\nspec=${dir}/issue-triage-spec.json\nsnapshot=${dir}/issue-triage-snapshot.json\ncorrelation-id=${spec.correlationId}\n`,
     { flag: 'a' },
   );
+}
+
+function assertCorrelation(snapshot, actual, stage) {
+  if (actual !== snapshot.correlationId) {
+    throw new Error(`${stage} task has a different correlation ID`);
+  }
 }
 
 function taskOutput(taskId) {
@@ -336,6 +345,11 @@ function taskOutput(taskId) {
 
 function prepareClassifier() {
   const snapshot = JSON.parse(readFileSync(process.env.SNAPSHOT, 'utf8'));
+  assertCorrelation(
+    snapshot,
+    process.env.EXTRACTION_CORRELATION_ID,
+    'extraction',
+  );
   const issue = { ...snapshot, number: snapshot.number };
   const criteria = parseVerdict(
     taskOutput(process.env.EXTRACTION_TASK_ID),
@@ -349,11 +363,27 @@ function prepareClassifier() {
   );
   const path = `${process.env.RUNNER_TEMP}/issue-triage-classifier-spec.json`;
   writeFileSync(path, JSON.stringify(spec));
-  writeFileSync(process.env.GITHUB_OUTPUT, `spec=${path}\n`, { flag: 'a' });
+  writeFileSync(
+    process.env.GITHUB_OUTPUT,
+    `spec=${path}\ncorrelation-id=${snapshot.correlationId}\n`,
+    { flag: 'a' },
+  );
 }
 
 function publish() {
   const snapshot = JSON.parse(readFileSync(process.env.SNAPSHOT, 'utf8'));
+  assertCorrelation(
+    snapshot,
+    process.env.EXTRACTION_CORRELATION_ID,
+    'extraction',
+  );
+  if (process.env.CLASSIFIER_TASK_ID) {
+    assertCorrelation(
+      snapshot,
+      process.env.CLASSIFIER_CORRELATION_ID,
+      'classifier',
+    );
+  }
   const path = issuePath(process.env.GITHUB_REPOSITORY, snapshot.number);
   const criteria = parseVerdict(
     taskOutput(process.env.EXTRACTION_TASK_ID),
@@ -396,7 +426,7 @@ function publish() {
     gh('DELETE', `${path}/labels/${encodeURIComponent(opposite)}`);
   }
   gh('POST', `${path}/comments`, {
-    body: renderComment(criteria, classification),
+    body: renderComment(criteria, classification, snapshot.correlationId),
   });
 }
 

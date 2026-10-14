@@ -98,6 +98,7 @@ jobs:
         env:
           SNAPSHOT: ${{ steps.prepare.outputs.snapshot }}
           EXTRACTION_TASK_ID: ${{ steps.extract.outputs.task-id }}
+          EXTRACTION_CORRELATION_ID: ${{ steps.extract.outputs.correlation-id }}
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
           MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
@@ -138,7 +139,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           SNAPSHOT: ${{ steps.prepare.outputs.snapshot }}
           EXTRACTION_TASK_ID: ${{ steps.extract.outputs.task-id }}
+          EXTRACTION_CORRELATION_ID: ${{ steps.extract.outputs.correlation-id }}
           CLASSIFIER_TASK_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.task-id || '' }}
+          CLASSIFIER_CORRELATION_ID: ${{ steps.classify.outcome == 'success' && steps.classify.outputs.correlation-id || '' }}
           SWEEP: ${{ github.event_name == 'schedule' }}
           MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
           MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}

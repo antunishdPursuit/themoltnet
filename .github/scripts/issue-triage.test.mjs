@@ -183,6 +183,10 @@ test('renders the verdict and per-criterion reasons', () => {
     }),
     /does not set labels/,
   );
+  assert.match(
+    renderComment(criteria, undefined, 'same-correlation'),
+    /<!-- moltnet-correlation-id: same-correlation -->/,
+  );
 });
 
 test('prepares the next task from the accepted attempt and preserves labels if classification is unavailable', () => {
@@ -200,18 +204,23 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   }));
   const snapshotPath = join(dir, 'snapshot.json');
   const extractionPath = join(dir, 'extraction.json');
+  const classifierPath = join(dir, 'classifier.json');
   const outputPath = join(dir, 'output');
   const callsPath = join(dir, 'gh-calls');
+  const bodyPath = join(dir, 'gh-body');
   writeFileSync(snapshotPath, JSON.stringify(snapshot));
   writeFileSync(extractionPath, JSON.stringify({ result: { criteria } }));
+  writeFileSync(classifierPath, JSON.stringify({ result: { criteria } }));
   writeFileSync(outputPath, '');
   writeFileSync(callsPath, '');
-  writeFileSync(join(dir, 'npx'), '#!/bin/sh\ncat "$EXTRACTION_FIXTURE"\n', {
-    mode: 0o755,
-  });
+  writeFileSync(
+    join(dir, 'npx'),
+    '#!/bin/sh\nif [ "$5" = classifier-task ]; then cat "$CLASSIFIER_FIXTURE"; else cat "$EXTRACTION_FIXTURE"; fi\n',
+    { mode: 0o755 },
+  );
   writeFileSync(
     join(dir, 'gh'),
-    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$GH_CALLS"\nif [ "$3" = GET ]; then printf "%s" "$ISSUE_FIXTURE"; fi\n',
+    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$GH_CALLS"\nif [ "$3" = GET ]; then printf "%s" "$ISSUE_FIXTURE"; elif [ "$3" = POST ] && [ "$4" = repos/getlarge/themoltnet/issues/42/comments ]; then cat > "$GH_BODY"; fi\n',
     { mode: 0o755 },
   );
   const env = {
@@ -219,14 +228,19 @@ test('prepares the next task from the accepted attempt and preserves labels if c
     PATH: `${dir}:${process.env.PATH}`,
     SNAPSHOT: snapshotPath,
     EXTRACTION_TASK_ID: 'extract-task',
+    EXTRACTION_CORRELATION_ID: snapshot.correlationId,
     CLASSIFIER_TASK_ID: 'classifier-task',
+    CLASSIFIER_CORRELATION_ID: snapshot.correlationId,
     EXTRACTION_FIXTURE: extractionPath,
+    CLASSIFIER_FIXTURE: classifierPath,
     GH_CALLS: callsPath,
+    GH_BODY: bodyPath,
     ISSUE_FIXTURE: JSON.stringify({
       ...issue,
       updated_at: snapshot.updatedAt,
     }),
     GITHUB_REPOSITORY: 'getlarge/themoltnet',
+    ISSUE_NUMBER: '42',
     GITHUB_OUTPUT: outputPath,
     RUNNER_TEMP: dir,
     MOLTNET_TEAM_ID: 'team-id',
@@ -236,6 +250,19 @@ test('prepares the next task from the accepted attempt and preserves labels if c
       env,
       encoding: 'utf8',
     });
+  const initial = run('prepare');
+  assert.equal(initial.status, 0, initial.stderr);
+  const initialSpec = JSON.parse(
+    readFileSync(join(dir, 'issue-triage-spec.json'), 'utf8'),
+  );
+  const initialSnapshot = JSON.parse(
+    readFileSync(join(dir, 'issue-triage-snapshot.json'), 'utf8'),
+  );
+  assert.equal(initialSpec.correlationId, initialSnapshot.correlationId);
+  assert.match(
+    readFileSync(outputPath, 'utf8'),
+    new RegExp(`correlation-id=${initialSpec.correlationId}`),
+  );
   const prepared = run('prepare-classifier');
   assert.equal(prepared.status, 0, prepared.stderr);
   const spec = JSON.parse(
@@ -243,6 +270,10 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   );
   assert.equal(spec.correlationId, snapshot.correlationId);
   assert.equal(spec.taskType, 'classify');
+  assert.match(
+    readFileSync(outputPath, 'utf8'),
+    /correlation-id=same-correlation/,
+  );
 
   // The fake classifier returns the extraction shape, which must be rejected.
   const published = run('publish');
@@ -251,4 +282,43 @@ test('prepares the next task from the accepted attempt and preserves labels if c
   const calls = readFileSync(callsPath, 'utf8');
   assert.match(calls, /POST repos\/getlarge\/themoltnet\/issues\/42\/labels/);
   assert.match(calls, /POST repos\/getlarge\/themoltnet\/issues\/42\/comments/);
+
+  const answers = {
+    category: {
+      type: 'choice',
+      choice: 'feature',
+      confidence: 0.8,
+      probabilities: { bug: 0.1, feature: 0.8, question: 0.05, other: 0.05 },
+    },
+    ...Object.fromEntries(
+      CRITERIA.map((id) => [id, { type: 'bool', probability: 0.75 }]),
+    ),
+  };
+  writeFileSync(
+    classifierPath,
+    JSON.stringify({
+      version: 1,
+      provider: 'typesafe',
+      model: 'jev-latest',
+      answers,
+    }),
+  );
+  const classified = run('publish');
+  assert.equal(classified.status, 0, classified.stderr);
+  const comment = JSON.parse(readFileSync(bodyPath, 'utf8')).body;
+  assert.match(comment, /Classifier pilot: \*\*feature\*\*/);
+  assert.match(comment, /moltnet-correlation-id: same-correlation/);
+  const callsAfterClassification = readFileSync(callsPath, 'utf8');
+
+  const mismatched = spawnSync(
+    'node',
+    ['.github/scripts/issue-triage.mjs', 'publish'],
+    {
+      env: { ...env, CLASSIFIER_CORRELATION_ID: 'different-correlation' },
+      encoding: 'utf8',
+    },
+  );
+  assert.notEqual(mismatched.status, 0);
+  assert.match(mismatched.stderr, /different correlation ID/);
+  assert.equal(readFileSync(callsPath, 'utf8'), callsAfterClassification);
 });
