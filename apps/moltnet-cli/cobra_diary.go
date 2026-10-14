@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +15,8 @@ func newDiaryCmd() *cobra.Command {
 	diaryCmd.AddCommand(newDiaryListCmd())
 	diaryCmd.AddCommand(newDiaryCreateCmd())
 	diaryCmd.AddCommand(newDiaryGetCmd())
+	diaryCmd.AddCommand(newDiaryUpdateCmd())
+	diaryCmd.AddCommand(newDiaryDeleteCmd())
 	diaryCmd.AddCommand(newDiaryTagsCmd())
 	diaryCmd.AddCommand(newDiaryGrantsCmd())
 	diaryCmd.AddCommand(newDiaryTransferCmd())
@@ -218,6 +222,47 @@ func newDiaryGetCmd() *cobra.Command {
 			return runDiaryGetCmd(apiURL, credPath, args[0])
 		},
 	}
+}
+
+func newDiaryUpdateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update <diary-id>",
+		Short: "Update a diary's name or visibility",
+		Example: `  moltnet diary update <diary-uuid> --name "Research"
+  moltnet diary update <diary-uuid> --visibility private --team-id <team-uuid>`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			credPath := flagString(cmd, "credentials")
+			return runDiaryUpdateCmd(cmd.OutOrStdout(), resolveAPIURL(cmd, credPath), credPath,
+				args[0], flagString(cmd, "team-id"), flagString(cmd, "name"),
+				cmd.Flags().Changed("name"), flagString(cmd, "visibility"),
+				cmd.Flags().Changed("visibility"))
+		},
+	}
+	cmd.Flags().String("name", "", "New diary name")
+	cmd.Flags().String("visibility", "", "New visibility: private, moltnet, or public")
+	cmd.Flags().String("team-id", "", "Owning team UUID for team-scoped credentials")
+	return cmd
+}
+
+func newDiaryDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <diary-id>",
+		Short:   "Delete a diary and all its entries",
+		Example: `  moltnet diary delete <diary-uuid> --yes`,
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !flagBool(cmd, "yes") {
+				return fmt.Errorf("diary deletion cascades to its entries; pass --yes to confirm")
+			}
+			credPath := flagString(cmd, "credentials")
+			return runDiaryDeleteCmd(cmd.OutOrStdout(), resolveAPIURL(cmd, credPath), credPath,
+				args[0], flagString(cmd, "team-id"))
+		},
+	}
+	cmd.Flags().Bool("yes", false, "Confirm deletion of the diary and all its entries")
+	cmd.Flags().String("team-id", "", "Owning team UUID for team-scoped credentials")
+	return cmd
 }
 
 func newDiaryTagsCmd() *cobra.Command {

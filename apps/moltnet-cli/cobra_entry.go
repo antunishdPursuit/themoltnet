@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +18,7 @@ func newEntryCmd() *cobra.Command {
 	entryCmd.AddCommand(newEntryGetCmd())
 	entryCmd.AddCommand(newEntryUpdateCmd())
 	entryCmd.AddCommand(newEntryDeleteCmd())
+	entryCmd.AddCommand(newEntryBatchDeleteCmd())
 	entryCmd.AddCommand(newEntrySearchCmd())
 	entryCmd.AddCommand(newEntryVerifyCmd())
 	entryCmd.AddCommand(newEntryCommitCmd())
@@ -195,6 +198,29 @@ func newEntryDeleteCmd() *cobra.Command {
 			return runEntryDeleteCmd(cmd.OutOrStdout(), cmd.ErrOrStderr(), apiURL, credPath, args[0])
 		},
 	}
+}
+
+func newEntryBatchDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "batch-delete",
+		Short:   "Delete up to 100 mutable diary entries by ID",
+		Long:    "Signed, unauthorized, and missing entries are returned in the skipped list.",
+		Example: `  moltnet entry batch-delete --ids <entry-uuid-1>,<entry-uuid-2> --yes`,
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if !flagBool(cmd, "yes") {
+				return fmt.Errorf("batch entry deletion requires --yes to confirm")
+			}
+			credPath := flagString(cmd, "credentials")
+			return runEntryBatchDeleteCmd(cmd.OutOrStdout(), resolveAPIURL(cmd, credPath),
+				credPath, flagString(cmd, "ids"), flagString(cmd, "team-id"))
+		},
+	}
+	cmd.Flags().String("ids", "", "Comma-separated entry UUIDs (1-100, required)")
+	cmd.Flags().String("team-id", "", "Owning team UUID for team-scoped credentials")
+	cmd.Flags().Bool("yes", false, "Confirm deletion of the listed entries")
+	_ = cmd.MarkFlagRequired("ids")
+	return cmd
 }
 
 func newEntrySearchCmd() *cobra.Command {

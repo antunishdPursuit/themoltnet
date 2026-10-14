@@ -287,6 +287,44 @@ func runEntryDeleteCmd(stdout, errOut io.Writer, apiURL, credPath, entryID strin
 	return nil
 }
 
+func runEntryBatchDeleteCmd(stdout io.Writer, apiURL, credPath, ids, teamID string) error {
+	parts := splitAndTrim(ids, ",")
+	if len(parts) == 0 || len(parts) > 100 {
+		return fmt.Errorf("entry batch-delete requires 1 to 100 entry IDs")
+	}
+	parsed := make([]uuid.UUID, 0, len(parts))
+	seen := make(map[uuid.UUID]bool, len(parts))
+	for _, id := range parts {
+		entryUUID, err := uuid.Parse(id)
+		if err != nil {
+			return fmt.Errorf("invalid entry ID %q: %w", id, err)
+		}
+		if seen[entryUUID] {
+			return fmt.Errorf("duplicate entry ID %q", id)
+		}
+		seen[entryUUID] = true
+		parsed = append(parsed, entryUUID)
+	}
+	if teamID != "" {
+		if _, err := uuid.Parse(teamID); err != nil {
+			return fmt.Errorf("invalid team ID %q: %w", teamID, err)
+		}
+	}
+	client, err := newAuthenticatedClient(apiURL, credPath, teamID)
+	if err != nil {
+		return err
+	}
+	res, err := client.BatchDeleteDiaryEntries(context.Background(), &moltnetapi.BatchDeleteDiaryEntriesReq{Ids: parsed})
+	if err != nil {
+		return fmt.Errorf("entry batch-delete: %w", formatTransportError(err))
+	}
+	result, ok := res.(*moltnetapi.BatchDeleteResponse)
+	if !ok {
+		return formatAPIError(res)
+	}
+	return printJSONTo(stdout, result)
+}
+
 type entrySearchOptions struct {
 	query                    string
 	diaryID                  string
