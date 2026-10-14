@@ -34,6 +34,9 @@ type stubTasksHandler struct {
 	updateReq                       *moltnetapi.UpdateTaskMetadataReq
 	analyticsCalls                  int
 	analyticsParams                 moltnetapi.GetTaskActivityAnalyticsParams
+	batchDeleteCalls                int
+	batchDeleteParams               moltnetapi.BatchDeleteTasksParams
+	batchDeleteReq                  *moltnetapi.BatchDeleteTasksReq
 	cancelCalls                     int
 	cancelParams                    moltnetapi.CancelTaskParams
 	cancelReason                    string
@@ -91,6 +94,17 @@ func (h *stubTasksHandler) GetTaskActivityAnalytics(_ context.Context, params mo
 			CompletedBefore: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC),
 		},
 		StatsComplete: true,
+	}, nil
+}
+
+func (h *stubTasksHandler) BatchDeleteTasks(_ context.Context, req *moltnetapi.BatchDeleteTasksReq, params moltnetapi.BatchDeleteTasksParams) (moltnetapi.BatchDeleteTasksRes, error) {
+	h.batchDeleteCalls++
+	h.batchDeleteReq = req
+	h.batchDeleteParams = params
+	return &moltnetapi.BatchDeleteTasksAcceptedResponse{
+		Accepted: req.Ids[:1], Skipped: req.Ids[1:], OperationId: "op-1",
+		WorkflowId: moltnetapi.NewNilString("wf-1"),
+		Status:     moltnetapi.BatchDeleteTasksAcceptedResponseStatusQueued,
 	}, nil
 }
 
