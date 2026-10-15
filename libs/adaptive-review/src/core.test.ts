@@ -86,6 +86,18 @@ describe('classifier-first routing', () => {
     }
   });
 
+  it('matches nested glob paths and repeated tsconfig names without regex backtracking', () => {
+    const nested = `apps/${'nested/'.repeat(200)}src/routes/example.ts`;
+    expect(applicableRules([nested]).map((rule) => rule.id)).toContain(
+      'source-config-env',
+    );
+
+    const path = `libs/adaptive-review/tsconfig${'tsconfig'.repeat(200)}.json`;
+    expect(
+      mechanicalConcerns([{ path, patch: '+"paths": {}', bytes: 12 }]),
+    ).toMatchObject([{ ruleId: 'tsconfig-paths', path }]);
+  });
+
   it('keeps every byte of a large patch in bounded packets', () => {
     const patch = 'é'.repeat(24_001);
     const packets = packetize({
