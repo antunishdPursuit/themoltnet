@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { GitHubApi } from '@moltnet/docs-impact-review/github-api';
+
 import { env } from './config.js';
 import { ADAPTIVE_REVIEW_MARKER, renderAdaptiveComment } from './report.js';
 import type { AdaptiveReport } from './workflow.js';
@@ -74,22 +76,11 @@ export async function publishAdaptiveReportFromEnv(): Promise<void> {
   if (!path || !token || !runUrl || !appLogin)
     throw new Error('report, App token, run URL, and App login are required');
   const report = JSON.parse(readFileSync(path, 'utf8')) as AdaptiveReport;
-  const api = env().GITHUB_API_URL || 'https://api.github.com';
-  const request: Request = async (url, method = 'GET', body) => {
-    const response = await fetch(`${api}${url}`, {
+  const api = new GitHubApi({ token, apiUrl: env().GITHUB_API_URL });
+  const request: Request = (url, method = 'GET', body) =>
+    api.request(url, {
       method,
-      headers: {
-        authorization: `Bearer ${token}`,
-        accept: 'application/vnd.github+json',
-        'content-type': 'application/json',
-        'x-github-api-version': '2022-11-28',
-      },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
-    return response.status === 204
-      ? null
-      : ((await response.json()) as unknown);
-  };
   await publishAdaptiveReport(report, { request, runUrl, appLogin });
 }

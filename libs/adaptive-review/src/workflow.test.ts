@@ -333,14 +333,13 @@ describe('adaptive review orchestration', () => {
     const preparation = await prepareAdaptiveReview(reviewOptions(tasks));
 
     expect(preparation.packetCount).toBe(5);
-    expect(preparation.classifierTaskIds).toHaveLength(4);
-    expect(createTask).toHaveBeenCalledTimes(4);
-    expect(
-      createTask.mock.calls.every(([task]) => task.taskType === 'classify'),
-    ).toBe(true);
+    expect(preparation.classifierTaskIds).toEqual([]);
+    expect(createTask).not.toHaveBeenCalled();
     expect(preparation.routing.classifierFailed).toBe(true);
     expect(preparation.routing.routes.every((route) => route.run)).toBe(true);
-    expect(preparation.gaps.join(' ')).toContain('packet');
+    expect(preparation.gaps).toContain(
+      'Classifier packet budget exceeded: 5 > 4; all lanes routed for review.',
+    );
   });
 
   it('runs every deep lane and records a gap when classification fails', async () => {
@@ -365,11 +364,54 @@ describe('adaptive review orchestration', () => {
     expect(createTask).toHaveBeenCalledTimes(5);
   });
 
+  it('retains successful lanes and task IDs when another deep lane fails', async () => {
+    const { tasks } = harness({ classifierFails: true });
+    mocks.runDocsImpactReview.mockRejectedValueOnce(
+      new Error('docs reviewer unavailable'),
+    );
+
+    const report = await review(tasks);
+
+    expect(
+      report.results.find((result) => result.lane === 'docs'),
+    ).toMatchObject({
+      status: 'failed',
+      summary: 'Error: docs reviewer unavailable',
+    });
+    expect(
+      report.results.find((result) => result.lane === 'tests'),
+    ).toMatchObject({ status: 'clear', taskIds: [expect.any(String)] });
+    expect(report.taskIds).toContain('task-1');
+    expect(report.taskIds).toContain(
+      report.results.find((result) => result.lane === 'tests')?.taskIds[0],
+    );
+    expect(report.gaps).toEqual([
+      expect.stringContaining('classifier unavailable'),
+    ]);
+  });
+
   it('reviews retained source and marks generated paths as unassessed', async () => {
     const generatedPath = 'libs/sdk/src/generated.ts';
+    const generatedContent = 'GENERATED_ONLY_SECRET_BOUNDARY_SENTINEL';
+    const generatedPatch = [
+      `diff --git a/${generatedPath} b/${generatedPath}`,
+      `--- a/${generatedPath}`,
+      `+++ b/${generatedPath}`,
+      '@@ -0,0 +1 @@',
+      `+${generatedContent}`,
+    ].join('\n');
     mocks.buildEvidence.mockReturnValue({
       ...evidence,
       manifest: `${sourcePath}\n${generatedPath}`,
+      files: [
+        ...evidence.files,
+        {
+          path: generatedPath,
+          patch: generatedPatch,
+          bytes: Buffer.byteLength(generatedPatch),
+        },
+      ],
+      bytes: evidence.bytes + Buffer.byteLength(generatedPatch),
       generatedPaths: [generatedPath],
     });
     const { tasks, created } = harness();
@@ -389,7 +431,37 @@ describe('adaptive review orchestration', () => {
       task.title?.includes('security hunt'),
     );
     expect(securityHunt?.input.brief).toContain(patch);
-    expect(securityHunt?.input.brief).not.toContain(`Path ${generatedPath}:`);
+    expect(securityHunt?.input.brief).not.toContain(generatedContent);
+  });
+
+  it('marks binary contents as unassessed after a candidate-free security hunt', async () => {
+    const binaryPath = 'apps/rest-api/src/assets/keyring.bin';
+    const binaryPatch = `Binary files a/${binaryPath} and b/${binaryPath} differ`;
+    mocks.buildEvidence.mockReturnValue({
+      manifest: binaryPath,
+      files: [
+        {
+          path: binaryPath,
+          patch: binaryPatch,
+          bytes: Buffer.byteLength(binaryPatch),
+        },
+      ],
+      bytes: Buffer.byteLength(binaryPatch),
+      generatedPaths: [],
+    });
+    const { tasks } = harness({ selected: 'security' });
+
+    const report = await review(tasks);
+
+    expect(report.gaps).toContain(
+      `Binary contents not reviewed: ${binaryPath}`,
+    );
+    expect(
+      report.results.find((result) => result.lane === 'security'),
+    ).toMatchObject({
+      status: 'unclear',
+      taskIds: [expect.any(String)],
+    });
   });
 
   it.each([

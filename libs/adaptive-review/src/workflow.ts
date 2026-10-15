@@ -284,10 +284,19 @@ async function runSecurity(
   tasks: TaskClient,
   profileId: string,
 ): Promise<LaneResult> {
-  const diff = evidence.files.map((file) => file.patch).join('\n');
+  const generatedPaths = new Set(evidence.generatedPaths);
+  const diff = evidence.files
+    .filter((file) => !generatedPaths.has(file.path))
+    .map((file) => file.patch)
+    .join('\n');
   const evidenceGap =
     evidence.generatedPaths.length > 0 ||
-    evidence.files.some((file) => file.summarized);
+    evidence.files.some(
+      (file) =>
+        file.summarized ||
+        file.patch.includes('GIT binary patch') ||
+        file.patch.includes('Binary files '),
+    );
   if (!diff) {
     return {
       lane: 'security',
@@ -362,7 +371,7 @@ async function runSecurity(
       lane: 'security',
       status: evidenceGap ? 'unclear' : 'clear',
       summary: evidenceGap
-        ? 'Retained source reviewed; omitted or summarized contents remain unassessed.'
+        ? 'Retained source reviewed; some changed contents remain unassessed.'
         : 'No candidate regression identified; this is not a security certificate.',
       taskIds: [hunt.id],
       findings: [],
@@ -393,7 +402,7 @@ async function runSecurity(
         ? 'unclear'
         : 'clear',
     summary: evidenceGap
-      ? 'Security details remain in team-scoped review tasks; omitted or summarized contents remain unassessed.'
+      ? 'Security details remain in team-scoped review tasks; some changed contents remain unassessed.'
       : 'Security details remain in the team-scoped review tasks.',
     taskIds: [hunt.id, verify.id],
     findings: [],
@@ -444,15 +453,24 @@ export async function prepareAdaptiveReview(
       .filter((file) => file.summarized)
       .map((file) => `Summarized contents not reviewed: ${file.path}`),
   );
+  gaps.push(
+    ...evidence.files
+      .filter(
+        (file) =>
+          file.patch.includes('GIT binary patch') ||
+          file.patch.includes('Binary files '),
+      )
+      .map((file) => `Binary contents not reviewed: ${file.path}`),
+  );
   const classifierTaskIds: string[] = [];
   const classification: PromiseSettledResult<PacketAnswer>[] = [];
   const packetBudgetReached = packets.length > MAX_CLASSIFIER_PACKETS;
   if (packetBudgetReached) {
     gaps.push(
-      `Classifier packet budget reached: ${MAX_CLASSIFIER_PACKETS} of ${packets.length}; all lanes routed for review.`,
+      `Classifier packet budget exceeded: ${packets.length} > ${MAX_CLASSIFIER_PACKETS}; all lanes routed for review.`,
     );
   }
-  for (const packet of packets.slice(0, MAX_CLASSIFIER_PACKETS)) {
+  for (const packet of packetBudgetReached ? [] : packets) {
     try {
       const task = await tasks.createTask(
         buildClassifyTask(identity, evidence, packet),
@@ -480,7 +498,7 @@ export async function prepareAdaptiveReview(
   const routing = decideRoutes(
     mode,
     packets,
-    packetBudgetReached ? [] : answers,
+    answers,
     mechanicalConcerns(evidence.files),
     evidence.generatedPaths,
   );
