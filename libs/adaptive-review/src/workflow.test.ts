@@ -6,7 +6,11 @@ import type { TaskClient } from '@themoltnet/tasks-orchestrator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LANES, type ReviewIdentity } from './core.js';
-import { runAdaptiveReview } from './workflow.js';
+import {
+  prepareAdaptiveReview,
+  runAdaptiveReview,
+  runRoutedAdaptiveReview,
+} from './workflow.js';
 
 const mocks = vi.hoisted(() => ({
   buildEvidence: vi.fn(),
@@ -78,7 +82,11 @@ function answers(selected?: string): ClassifyOutput['answers'] {
 }
 
 function harness(
-  options: { classifierFails?: boolean; selected?: string } = {},
+  options: {
+    classifierFails?: boolean;
+    selected?: string;
+    securityFindingStatus?: 'confirmed' | 'unclear' | 'refuted';
+  } = {},
 ) {
   let nextId = 0;
   const created = new Map<
@@ -101,8 +109,46 @@ function harness(
         task.taskType === 'classify'
           ? { answers: answers(options.selected) }
           : task.title?.includes('security hunt')
-            ? { result: { summary: 'No candidate', findings: [] } }
-            : { result: { summary: 'No concern', findings: [], unclear: [] } };
+            ? {
+                result: {
+                  summary: 'Security hunt complete',
+                  findings: options.securityFindingStatus
+                    ? [
+                        {
+                          id: 'changed-route',
+                          path: sourcePath,
+                          side: 'new',
+                          line: 1,
+                          title: 'Changed route behavior',
+                          hypothesis: 'The new route might skip a guard.',
+                        },
+                      ]
+                    : [],
+                },
+              }
+            : task.title?.includes('security verify')
+              ? {
+                  result: {
+                    summary: 'Security verification complete',
+                    findings: [
+                      {
+                        id: 'changed-route',
+                        status: options.securityFindingStatus,
+                        severity: 'medium',
+                        path: sourcePath,
+                        side: 'new',
+                        line: 1,
+                        title: 'Changed route behavior',
+                        evidence: 'The changed route was inspected.',
+                        reachability: 'The route has a caller.',
+                        remediation: 'Restore the guard if needed.',
+                      },
+                    ],
+                  },
+                }
+              : {
+                  result: { summary: 'No concern', findings: [], unclear: [] },
+                };
       return Promise.resolve({
         kind: 'accepted',
         result: { state: parse(raw) },
@@ -113,10 +159,10 @@ function harness(
   return { tasks, createTask, created };
 }
 
-async function review(tasks: TaskClient) {
-  return runAdaptiveReview({
+function reviewOptions(tasks: TaskClient) {
+  return {
     identity,
-    mode: 'active',
+    mode: 'active' as const,
     tasks,
     cwd,
     profiles: {
@@ -125,7 +171,11 @@ async function review(tasks: TaskClient) {
       security: 'security-profile',
       focused: 'focused-profile',
     },
-  });
+  };
+}
+
+async function review(tasks: TaskClient) {
+  return runAdaptiveReview(reviewOptions(tasks));
 }
 
 describe('adaptive review orchestration', () => {
@@ -171,6 +221,44 @@ describe('adaptive review orchestration', () => {
     expect(createTask).toHaveBeenCalledTimes(2);
     expect(created.get('task-2')?.input.brief).toContain(sourcePath);
     expect(report.taskIds).toEqual(['task-1', 'task-2']);
+  });
+
+  it('reuses prepared routing and classifier task IDs without reclassifying', async () => {
+    const { tasks, createTask } = harness({ selected: 'tests' });
+    const options = reviewOptions(tasks);
+    const preparation = await prepareAdaptiveReview(options);
+
+    expect(preparation.classifierTaskIds).toEqual(['task-1']);
+    expect(
+      preparation.routing.routes.find((route) => route.lane === 'tests'),
+    ).toMatchObject({ run: true });
+    expect(createTask).toHaveBeenCalledTimes(1);
+
+    const report = await runRoutedAdaptiveReview(options, preparation);
+
+    expect(report.routing).toEqual(preparation.routing);
+    expect(report.taskIds).toEqual(['task-1', 'task-2']);
+    expect(createTask).toHaveBeenCalledTimes(2);
+    expect(
+      createTask.mock.calls.filter(([task]) => task.taskType === 'classify'),
+    ).toHaveLength(1);
+  });
+
+  it('rejects prepared routing for another pinned head or mode', async () => {
+    const { tasks, createTask } = harness({ selected: 'tests' });
+    const options = reviewOptions(tasks);
+    const preparation = await prepareAdaptiveReview(options);
+
+    await expect(
+      runRoutedAdaptiveReview(
+        { ...options, identity: { ...identity, head: 'c'.repeat(40) } },
+        preparation,
+      ),
+    ).rejects.toThrow('routing does not match the pinned review');
+    await expect(
+      runRoutedAdaptiveReview({ ...options, mode: 'shadow' }, preparation),
+    ).rejects.toThrow('routing does not match the pinned review');
+    expect(createTask).toHaveBeenCalledTimes(1);
   });
 
   it('waits for one classifier outcome before creating the next packet task', async () => {
@@ -264,5 +352,55 @@ describe('adaptive review orchestration', () => {
     );
     expect(securityHunt?.input.brief).toContain(patch);
     expect(securityHunt?.input.brief).not.toContain(`Path ${generatedPath}:`);
+  });
+
+  it.each([
+    ['confirmed', 'concern'],
+    ['unclear', 'unclear'],
+    ['refuted', 'clear'],
+  ] as const)(
+    'verifies a security candidate and maps %s to %s',
+    async (securityFindingStatus, status) => {
+      const { tasks, created, createTask } = harness({
+        selected: 'security',
+        securityFindingStatus,
+      });
+      const report = await review(tasks);
+
+      expect(createTask).toHaveBeenCalledTimes(3);
+      expect(created.get('task-2')?.title).toContain('security hunt');
+      expect(created.get('task-2')?.input.brief).toContain(patch);
+      expect(created.get('task-3')?.title).toContain('security verify');
+      expect(created.get('task-3')?.input.brief).toContain(
+        '"id":"changed-route"',
+      );
+      expect(
+        report.results.find((result) => result.lane === 'security'),
+      ).toMatchObject({
+        status,
+        taskIds: ['task-2', 'task-3'],
+        findings: [],
+      });
+      expect(report.taskIds).toEqual(['task-1', 'task-2', 'task-3']);
+    },
+  );
+
+  it('marks summarized source as unassessed after a candidate-free security hunt', async () => {
+    mocks.buildEvidence.mockReturnValue({
+      ...evidence,
+      files: [{ ...evidence.files[0], summarized: true }],
+    });
+    const { tasks, created } = harness({ selected: 'security' });
+    const report = await review(tasks);
+
+    expect(report.gaps).toEqual([expect.stringContaining(sourcePath)]);
+    expect(
+      report.results.find((result) => result.lane === 'security'),
+    ).toMatchObject({ status: 'unclear', taskIds: [expect.any(String)] });
+    expect(
+      [...created.values()].some((task) =>
+        task.title?.includes('security verify'),
+      ),
+    ).toBe(false);
   });
 });

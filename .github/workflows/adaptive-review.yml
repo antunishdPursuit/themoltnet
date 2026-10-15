@@ -71,7 +71,7 @@ jobs:
             core.setOutput('head', prepared.head);
             core.setOutput('correlation', correlationId);
 
-  review:
+  route:
     needs: prepare
     if: needs.prepare.outputs.skip == 'false'
     runs-on: ubuntu-latest
@@ -80,12 +80,16 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    outputs:
+      specialists: ${{ steps.specialists.outputs.matrix }}
+      has-specialists: ${{ steps.specialists.outputs.enabled }}
     env:
       ADAPTIVE_MODE: ${{ vars.MOLTNET_ADAPTIVE_REVIEW_MODE || 'shadow' }}
       ADAPTIVE_PREPARED: ${{ github.workspace }}/adaptive-prepared.json
+      ADAPTIVE_ROUTE: ${{ github.workspace }}/adaptive-route.json
       ADAPTIVE_REPORT: ${{ github.workspace }}/adaptive-report.json
       ADAPTIVE_CLASSIFIER_PROFILE: legreffier-issue-classifier-v1
-      ADAPTIVE_DOCS_PROFILE: legreffier-docs-review-v1
+      ADAPTIVE_DOCS_PROFILE: legreffier-adaptive-docs-review-v1
       ADAPTIVE_COMPLEXITY_PROFILE: legreffier-complexity-review-v2
       ADAPTIVE_SECURITY_PROFILE: legreffier-security-review-v2
       ADAPTIVE_FOCUSED_PROFILE: legreffier-adaptive-focused-review-v1
@@ -118,7 +122,95 @@ jobs:
           PREPARED_JSON: ${{ needs.prepare.outputs.prepared }}
         run: |
           node -e "require('node:fs').writeFileSync(process.env.ADAPTIVE_PREPARED, process.env.PREPARED_JSON, {mode: 0o600})"
-      - name: Run classifier-first review
+      - name: Classify and route the review
+        uses: ./packages/adaptive-review-action
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          step: route
+      - name: Select specialist workers
+        id: specialists
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const route = JSON.parse(fs.readFileSync(process.env.ADAPTIVE_ROUTE, 'utf8'));
+          const profiles = {
+            docs: process.env.ADAPTIVE_DOCS_PROFILE,
+            tests: process.env.ADAPTIVE_FOCUSED_PROFILE,
+            conventions: process.env.ADAPTIVE_FOCUSED_PROFILE,
+            security: process.env.ADAPTIVE_SECURITY_PROFILE,
+            'blast-radius': process.env.ADAPTIVE_FOCUSED_PROFILE,
+            complexity: process.env.ADAPTIVE_COMPLEXITY_PROFILE,
+          };
+          const selected = [...new Set(route.routing.routes
+            .filter(item => item.run)
+            .map(item => profiles[item.lane]))];
+          if (selected.some(profile => !profile)) throw new Error('Unknown review lane');
+          const matrix = { include: selected.map(profile => ({ profile })) };
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,
+            `matrix=${JSON.stringify(matrix)}\nenabled=${selected.length > 0}\n`);
+          NODE
+      - name: Upload routing decision
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: adaptive-route-${{ github.event.pull_request.number }}
+          path: ${{ env.ADAPTIVE_ROUTE }}
+          retention-days: 14
+
+  review:
+    needs: [prepare, route]
+    if: needs.route.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: legreffier
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      ADAPTIVE_MODE: ${{ vars.MOLTNET_ADAPTIVE_REVIEW_MODE || 'shadow' }}
+      ADAPTIVE_PREPARED: ${{ github.workspace }}/adaptive-prepared.json
+      ADAPTIVE_ROUTE: ${{ github.workspace }}/adaptive-route.json
+      ADAPTIVE_REPORT: ${{ github.workspace }}/adaptive-report.json
+      ADAPTIVE_CLASSIFIER_PROFILE: legreffier-issue-classifier-v1
+      ADAPTIVE_DOCS_PROFILE: legreffier-adaptive-docs-review-v1
+      ADAPTIVE_COMPLEXITY_PROFILE: legreffier-complexity-review-v2
+      ADAPTIVE_SECURITY_PROFILE: legreffier-security-review-v2
+      ADAPTIVE_FOCUSED_PROFILE: legreffier-adaptive-focused-review-v1
+      MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
+      MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}
+      MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
+      MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
+      MOLTNET_DIARY_ID: ${{ vars.MOLTNET_DIARY_ID }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      - name: Install and build the trusted action
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec nx run @themoltnet/adaptive-review-action:build --excludeTaskDependencies
+      - name: Fetch reviewed head as inert Git data
+        env:
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: Write pinned review input
+        env:
+          PREPARED_JSON: ${{ needs.prepare.outputs.prepared }}
+        run: |
+          node -e "require('node:fs').writeFileSync(process.env.ADAPTIVE_PREPARED, process.env.PREPARED_JSON, {mode: 0o600})"
+      - name: Download routing decision
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: adaptive-route-${{ github.event.pull_request.number }}
+          path: ${{ github.workspace }}
+      - name: Run selected review lanes
         id: review
         uses: ./packages/adaptive-review-action
         env:
@@ -158,24 +250,10 @@ jobs:
         with:
           step: publish
 
-  workers:
+  classifier-worker:
     needs: prepare
     if: needs.prepare.outputs.skip == 'false'
     continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - profile: legreffier-issue-classifier-v1
-            task-type: classify
-          - profile: legreffier-docs-review-v1
-            task-type: freeform
-          - profile: legreffier-complexity-review-v2
-            task-type: freeform
-          - profile: legreffier-security-review-v2
-            task-type: freeform
-          - profile: legreffier-adaptive-focused-review-v1
-            task-type: freeform
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: legreffier
@@ -204,10 +282,53 @@ jobs:
         with:
           agent-name: ${{ vars.MOLTNET_AGENT_NAME }}
           mode: drain
-          task-types: ${{ matrix.task-type }}
+          task-types: classify
+          correlation-id: ${{ needs.prepare.outputs.correlation }}
+          profile: legreffier-issue-classifier-v1
+          wait-for-first-task-sec: '900'
+          wait-after-task-sec: '120'
+          max-poll-interval-ms: '3000'
+          providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
+
+  specialist-workers:
+    needs: [prepare, route]
+    if: needs.route.outputs.has-specialists == 'true'
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.route.outputs.specialists) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: legreffier
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch reviewed head as inert Git data
+        env:
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: Drain selected review tasks
+        uses: getlarge/themoltnet/packages/agent-daemon-action@e82895cd187297d4531f853661e7d667a1243b35 # v0
+        env:
+          MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
+          MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}
+          MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
+          MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
+          MOLTNET_PRIVATE_KEY: ${{ secrets.MOLTNET_PRIVATE_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        with:
+          agent-name: ${{ vars.MOLTNET_AGENT_NAME }}
+          mode: drain
+          task-types: freeform
           correlation-id: ${{ needs.prepare.outputs.correlation }}
           profile: ${{ matrix.profile }}
-          wait-for-first-task-sec: '420'
+          wait-for-first-task-sec: '900'
           wait-after-task-sec: '120'
           max-poll-interval-ms: '3000'
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false

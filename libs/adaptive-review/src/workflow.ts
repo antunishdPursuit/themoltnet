@@ -95,6 +95,21 @@ export interface AdaptiveReport {
   durationMs: number;
 }
 
+export interface AdaptivePreparation {
+  version: 1;
+  mode: Mode;
+  repo: string;
+  pr: number;
+  base: string;
+  head: string;
+  correlationId: string;
+  routing: RoutingDecision;
+  packetCount: number;
+  classifierTaskIds: string[];
+  gaps: string[];
+  durationMs: number;
+}
+
 export interface RunOptions {
   identity: ReviewIdentity;
   mode: Mode;
@@ -269,7 +284,9 @@ async function runSecurity(
   profileId: string,
 ): Promise<LaneResult> {
   const diff = evidence.files.map((file) => file.patch).join('\n');
-  const generatedGap = evidence.generatedPaths.length > 0;
+  const evidenceGap =
+    evidence.generatedPaths.length > 0 ||
+    evidence.files.some((file) => file.summarized);
   if (!diff) {
     return {
       lane: 'security',
@@ -342,9 +359,9 @@ async function runSecurity(
   if (!candidates.length) {
     return {
       lane: 'security',
-      status: generatedGap ? 'unclear' : 'clear',
-      summary: generatedGap
-        ? 'Retained source reviewed; generated paths remain unassessed.'
+      status: evidenceGap ? 'unclear' : 'clear',
+      summary: evidenceGap
+        ? 'Retained source reviewed; omitted or summarized contents remain unassessed.'
         : 'No candidate regression identified; this is not a security certificate.',
       taskIds: [hunt.id],
       findings: [],
@@ -371,11 +388,11 @@ async function runSecurity(
     lane: 'security',
     status: confirmed.length
       ? 'concern'
-      : unclear.length || generatedGap
+      : unclear.length || evidenceGap
         ? 'unclear'
         : 'clear',
-    summary: generatedGap
-      ? 'Security details remain in team-scoped review tasks; generated paths remain unassessed.'
+    summary: evidenceGap
+      ? 'Security details remain in team-scoped review tasks; omitted or summarized contents remain unassessed.'
       : 'Security details remain in the team-scoped review tasks.',
     taskIds: [hunt.id, verify.id],
     findings: [],
@@ -407,11 +424,11 @@ function docsResult(report: DocsImpactReport): LaneResult {
   };
 }
 
-export async function runAdaptiveReview(
+export async function prepareAdaptiveReview(
   options: RunOptions,
-): Promise<AdaptiveReport> {
+): Promise<AdaptivePreparation> {
   const started = Date.now();
-  const { identity, tasks, mode, profiles } = options;
+  const { identity, tasks, mode } = options;
   if (!FullOid.test(identity.base) || !FullOid.test(identity.head))
     throw new Error('base and head must be full Git OIDs');
   const git = createGit(options.cwd);
@@ -423,6 +440,11 @@ export async function runAdaptiveReview(
   const packets = packetize(evidence);
   const gaps = evidence.generatedPaths.map(
     (path) => `Generated path not classified: ${path}`,
+  );
+  gaps.push(
+    ...evidence.files
+      .filter((file) => file.summarized)
+      .map((file) => `Summarized contents not reviewed: ${file.path}`),
   );
   const classifierTaskIds: string[] = [];
   const classification: PromiseSettledResult<PacketAnswer>[] = [];
@@ -458,6 +480,46 @@ export async function runAdaptiveReview(
     mechanicalConcerns(evidence.files),
     evidence.generatedPaths,
   );
+  return {
+    version: 1,
+    mode,
+    repo: identity.repo,
+    pr: identity.pr,
+    base: identity.base,
+    head: identity.head,
+    correlationId: identity.correlationId,
+    routing,
+    packetCount: packets.length,
+    classifierTaskIds,
+    gaps,
+    durationMs: Date.now() - started,
+  };
+}
+
+export async function runRoutedAdaptiveReview(
+  options: RunOptions,
+  preparation: AdaptivePreparation,
+): Promise<AdaptiveReport> {
+  const started = Date.now();
+  const { identity, tasks, mode, profiles } = options;
+  if (
+    preparation.version !== 1 ||
+    preparation.mode !== mode ||
+    preparation.repo !== identity.repo ||
+    preparation.pr !== identity.pr ||
+    preparation.base !== identity.base ||
+    preparation.head !== identity.head ||
+    preparation.correlationId !== identity.correlationId
+  ) {
+    throw new Error('routing does not match the pinned review');
+  }
+  const git = createGit(options.cwd);
+  const evidence = buildEvidence(
+    git as ComplexityGit,
+    identity.base,
+    identity.head,
+  );
+  const { routing } = preparation;
   const rubricValue: unknown = JSON.parse(
     readFileSync(
       `${options.cwd}/rubrics/pr-complexity-tristate-v2.json`,
@@ -568,12 +630,19 @@ export async function runAdaptiveReview(
     correlationId: identity.correlationId,
     routing,
     results,
-    packetCount: packets.length,
+    packetCount: preparation.packetCount,
     taskIds: [
-      ...classifierTaskIds,
+      ...preparation.classifierTaskIds,
       ...results.flatMap((result) => result.taskIds),
     ],
-    gaps,
-    durationMs: Date.now() - started,
+    gaps: preparation.gaps,
+    durationMs: preparation.durationMs + Date.now() - started,
   };
+}
+
+export async function runAdaptiveReview(
+  options: RunOptions,
+): Promise<AdaptiveReport> {
+  const preparation = await prepareAdaptiveReview(options);
+  return runRoutedAdaptiveReview(options, preparation);
 }

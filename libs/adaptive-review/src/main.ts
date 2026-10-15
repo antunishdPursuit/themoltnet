@@ -5,7 +5,12 @@ import { connect } from '@themoltnet/sdk/node';
 import { createSdkTaskClient } from '@themoltnet/tasks-orchestrator';
 
 import { env, required } from './config.js';
-import { runAdaptiveReview, type RunOptions } from './workflow.js';
+import {
+  type AdaptivePreparation,
+  prepareAdaptiveReview,
+  type RunOptions,
+  runRoutedAdaptiveReview,
+} from './workflow.js';
 
 interface Prepared {
   repo: string;
@@ -73,7 +78,28 @@ async function main() {
     },
     projectId: env().MOLTNET_PROJECT_ID || undefined,
   };
-  const report = await runAdaptiveReview(options);
+  const stage = required('ADAPTIVE_STAGE');
+  if (stage === 'route') {
+    const preparation = await prepareAdaptiveReview(options);
+    writeFileSync(
+      required('ADAPTIVE_ROUTE'),
+      `${JSON.stringify(preparation, null, 2)}\n`,
+      { mode: 0o600 },
+    );
+    process.stdout.write(
+      `Adaptive routing finished: ${preparation.routing.routes
+        .filter((route) => route.run)
+        .map((route) => route.lane)
+        .join(', ')}\n`,
+    );
+    return;
+  }
+  if (stage !== 'review')
+    throw new Error('ADAPTIVE_STAGE must be route or review');
+  const preparation = JSON.parse(
+    readFileSync(required('ADAPTIVE_ROUTE'), 'utf8'),
+  ) as AdaptivePreparation;
+  const report = await runRoutedAdaptiveReview(options, preparation);
   writeFileSync(
     required('ADAPTIVE_REPORT'),
     `${JSON.stringify(report, null, 2)}\n`,
