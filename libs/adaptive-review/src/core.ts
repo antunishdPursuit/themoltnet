@@ -399,14 +399,12 @@ export function decideRoutes(
       valid && probabilities.length ? Math.max(...probabilities) : null;
     const forced = lane === 'conventions' && concerns.length > 0;
     const threshold = lane === 'security' ? 0.1 : 0.2;
-    const reason: RouteReason =
-      classifierFailed || !valid
-        ? 'classifier-error'
-        : incomplete
-          ? 'incomplete'
-          : forced || (probability !== null && probability >= threshold)
-            ? 'selected'
-            : 'screened';
+    let reason: RouteReason;
+    if (classifierFailed || !valid) reason = 'classifier-error';
+    else if (incomplete) reason = 'incomplete';
+    else if (forced || (probability !== null && probability >= threshold))
+      reason = 'selected';
+    else reason = 'screened';
     return {
       lane,
       probability,

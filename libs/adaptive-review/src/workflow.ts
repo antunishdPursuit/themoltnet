@@ -269,11 +269,12 @@ async function runSecurity(
   profileId: string,
 ): Promise<LaneResult> {
   const diff = evidence.files.map((file) => file.patch).join('\n');
-  if (evidence.generatedPaths.length) {
+  const generatedGap = evidence.generatedPaths.length > 0;
+  if (!diff) {
     return {
       lane: 'security',
       status: 'unclear',
-      summary: 'Security evidence includes omitted generated paths.',
+      summary: 'No retained source diff is available for security review.',
       taskIds: [],
       findings: [],
     };
@@ -341,9 +342,10 @@ async function runSecurity(
   if (!candidates.length) {
     return {
       lane: 'security',
-      status: 'clear',
-      summary:
-        'No candidate regression identified; this is not a security certificate.',
+      status: generatedGap ? 'unclear' : 'clear',
+      summary: generatedGap
+        ? 'Retained source reviewed; generated paths remain unassessed.'
+        : 'No candidate regression identified; this is not a security certificate.',
       taskIds: [hunt.id],
       findings: [],
     };
@@ -367,8 +369,14 @@ async function runSecurity(
   );
   return {
     lane: 'security',
-    status: confirmed.length ? 'concern' : unclear.length ? 'unclear' : 'clear',
-    summary: 'Security details remain in the team-scoped review tasks.',
+    status: confirmed.length
+      ? 'concern'
+      : unclear.length || generatedGap
+        ? 'unclear'
+        : 'clear',
+    summary: generatedGap
+      ? 'Security details remain in team-scoped review tasks; generated paths remain unassessed.'
+      : 'Security details remain in the team-scoped review tasks.',
     taskIds: [hunt.id, verify.id],
     findings: [],
   };
@@ -417,8 +425,9 @@ export async function runAdaptiveReview(
     (path) => `Generated path not classified: ${path}`,
   );
   const classifierTaskIds: string[] = [];
-  const classification = await Promise.allSettled(
-    packets.map(async (packet): Promise<PacketAnswer> => {
+  const classification: PromiseSettledResult<PacketAnswer>[] = [];
+  for (const packet of packets) {
+    try {
       const task = await tasks.createTask(
         buildClassifyTask(identity, evidence, packet),
         {
@@ -426,10 +435,15 @@ export async function runAdaptiveReview(
         },
       );
       classifierTaskIds.push(task.id);
-      const result = await accepted(tasks, task.id, classifyOutput);
-      return { packetId: packet.id, answers: result.answers };
-    }),
-  );
+      const output = await accepted(tasks, task.id, classifyOutput);
+      classification.push({
+        status: 'fulfilled',
+        value: { packetId: packet.id, answers: output.answers },
+      });
+    } catch (reason) {
+      classification.push({ status: 'rejected', reason });
+    }
+  }
   const answers = classification.flatMap((item) =>
     item.status === 'fulfilled' ? [item.value] : [],
   );

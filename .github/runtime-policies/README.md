@@ -13,6 +13,7 @@ output redirection.
 | Definition                                                                                             | Profile                                                                                                                                                                                             |
 | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`legreffier-review-readonly-v1.json`](./legreffier-review-readonly-v1.json)                           | `legreffier-review-v1`, `legreffier-docs-review-v1`, `legreffier-docs-review-codex-v1`, `legreffier-docs-review-gemma-v1`, `legreffier-docs-review-gptoss-v1`, `legreffier-docs-review-deepseek-v1` |
+| [`legreffier-adaptive-focused-readonly-v1.json`](./legreffier-adaptive-focused-readonly-v1.json)       | `legreffier-adaptive-focused-review-v1`                                                                                                                                                             |
 | [`legreffier-security-review-readonly-v1.json`](./legreffier-security-review-readonly-v1.json)         | `legreffier-security-review-v2`                                                                                                                                                                     |
 | [`legreffier-complexity-review-input-only-v1.json`](./legreffier-complexity-review-input-only-v1.json) | `legreffier-complexity-review-v2`                                                                                                                                                                   |
 | [`legreffier-issue-triage-input-only-v1.json`](./legreffier-issue-triage-input-only-v1.json)           | `legreffier-issue-triage-v1`, `legreffier-issue-classifier-v1`                                                                                                                                      |
@@ -44,6 +45,30 @@ Pi's built-in `typesafe/jev-latest` classifier, so the classifier action does
 not need a provider discovery input. Verify the effective policy with
 `moltnet profile allowed-tools legreffier-issue-classifier-v1 --team-id "$TEAM"`
 before enabling the pilot.
+
+## Adaptive focused review
+
+The adaptive PR workflow uses a dedicated profile for tests, conventions, and
+blast-radius investigations. Create the profile and its repository-only policy
+before enabling the workflow on ordinary PRs. Profile creation needs a released
+CLI with `models` support (3.17 or newer):
+
+```bash
+TEAM=6743b4b1-6b93-46e2-a048-19490f04f91a
+moltnet policy create \
+  --from-file .github/runtime-policies/legreffier-adaptive-focused-readonly-v1.json \
+  --team-id "$TEAM"
+moltnet profile create \
+  --from-file .github/runtime-profiles/legreffier-adaptive-focused-review-v1.json \
+  --team-id "$TEAM"
+moltnet profile set-policies legreffier-adaptive-focused-review-v1 \
+  --policy legreffier-adaptive-focused-readonly-v1 --team-id "$TEAM"
+moltnet profile allowed-tools legreffier-adaptive-focused-review-v1 \
+  --team-id "$TEAM"
+```
+
+The resolved profile must enforce its policy and expose repository inspection
+tools only. The workflow uses this profile in both the task producer and worker.
 
 ## Applying a definition
 
