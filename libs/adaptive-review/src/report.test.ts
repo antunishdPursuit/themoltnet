@@ -1,0 +1,44 @@
+import { expect, it } from 'vitest';
+
+import { LANES } from './core.js';
+import { renderAdaptiveComment } from './report.js';
+import type { AdaptiveReport } from './workflow.js';
+
+it('labels screening honestly and neutralizes model-authored text', () => {
+  const report: AdaptiveReport = {
+    version: 1,
+    mode: 'active',
+    repo: 'getlarge/themoltnet',
+    pr: 42,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    correlationId: 'id',
+    packetCount: 1,
+    taskIds: [],
+    gaps: [],
+    durationMs: 100,
+    routing: {
+      classifierFailed: false,
+      scores: { 'code-complexity': 1, 'review-effort': 2 },
+      routes: LANES.map((lane) => ({
+        lane,
+        probability: 0.01,
+        run: false,
+        reason: 'screened',
+      })),
+    },
+    results: LANES.map((lane) => ({
+      lane,
+      status: 'screened',
+      summary: '@owner [click](bad)',
+      taskIds: [],
+      findings: [],
+    })),
+  };
+  const comment = renderAdaptiveComment(
+    report,
+    'https://github.com/getlarge/themoltnet/actions/runs/1',
+  );
+  expect(comment).toContain('screened, not verified');
+  expect(comment).not.toContain('@owner');
+});

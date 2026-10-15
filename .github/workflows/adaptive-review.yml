@@ -1,0 +1,206 @@
+name: Adaptive review experiment
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: adaptive-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      skip: ${{ steps.pin.outputs.skip }}
+      prepared: ${{ steps.pin.outputs.prepared }}
+      base: ${{ steps.pin.outputs.base }}
+      head: ${{ steps.pin.outputs.head }}
+      correlation: ${{ steps.pin.outputs.correlation }}
+    steps:
+      - name: Pin reviewed PR and protect the runtime
+        id: pin
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const crypto = require('node:crypto');
+            const pr = context.payload.pull_request;
+            const repo = `${context.repo.owner}/${context.repo.repo}`;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const protectedPaths = [
+              '.github/workflows/adaptive-review.yml',
+              'libs/adaptive-review/',
+              'packages/adaptive-review-action/',
+            ];
+            const changed = files.flatMap(file =>
+              [file.filename, file.previous_filename].filter(Boolean));
+            const skip = pr.head.repo?.full_name !== repo ||
+              pr.user.login === 'dependabot[bot]' ||
+              files.length < pr.changed_files ||
+              changed.some(path => protectedPaths.some(prefix => path.startsWith(prefix)));
+            core.setOutput('skip', String(skip));
+            if (skip) return;
+            const seed = `${repo}:${pr.number}:${pr.head.sha}:${context.runId}:${process.env.GITHUB_RUN_ATTEMPT}`;
+            const bytes = crypto.createHash('sha256').update(seed).digest().subarray(0, 16);
+            bytes[6] = (bytes[6] & 0x0f) | 0x50;
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+            const hex = bytes.toString('hex');
+            const correlationId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+            const prepared = {
+              repo,
+              pr: pr.number,
+              title: pr.title.slice(0, 500),
+              body: (pr.body || '').slice(0, 4000),
+              base: pr.base.sha,
+              head: pr.head.sha,
+              correlationId,
+            };
+            core.setOutput('prepared', JSON.stringify(prepared));
+            core.setOutput('base', prepared.base);
+            core.setOutput('head', prepared.head);
+            core.setOutput('correlation', correlationId);
+
+  review:
+    needs: prepare
+    if: needs.prepare.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: legreffier
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      ADAPTIVE_MODE: ${{ vars.MOLTNET_ADAPTIVE_REVIEW_MODE || 'shadow' }}
+      ADAPTIVE_PREPARED: ${{ github.workspace }}/adaptive-prepared.json
+      ADAPTIVE_REPORT: ${{ github.workspace }}/adaptive-report.json
+      ADAPTIVE_CLASSIFIER_PROFILE: legreffier-issue-classifier-v1
+      ADAPTIVE_DOCS_PROFILE: legreffier-docs-review-v1
+      ADAPTIVE_COMPLEXITY_PROFILE: legreffier-complexity-review-v2
+      ADAPTIVE_SECURITY_PROFILE: legreffier-security-review-v2
+      ADAPTIVE_FOCUSED_PROFILE: legreffier-review-v1
+      MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
+      MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}
+      MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
+      MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
+      MOLTNET_DIARY_ID: ${{ vars.MOLTNET_DIARY_ID }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      - name: Install and build the trusted action
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec nx run @themoltnet/adaptive-review-action:build --excludeTaskDependencies
+      - name: Fetch reviewed head as inert Git data
+        env:
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: Write pinned review input
+        env:
+          PREPARED_JSON: ${{ needs.prepare.outputs.prepared }}
+        run: |
+          node -e "require('node:fs').writeFileSync(process.env.ADAPTIVE_PREPARED, process.env.PREPARED_JSON, {mode: 0o600})"
+      - name: Run classifier-first review
+        id: review
+        uses: ./packages/adaptive-review-action
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          step: review
+      - name: Upload complete review report
+        if: always() && steps.review.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: adaptive-review-${{ github.event.pull_request.number }}
+          path: ${{ env.ADAPTIVE_REPORT }}
+          retention-days: 14
+      - name: Mint LeGreffier comment token
+        id: app-token
+        if: steps.review.outcome == 'success'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.MOLTNET_GITHUB_APP_ID }}
+          private-key: ${{ secrets.MOLTNET_GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+      - name: Upsert PR comment
+        if: steps.app-token.outcome == 'success'
+        uses: ./packages/adaptive-review-action
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ADAPTIVE_APP_LOGIN: ${{ steps.app-token.outputs.app-slug }}[bot]
+          ADAPTIVE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          step: publish
+
+  workers:
+    needs: prepare
+    if: needs.prepare.outputs.skip == 'false'
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: legreffier-issue-classifier-v1
+            task-type: classify
+          - profile: legreffier-docs-review-v1
+            task-type: freeform
+          - profile: legreffier-complexity-review-v2
+            task-type: freeform
+          - profile: legreffier-security-review-v2
+            task-type: freeform
+          - profile: legreffier-review-v1
+            task-type: freeform
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: legreffier
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch reviewed head as inert Git data
+        env:
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: Drain this review's tasks
+        uses: getlarge/themoltnet/packages/agent-daemon-action@e82895cd187297d4531f853661e7d667a1243b35 # v0
+        env:
+          MOLTNET_AGENT_KEY: ${{ secrets.MOLTNET_AGENT_KEY }}
+          MOLTNET_AGENT_NAME: ${{ vars.MOLTNET_AGENT_NAME }}
+          MOLTNET_API_URL: ${{ vars.MOLTNET_API_URL }}
+          MOLTNET_TEAM_ID: ${{ vars.MOLTNET_TEAM_ID }}
+          MOLTNET_PRIVATE_KEY: ${{ secrets.MOLTNET_PRIVATE_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        with:
+          agent-name: ${{ vars.MOLTNET_AGENT_NAME }}
+          mode: drain
+          task-types: ${{ matrix.task-type }}
+          correlation-id: ${{ needs.prepare.outputs.correlation }}
+          profile: ${{ matrix.profile }}
+          wait-for-first-task-sec: '420'
+          wait-after-task-sec: '120'
+          max-poll-interval-ms: '3000'
+          providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false

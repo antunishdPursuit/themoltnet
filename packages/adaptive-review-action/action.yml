@@ -1,0 +1,22 @@
+name: MoltNet adaptive review
+description: Run or publish the classifier-first advisory PR review.
+author: getlarge
+inputs:
+  step:
+    description: review or publish
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Run adaptive review
+      if: inputs.step == 'review'
+      shell: bash
+      env:
+        DIST: ${{ github.action_path }}/dist
+      run: node "$DIST/review.js"
+    - name: Publish adaptive review
+      if: inputs.step == 'publish'
+      shell: bash
+      env:
+        DIST: ${{ github.action_path }}/dist
+      run: node "$DIST/publish.js"
