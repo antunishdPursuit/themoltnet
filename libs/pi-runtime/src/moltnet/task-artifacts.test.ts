@@ -418,6 +418,10 @@ describe('moltnet_download_task_artifact', () => {
       const capturedDownloads: CapturedDownloadPath[] = [];
       const vmAccess = vi.fn((filePath: string) => access(filePath));
       const vmReadFile = vi.fn((filePath: string) => readFile(filePath));
+      const vmMkdir = vi.fn((dir: string) => mkdir(dir, { recursive: true }));
+      const vmWriteFile = vi.fn((filePath: string, content: string) =>
+        writeFile(filePath, content),
+      );
       const vmExec = vi.fn((_command: string[]) =>
         Promise.resolve({
           exitCode: 0,
@@ -431,6 +435,8 @@ describe('moltnet_download_task_artifact', () => {
         fs: {
           access: vmAccess,
           readFile: vmReadFile,
+          mkdir: vmMkdir,
+          writeFile: vmWriteFile,
         },
       };
 
@@ -491,11 +497,12 @@ describe('moltnet_download_task_artifact', () => {
         ]);
         expect(vmAccess).toHaveBeenCalledWith(artifactPath);
         expect(vmReadFile).toHaveBeenCalledWith(artifactPath);
-        const execCommands = vmExec.mock.calls.map(([command]) =>
-          command.join('\n'),
+        expect(vmWriteFile).toHaveBeenCalledWith(
+          writePath,
+          'analysis complete',
         );
-        expect(execCommands).toEqual(
-          expect.arrayContaining([expect.stringContaining(writePath)]),
+        await expect(readFile(writePath, 'utf8')).resolves.toBe(
+          'analysis complete',
         );
         expect(result.content).toEqual(
           expect.arrayContaining([
@@ -519,8 +526,9 @@ describe('moltnet_download_task_artifact', () => {
           );
           expect(vmAccess).not.toHaveBeenCalledWith(lossyMountPath);
           expect(vmReadFile).not.toHaveBeenCalledWith(lossyMountPath);
-          expect(execCommands.join('\n')).not.toContain(
+          expect(vmWriteFile).not.toHaveBeenCalledWith(
             path.join(mountPath, 'outputs', 'analysis.txt'),
+            expect.anything(),
           );
         }
       } finally {
