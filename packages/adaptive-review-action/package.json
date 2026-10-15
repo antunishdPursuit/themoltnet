@@ -5,6 +5,9 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "description": "Bundled action for classifier-first PR review",
+  "engines": {
+    "node": ">=22"
+  },
   "files": [
     "action.yml",
     "dist"

@@ -24,11 +24,16 @@ conventions lane when a deterministic check sees a possible violation. Classifie
 failure, missing answers, summarized patches, or generated paths route all lanes
 for investigation. A lane below threshold is labeled **screened, not verified**.
 
-The conventions catalog lives in `src/core.ts` on the trusted base revision.
-It names applicable paths and rules. Deterministic checks flag missing schema
-migrations, TypeScript path aliases, and dynamic imports in tests. The deeper
-reviewer checks exceptions and semantic rules rather than treating a pattern
-match as a finding.
+The conventions catalog lives in `src/conventions.ts` on the trusted base
+revision. Rules name their source, applicable paths, and exceptions. It covers
+Nx task inference and cache outputs, TypeScript project references and package
+exports, lint boundaries, test structure, database and API patterns, UI and docs
+accessibility, and review workflow trust. Deterministic checks flag missing
+schema migrations, TypeScript path aliases, dynamic imports in tests, direct
+environment access, and Secretlint ignore changes. Existing lint, typecheck,
+formatting, and CI gates remain authoritative for mechanical verdicts. The
+deeper reviewer checks contextual rules and exceptions before reporting a
+finding.
 
 The docs and complexity lanes reuse the established review workflows. Security
 reuses the two-stage hunt and disproof contract and its skill. Tests, conventions,

@@ -7,6 +7,10 @@ import type {
 import type { ClassifyOutput } from '@moltnet/tasks';
 import type { TaskClient } from '@themoltnet/tasks-orchestrator';
 
+import { type ConventionRule, CONVENTIONS } from './conventions.js';
+
+export { type ConventionRule, CONVENTIONS } from './conventions.js';
+
 export const LANES = [
   'docs',
   'tests',
@@ -23,50 +27,6 @@ export type RouteReason =
   | 'screened'
   | 'incomplete'
   | 'classifier-error';
-
-export interface ConventionRule {
-  id: string;
-  description: string;
-  paths: string[];
-  kind: 'mechanical' | 'semantic';
-}
-
-/** Base-revision catalog. A PR cannot rewrite the rules used to review itself. */
-export const CONVENTIONS: readonly ConventionRule[] = [
-  {
-    id: 'schema-migration',
-    description:
-      'A change to libs/database/src/schema.ts has a Drizzle migration.',
-    paths: ['libs/database/src/schema.ts'],
-    kind: 'mechanical',
-  },
-  {
-    id: 'tsconfig-paths',
-    description: 'TypeScript configuration does not introduce paths aliases.',
-    paths: ['**/tsconfig*.json'],
-    kind: 'mechanical',
-  },
-  {
-    id: 'test-dynamic-import',
-    description:
-      'Tests use static imports except tests that explicitly reload modules.',
-    paths: ['**/*.test.ts', '**/*.spec.ts'],
-    kind: 'mechanical',
-  },
-  {
-    id: 'database-repository',
-    description:
-      'Application data access uses the established repository layer.',
-    paths: ['apps/**/src/**/*.ts', 'libs/**/src/**/*.ts'],
-    kind: 'semantic',
-  },
-  {
-    id: 'e2e-api-client',
-    description: 'E2E requests for in-spec endpoints use the typed API client.',
-    paths: ['apps/**/e2e/**/*.ts', 'libs/mcp-test-harness/**/*.ts'],
-    kind: 'semantic',
-  },
-];
 
 const MAX_PACKET_BYTES = 24_000;
 const MAX_METADATA_BYTES = 4_000;
@@ -126,12 +86,36 @@ export function mechanicalConcerns(
         detail: 'Added a TypeScript paths mapping.',
       });
     }
-    if (/\.(test|spec)\.ts$/.test(file.path) && /\bimport\s*\(/.test(added)) {
+    if (
+      /(?:\.(?:test|spec)\.tsx?$|\/__tests__\/.*\.tsx?$)/.test(file.path) &&
+      /\bimport\s*\(/.test(added)
+    ) {
       concerns.push({
         ruleId: 'test-dynamic-import',
         path: file.path,
         detail:
           'Added a dynamic import in a test; check the resetModules exception.',
+      });
+    }
+    if (
+      /^(apps|libs|packages)\/.*\/src\/.*\.tsx?$/.test(file.path) &&
+      !file.path.endsWith('/config.ts') &&
+      !file.path.startsWith('libs/pi-extension/') &&
+      /\bprocess\.env\b/.test(added)
+    ) {
+      concerns.push({
+        ruleId: 'source-config-env',
+        path: file.path,
+        detail:
+          'Added direct process.env access outside a source config.ts module.',
+      });
+    }
+    if (file.path === '.secretlintignore') {
+      concerns.push({
+        ruleId: 'fixture-secretlint',
+        path: file.path,
+        detail:
+          'Secretlint ignore file changed; check for rule-scoped inline fixture suppressions instead.',
       });
     }
   }
@@ -214,7 +198,7 @@ const BOOL_QUESTIONS: Record<
   },
   conventions: {
     instructions:
-      'Does this patch plausibly depart from an applicable semantic rule in `rules`? Ignore rules that do not apply to these files.',
+      'Does this patch plausibly depart from an applicable repository rule in `rules`? Existing lint and CI gates own mechanical verdicts; select deeper review when context or an exception needs investigation.',
     true: 'An applicable repository convention may be violated.',
     false: 'No applicable semantic rule appears in doubt.',
   },
@@ -288,9 +272,7 @@ export function buildClassifyTask(
           path: file.path,
           patch: file.patch,
         })),
-        rules: applicableRules(paths).filter(
-          (rule) => rule.kind === 'semantic',
-        ),
+        rules: applicableRules(paths),
       },
       questions: {
         ...questions,

@@ -147,7 +147,7 @@ function focusBrief(
     tests:
       'Check whether behavior introduced by changed lines has proportional tests. Inspect relevant tests and callers. Report a concern only when a concrete changed behavior lacks meaningful coverage or a test was weakened.',
     conventions:
-      'Check only the applicable repository rules supplied below. Mechanical concerns are candidates, including permitted exceptions; verify them against changed code. Report a concern only for a demonstrated departure.',
+      'Check only the applicable repository rules supplied below. Read their source references and inspect changed code and surrounding project configuration. Mechanical concerns are candidates, including permitted exceptions; existing lint, formatting, typecheck, and CI gates own their verdicts. Report a concern only for a demonstrated departure with a changed line.',
     'blast-radius':
       'Trace changed public contracts, shared components, schema, configuration, and their consumers. Report a concern only when a concrete changed behavior has a wider impact needing action or review.',
   };

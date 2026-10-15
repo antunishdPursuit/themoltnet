@@ -67,6 +67,23 @@ describe('classifier-first routing', () => {
         (rule) => rule.id,
       ),
     ).toContain('e2e-api-client');
+    expect(task.input.state.rules.map((rule) => rule.id)).toContain(
+      'runtime-typebox',
+    );
+  });
+
+  it('selects repository rules across workspace, UI, docs, and review automation', () => {
+    const cases = [
+      ['packages/adaptive-review-action/package.json', 'nx-project-tasks'],
+      ['libs/adaptive-review/tsconfig.lib.json', 'tsconfig-project-graph'],
+      ['apps/rest-api-e2e/src/nested/route.test.ts', 'e2e-api-client'],
+      ['apps/console/src/pages/Home.tsx', 'ui-accessibility'],
+      ['docs/start/install-and-initialize.md', 'docs-canonical'],
+      ['.github/workflows/adaptive-review.yml', 'review-workflow-trust'],
+    ] as const;
+    for (const [path, id] of cases) {
+      expect(applicableRules([path]).map((rule) => rule.id)).toContain(id);
+    }
   });
 
   it('keeps every byte of a large patch in bounded packets', () => {
@@ -144,5 +161,29 @@ describe('classifier-first routing', () => {
     expect(
       routes.routes.find((route) => route.lane === 'conventions')?.run,
     ).toBe(true);
+  });
+
+  it('flags direct environment reads and TSX test imports, while respecting config exceptions', () => {
+    const concerns = mechanicalConcerns([
+      {
+        path: 'apps/rest-api/src/routes/example.ts',
+        patch: '+const key = process.env.KEY;',
+        bytes: 29,
+      },
+      {
+        path: 'apps/rest-api/src/config.ts',
+        patch: '+const key = process.env.KEY;',
+        bytes: 29,
+      },
+      {
+        path: 'apps/console/src/example.test.tsx',
+        patch: '+await import("./module");',
+        bytes: 26,
+      },
+    ]);
+    expect(concerns.map((concern) => concern.ruleId)).toEqual([
+      'source-config-env',
+      'test-dynamic-import',
+    ]);
   });
 });
