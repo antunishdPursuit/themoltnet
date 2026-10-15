@@ -305,6 +305,44 @@ describe('adaptive review orchestration', () => {
     expect(report.taskIds).toEqual(['task-1', 'task-2']);
   });
 
+  it('bounds classifier tasks and deep-reviews every lane when packets exceed the budget', async () => {
+    const files = Array.from({ length: 5 }, (_, index) => {
+      const path = `apps/rest-api/src/routes/large-${index}.ts`;
+      const filePatch = [
+        `diff --git a/${path} b/${path}`,
+        `--- a/${path}`,
+        `+++ b/${path}`,
+        '@@ -1 +1 @@',
+        '-old',
+        `+${'x'.repeat(18_000)}`,
+      ].join('\n');
+      return {
+        path,
+        patch: filePatch,
+        bytes: Buffer.byteLength(filePatch),
+      };
+    });
+    mocks.buildEvidence.mockReturnValue({
+      manifest: files.map((file) => file.path).join('\n'),
+      files,
+      bytes: files.reduce((total, file) => total + file.bytes, 0),
+      generatedPaths: [],
+    });
+    const { tasks, createTask } = harness();
+
+    const preparation = await prepareAdaptiveReview(reviewOptions(tasks));
+
+    expect(preparation.packetCount).toBe(5);
+    expect(preparation.classifierTaskIds).toHaveLength(4);
+    expect(createTask).toHaveBeenCalledTimes(4);
+    expect(
+      createTask.mock.calls.every(([task]) => task.taskType === 'classify'),
+    ).toBe(true);
+    expect(preparation.routing.classifierFailed).toBe(true);
+    expect(preparation.routing.routes.every((route) => route.run)).toBe(true);
+    expect(preparation.gaps.join(' ')).toContain('packet');
+  });
+
   it('runs every deep lane and records a gap when classification fails', async () => {
     const { tasks, createTask, created } = harness({ classifierFails: true });
     const report = await review(tasks);

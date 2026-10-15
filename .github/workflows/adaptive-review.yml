@@ -142,13 +142,17 @@ jobs:
             'blast-radius': process.env.ADAPTIVE_FOCUSED_PROFILE,
             complexity: process.env.ADAPTIVE_COMPLEXITY_PROFILE,
           };
-          const selected = [...new Set(route.routing.routes
-            .filter(item => item.run)
-            .map(item => profiles[item.lane]))];
-          if (selected.some(profile => !profile)) throw new Error('Unknown review lane');
-          const matrix = { include: selected.map(profile => ({ profile })) };
+          const selected = new Map();
+          for (const item of route.routing.routes.filter(item => item.run)) {
+            const profile = profiles[item.lane];
+            if (!profile) throw new Error(`Unknown review lane: ${item.lane}`);
+            const capacity = item.lane === 'complexity' ? 4 : item.lane === 'docs' ? 2 : 1;
+            selected.set(profile, (selected.get(profile) || 0) + capacity);
+          }
+          const matrix = { include: [...selected].flatMap(([profile, capacity]) =>
+            Array.from({ length: capacity }, (_, index) => ({ profile, worker: index + 1 }))) };
           fs.appendFileSync(process.env.GITHUB_OUTPUT,
-            `matrix=${JSON.stringify(matrix)}\nenabled=${selected.length > 0}\n`);
+            `matrix=${JSON.stringify(matrix)}\nenabled=${matrix.include.length > 0}\n`);
           NODE
       - name: Upload routing decision
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -291,6 +295,7 @@ jobs:
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
 
   specialist-workers:
+    name: 'Specialist ${{ matrix.profile }} #${{ matrix.worker }}'
     needs: [prepare, route]
     if: needs.route.outputs.has-specialists == 'true'
     continue-on-error: true

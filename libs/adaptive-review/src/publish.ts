@@ -23,9 +23,11 @@ export async function publishAdaptiveReport(
   if (!appLogin) throw new Error('GitHub App login is required to publish');
   const current = (await request(
     `/repos/${report.repo}/pulls/${report.pr}`,
-  )) as { head: { sha: string } };
+  )) as { head: { sha: string }; base: { sha: string } };
   if (current.head.sha !== report.head)
     throw new Error('PR head changed; refusing to publish stale review');
+  if (current.base.sha !== report.base)
+    throw new Error('PR base changed; refusing to publish stale review');
   const body = renderAdaptiveComment(report, runUrl);
   let previous: { id: number } | undefined;
   for (let page = 1; page <= 100 && !previous; page++) {
@@ -43,9 +45,12 @@ export async function publishAdaptiveReport(
     `/repos/${report.repo}/pulls/${report.pr}`,
   )) as {
     head: { sha: string };
+    base: { sha: string };
   };
   if (latest.head.sha !== report.head)
     throw new Error('PR head changed before publishing review');
+  if (latest.base.sha !== report.base)
+    throw new Error('PR base changed before publishing review');
   if (previous) {
     await request(
       `/repos/${report.repo}/issues/comments/${previous.id}`,

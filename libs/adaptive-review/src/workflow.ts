@@ -46,6 +46,7 @@ import {
 
 const FullOid = /^[0-9a-f]{40}$/;
 const MAX_FOCUSED_DIFF_BYTES = 120_000;
+const MAX_CLASSIFIER_PACKETS = 4;
 type FocusedLane = 'tests' | 'conventions' | 'blast-radius';
 
 const FocusedOutput = Type.Object(
@@ -400,16 +401,13 @@ async function runSecurity(
 }
 
 function docsResult(report: DocsImpactReport): LaneResult {
+  let status: LaneResult['status'] = 'clear';
+  if (report.status === 'failed') status = 'failed';
+  else if (report.outcome === 'updates-needed') status = 'concern';
+  else if (report.outcome === 'incomplete') status = 'unclear';
   return {
     lane: 'docs',
-    status:
-      report.status === 'failed'
-        ? 'failed'
-        : report.outcome === 'updates-needed'
-          ? 'concern'
-          : report.outcome === 'incomplete'
-            ? 'unclear'
-            : 'clear',
+    status,
     summary:
       report.status === 'failed'
         ? (report.error ?? 'Docs review failed.')
@@ -448,7 +446,13 @@ export async function prepareAdaptiveReview(
   );
   const classifierTaskIds: string[] = [];
   const classification: PromiseSettledResult<PacketAnswer>[] = [];
-  for (const packet of packets) {
+  const packetBudgetReached = packets.length > MAX_CLASSIFIER_PACKETS;
+  if (packetBudgetReached) {
+    gaps.push(
+      `Classifier packet budget reached: ${MAX_CLASSIFIER_PACKETS} of ${packets.length}; all lanes routed for review.`,
+    );
+  }
+  for (const packet of packets.slice(0, MAX_CLASSIFIER_PACKETS)) {
     try {
       const task = await tasks.createTask(
         buildClassifyTask(identity, evidence, packet),
@@ -476,7 +480,7 @@ export async function prepareAdaptiveReview(
   const routing = decideRoutes(
     mode,
     packets,
-    answers,
+    packetBudgetReached ? [] : answers,
     mechanicalConcerns(evidence.files),
     evidence.generatedPaths,
   );
@@ -582,13 +586,15 @@ export async function runRoutedAdaptiveReview(
         const failed = result.output.scores.filter(
           (score) => score.status === 'fail',
         );
+        let status: LaneResult['status'] = 'clear';
+        if (failed.length) status = 'concern';
+        else if (
+          result.output.scores.some((score) => score.status === 'unclear')
+        )
+          status = 'unclear';
         return {
           lane: 'complexity',
-          status: failed.length
-            ? 'concern'
-            : result.output.scores.some((score) => score.status === 'unclear')
-              ? 'unclear'
-              : 'clear',
+          status,
           summary: result.output.verdict,
           taskIds: result.taskIds,
           findings: failed.map((score) => ({

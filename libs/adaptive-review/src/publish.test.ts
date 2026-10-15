@@ -5,6 +5,7 @@ import { ADAPTIVE_REVIEW_MARKER } from './report.js';
 import type { AdaptiveReport } from './workflow.js';
 
 const HEAD = 'a'.repeat(40);
+const BASE = 'b'.repeat(40);
 const PR_PATH = '/repos/getlarge/themoltnet/pulls/42';
 const COMMENTS_PATH = '/repos/getlarge/themoltnet/issues/42/comments';
 const OPTIONS = {
@@ -18,7 +19,7 @@ function report(): AdaptiveReport {
     mode: 'active',
     repo: 'getlarge/themoltnet',
     pr: 42,
-    base: 'b'.repeat(40),
+    base: BASE,
     head: HEAD,
     correlationId: 'test',
     routing: {
@@ -48,12 +49,23 @@ function expectPublishedBody(body: object | undefined): void {
 describe('publishAdaptiveReport', () => {
   it('refuses a report whose head changed before reading comments', async () => {
     const request = vi.fn(() =>
-      Promise.resolve({ head: { sha: 'c'.repeat(40) } }),
+      Promise.resolve({ head: { sha: 'c'.repeat(40) }, base: { sha: BASE } }),
     );
 
     await expect(
       publishAdaptiveReport(report(), { ...OPTIONS, request }),
     ).rejects.toThrow('PR head changed');
+    expect(request).toHaveBeenCalledExactlyOnceWith(PR_PATH);
+  });
+
+  it('refuses a report whose base changed before reading comments', async () => {
+    const request = vi.fn(() =>
+      Promise.resolve({ head: { sha: HEAD }, base: { sha: 'c'.repeat(40) } }),
+    );
+
+    await expect(
+      publishAdaptiveReport(report(), { ...OPTIONS, request }),
+    ).rejects.toThrow('PR base changed');
     expect(request).toHaveBeenCalledExactlyOnceWith(PR_PATH);
   });
 
@@ -70,7 +82,7 @@ describe('publishAdaptiveReport', () => {
     const request = vi.fn((url: string, method = 'GET', body?: object) => {
       if (url === PR_PATH) {
         headReads++;
-        return Promise.resolve({ head: { sha: HEAD } });
+        return Promise.resolve({ head: { sha: HEAD }, base: { sha: BASE } });
       }
       if (url === `${COMMENTS_PATH}?per_page=100&page=1`)
         return Promise.resolve(firstPage);
@@ -100,6 +112,7 @@ describe('publishAdaptiveReport', () => {
       if (url === PR_PATH)
         return Promise.resolve({
           head: { sha: ++headReads === 1 ? HEAD : 'c'.repeat(40) },
+          base: { sha: BASE },
         });
       if (url === `${COMMENTS_PATH}?per_page=100&page=1`)
         return Promise.resolve([comment(7, OPTIONS.appLogin)]);
@@ -117,9 +130,33 @@ describe('publishAdaptiveReport', () => {
     ]);
   });
 
+  it('refuses to publish when the base changes during comment lookup', async () => {
+    let baseReads = 0;
+    const request = vi.fn((url: string) => {
+      if (url === PR_PATH)
+        return Promise.resolve({
+          head: { sha: HEAD },
+          base: { sha: ++baseReads === 1 ? BASE : 'c'.repeat(40) },
+        });
+      if (url === `${COMMENTS_PATH}?per_page=100&page=1`)
+        return Promise.resolve([comment(7, OPTIONS.appLogin)]);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    await expect(
+      publishAdaptiveReport(report(), { ...OPTIONS, request }),
+    ).rejects.toThrow('PR base changed before publishing review');
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      PR_PATH,
+      `${COMMENTS_PATH}?per_page=100&page=1`,
+      PR_PATH,
+    ]);
+  });
+
   it('posts a new comment when the marker belongs to another account', async () => {
     const request = vi.fn((url: string, method = 'GET', body?: object) => {
-      if (url === PR_PATH) return Promise.resolve({ head: { sha: HEAD } });
+      if (url === PR_PATH)
+        return Promise.resolve({ head: { sha: HEAD }, base: { sha: BASE } });
       if (url === `${COMMENTS_PATH}?per_page=100&page=1`)
         return Promise.resolve([
           comment(1, 'human'),
