@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   createGondolinBashOps,
+  createGondolinEditOps,
   createGondolinFindOps,
   createGondolinLsOps,
   createGondolinReadOps,
   createGondolinToolLifecycle,
+  createGondolinWriteOps,
   executeGondolinGrep,
   GondolinVmRetiredError,
   toGuestPath,
@@ -35,6 +37,93 @@ function pendingExec() {
     },
   });
 }
+
+describe('Gondolin filesystem writes', () => {
+  function mockVm() {
+    return {
+      fs: {
+        mkdir: vi.fn().mockResolvedValue(undefined),
+        writeFile: vi.fn().mockResolvedValue(undefined),
+      },
+      exec: vi.fn(() => {
+        throw new Error('writes must not use shell arguments');
+      }),
+    };
+  }
+
+  it.each([
+    ['write', createGondolinWriteOps],
+    ['edit', createGondolinEditOps],
+  ])(
+    'preserves large %s content and unusual paths without shell execution',
+    async (_, createOps) => {
+      const vm = mockVm();
+      const ops = createOps(vm as never, '/host/project', '/workspace');
+      const content = 'héllo\n'.repeat(200_000);
+
+      await ops.writeFile("/host/project/nested/it's $(echo hi).txt", content);
+
+      expect(vm.fs.mkdir).toHaveBeenCalledWith('/workspace/nested', {
+        recursive: true,
+      });
+      expect(vm.fs.writeFile).toHaveBeenCalledWith(
+        "/workspace/nested/it's $(echo hi).txt",
+        content,
+      );
+      expect(vm.fs.mkdir.mock.invocationCallOrder[0]).toBeLessThan(
+        vm.fs.writeFile.mock.invocationCallOrder[0],
+      );
+      expect(vm.exec).not.toHaveBeenCalled();
+    },
+  );
+
+  it('creates guest directories recursively and rejects paths outside the workspace', async () => {
+    const vm = mockVm();
+    const ops = createGondolinWriteOps(
+      vm as never,
+      '/host/project',
+      '/workspace',
+    );
+
+    await ops.mkdir('/host/project/nested/dir');
+    await expect(ops.mkdir('/host/outside')).rejects.toThrow(
+      'path escapes workspace',
+    );
+    await expect(ops.writeFile('/host/outside', 'content')).rejects.toThrow(
+      'path escapes workspace',
+    );
+
+    expect(vm.fs.mkdir).toHaveBeenCalledExactlyOnceWith(
+      '/workspace/nested/dir',
+      {
+        recursive: true,
+      },
+    );
+    expect(vm.fs.writeFile).not.toHaveBeenCalled();
+    expect(vm.exec).not.toHaveBeenCalled();
+  });
+
+  it('propagates filesystem errors and does not write when parent creation fails', async () => {
+    const vm = mockVm();
+    const ops = createGondolinWriteOps(
+      vm as never,
+      '/host/project',
+      '/workspace',
+    );
+    const error = new Error('permission denied');
+    vm.fs.mkdir.mockRejectedValueOnce(error);
+
+    await expect(
+      ops.writeFile('/host/project/file.txt', 'content'),
+    ).rejects.toBe(error);
+    expect(vm.fs.writeFile).not.toHaveBeenCalled();
+
+    vm.fs.writeFile.mockRejectedValueOnce(error);
+    await expect(
+      ops.writeFile('/host/project/file.txt', 'content'),
+    ).rejects.toBe(error);
+  });
+});
 
 describe('toGuestPath', () => {
   it('accepts normalized guest workspace paths', () => {

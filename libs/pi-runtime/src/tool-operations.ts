@@ -239,26 +239,14 @@ export function createGondolinWriteOps(
   return {
     writeFile: async (p, content) => {
       const guestPath = toGuestPath(localCwd, p, guestWorkspace);
-      const dir = path.posix.dirname(guestPath);
-      const b64 = Buffer.from(content, 'utf8').toString('base64');
-      const r = await vm.exec([
-        '/bin/sh',
-        '-lc',
-        [
-          'set -eu',
-          `mkdir -p ${shQuote(dir)}`,
-          `echo ${shQuote(b64)} | base64 -d > ${shQuote(guestPath)}`,
-        ].join('\n'),
-      ]);
-      if (!r.ok) throw new Error(`write failed (${r.exitCode}): ${r.stderr}`);
+      // Stream through the filesystem API so large writes do not hit argv limits.
+      await vm.fs.mkdir(path.posix.dirname(guestPath), { recursive: true });
+      await vm.fs.writeFile(guestPath, content);
     },
     mkdir: async (dir) => {
-      const r = await vm.exec([
-        '/bin/mkdir',
-        '-p',
-        toGuestPath(localCwd, dir, guestWorkspace),
-      ]);
-      if (!r.ok) throw new Error(`mkdir failed (${r.exitCode}): ${r.stderr}`);
+      await vm.fs.mkdir(toGuestPath(localCwd, dir, guestWorkspace), {
+        recursive: true,
+      });
     },
   };
 }
