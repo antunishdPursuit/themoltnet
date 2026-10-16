@@ -329,6 +329,7 @@ jobs:
           task-types: classify
           correlation-id: ${{ needs.prepare.outputs.correlation }}
           profile: legreffier-issue-classifier-v1
+          daemon-version: '0.72.2'
           wait-for-first-task-sec: '900'
           wait-after-task-sec: '120'
           max-poll-interval-ms: '3000'
@@ -374,7 +375,8 @@ jobs:
           task-types: freeform
           correlation-id: ${{ needs.prepare.outputs.correlation }}
           profile: ${{ matrix.profile }}
+          daemon-version: '0.72.2'
           wait-for-first-task-sec: '900'
-          wait-after-task-sec: '120'
+          wait-after-task-sec: ${{ matrix.profile == 'legreffier-adaptive-focused-review-v1' && '0' || '120' }}
           max-poll-interval-ms: '3000'
           providers: id=ollama-cloud base-url=https://ollama.com/v1 key-env=OLLAMA_API_KEY supports-developer-role=false
