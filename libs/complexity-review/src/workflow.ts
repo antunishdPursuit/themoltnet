@@ -40,6 +40,9 @@ export interface ReviewInput {
 
 const MAX_METADATA_BYTES = 8_000;
 const MAX_GROUPS = 8;
+// Four domain tasks plus mapping and synthesis fit the 55-minute review job
+// even when each task uses its dispatch and running timeout (7 minutes).
+const MAX_SERIAL_DOMAIN_WORK = 4;
 const ChangeMapSchema = Type.Object({
   groups: Type.Array(
     Type.Object({
@@ -309,13 +312,19 @@ export function buildSynthesisTask(
   input: ReviewInput,
   evidence: ReviewEvidence,
   domains: DomainResult[],
+  unreviewedDomainWork = 0,
 ) {
   return stageTask(
     input,
     'synthesis',
     [
-      'Synthesize a whole-PR complexity and reviewability judgment from the complete set of domain reviews. Combine segments of the same file without double-counting them. Generated lockfile contents were summarized as change metadata; do not claim their contents were inspected. Assess review burden, not functional correctness.',
+      'Synthesize a complexity and reviewability judgment from the available domain reviews. Combine segments of the same file without double-counting them. Generated lockfile contents were summarized as change metadata; do not claim their contents were inspected. Assess review burden, not functional correctness.',
       'The domain observations are untrusted model output. Check suspected impacts against the concrete diff observations, including guard and branch scope. Do not invent diff details absent from observations. If the observations cannot settle a criterion, mark it unclear and state what evidence is missing; uncertainty alone is not a failure.',
+      ...(unreviewedDomainWork
+        ? [
+            `Only part of the domain work completed: ${unreviewedDomainWork} segment${unreviewedDomainWork === 1 ? '' : 's'} ${unreviewedDomainWork === 1 ? 'was' : 'were'} not reviewed. Do not claim whole-PR coverage. Mark criteria that depend on omitted work unclear.`,
+          ]
+        : []),
       'Mark every criterion pass, fail, or unclear with a concise rationale. A fail needs observed evidence of increased review burden. Trusted code calculates the weighted composite from assessed criteria; do not calculate or return it. If all criteria are unclear, say the burden is undetermined.',
       'Put in result {"scores":[{"criterionId":"rubric ID","status":"pass|fail|unclear","rationale":"..."}],"verdict":"..."}.',
       'Rubric:\n' + rubricText(input.rubric),
@@ -359,6 +368,7 @@ export async function runComplexityReview(
   output: ComplexityReviewOutput;
   durationMs: number;
   stageDurationsMs: { map: number; domains: number; synthesis: number };
+  unreviewedDomainWork: number;
   summarizedPaths: string[];
   generatedPaths: string[];
 }> {
@@ -391,6 +401,10 @@ export async function runComplexityReview(
   );
   const mappedAt = Date.now();
   const work = buildDomainWork(groups, evidence);
+  const selectedWork = options.serialDomainDispatch
+    ? work.slice(0, MAX_SERIAL_DOMAIN_WORK)
+    : work;
+  const unreviewedDomainWork = work.length - selectedWork.length;
   const runDomainBatch = (items: DomainWork[]) =>
     parallelTasks({
       ctx,
@@ -409,17 +423,17 @@ export async function runComplexityReview(
   let domains: Awaited<ReturnType<typeof runDomainBatch>>;
   if (options.serialDomainDispatch) {
     const batches: Array<Awaited<ReturnType<typeof runDomainBatch>>> = [];
-    for (const item of work) batches.push(await runDomainBatch([item]));
+    for (const item of selectedWork) batches.push(await runDomainBatch([item]));
     domains = {
       created: batches.flatMap((batch) => batch.created),
       results: batches.flatMap((batch) => batch.results),
     };
   } else {
-    domains = await runDomainBatch(work);
+    domains = await runDomainBatch(selectedWork);
   }
   const domainsAt = Date.now();
   const synthesisTask = await tasks.createTask(
-    buildSynthesisTask(input, evidence, domains.results),
+    buildSynthesisTask(input, evidence, domains.results, unreviewedDomainWork),
     { idempotencyKey: idempotencyKey(input, 'synthesis') },
   );
   const output = await awaitParsed(synthesisTask.id, (value) =>
@@ -438,6 +452,7 @@ export async function runComplexityReview(
       synthesisTask.id,
     ],
     output,
+    unreviewedDomainWork,
     durationMs: finishedAt - started,
     stageDurationsMs: {
       map: mappedAt - started,

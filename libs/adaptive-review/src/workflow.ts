@@ -553,6 +553,19 @@ export async function prepareAdaptiveReview(
   };
 }
 
+export function classifierTaskPossible(
+  cwd: string,
+  base: string,
+  head: string,
+): boolean {
+  if (!FullOid.test(base) || !FullOid.test(head))
+    throw new Error('base and head must be full Git OIDs');
+  const packets = packetize(
+    buildEvidence(createGit(cwd) as ComplexityGit, base, head),
+  );
+  return packets.length > 0 && packets.length <= MAX_CLASSIFIER_PACKETS;
+}
+
 export async function runRoutedAdaptiveReview(
   options: RunOptions,
   preparation: AdaptivePreparation,
@@ -646,13 +659,16 @@ export async function runRoutedAdaptiveReview(
         let status: LaneResult['status'] = 'clear';
         if (failed.length) status = 'concern';
         else if (
+          result.unreviewedDomainWork > 0 ||
           result.output.scores.some((score) => score.status === 'unclear')
         )
           status = 'unclear';
         return {
           lane: 'complexity',
           status,
-          summary: result.output.verdict,
+          summary: result.unreviewedDomainWork
+            ? `${result.output.verdict} Incomplete coverage: ${result.unreviewedDomainWork} domain segment${result.unreviewedDomainWork === 1 ? '' : 's'} ${result.unreviewedDomainWork === 1 ? 'was' : 'were'} not reviewed.`
+            : result.output.verdict,
           taskIds: result.taskIds,
           findings: failed.map((score) => ({
             path: '',

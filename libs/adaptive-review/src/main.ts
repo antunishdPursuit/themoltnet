@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { connect } from '@themoltnet/sdk/node';
 import { createSdkTaskClient } from '@themoltnet/tasks-orchestrator';
@@ -7,6 +7,7 @@ import { createSdkTaskClient } from '@themoltnet/tasks-orchestrator';
 import { env, required } from './config.js';
 import {
   type AdaptivePreparation,
+  classifierTaskPossible,
   prepareAdaptiveReview,
   type RunOptions,
   runRoutedAdaptiveReview,
@@ -23,12 +24,10 @@ interface Prepared {
 }
 
 async function main() {
+  const stage = required('ADAPTIVE_STAGE');
   const prepared = JSON.parse(
     readFileSync(required('ADAPTIVE_PREPARED'), 'utf8'),
   ) as Prepared;
-  const mode = required('ADAPTIVE_MODE');
-  if (mode !== 'shadow' && mode !== 'active')
-    throw new Error('ADAPTIVE_MODE must be shadow or active');
   const current = JSON.parse(
     execFileSync(
       'gh',
@@ -50,6 +49,18 @@ async function main() {
   ) {
     throw new Error('PR revisions changed after preparation');
   }
+  if (stage === 'plan') {
+    const needed = classifierTaskPossible(
+      process.cwd(),
+      prepared.base,
+      prepared.head,
+    );
+    appendFileSync(required('GITHUB_OUTPUT'), `classifier-needed=${needed}\n`);
+    return;
+  }
+  const mode = required('ADAPTIVE_MODE');
+  if (mode !== 'shadow' && mode !== 'active')
+    throw new Error('ADAPTIVE_MODE must be shadow or active');
   const agent = await connect();
   const teamId = required('MOLTNET_TEAM_ID');
   const { items } = await agent.runtimeProfiles.list({ teamId });
@@ -78,7 +89,6 @@ async function main() {
     },
     projectId: env().MOLTNET_PROJECT_ID || undefined,
   };
-  const stage = required('ADAPTIVE_STAGE');
   if (stage === 'route') {
     const preparation = await prepareAdaptiveReview(options);
     writeFileSync(
@@ -95,7 +105,7 @@ async function main() {
     return;
   }
   if (stage !== 'review')
-    throw new Error('ADAPTIVE_STAGE must be route or review');
+    throw new Error('ADAPTIVE_STAGE must be plan, route, or review');
   const preparation = JSON.parse(
     readFileSync(required('ADAPTIVE_ROUTE'), 'utf8'),
   ) as AdaptivePreparation;

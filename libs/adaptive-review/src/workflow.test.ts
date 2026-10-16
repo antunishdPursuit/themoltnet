@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LANES, type ReviewIdentity } from './core.js';
 import {
+  classifierTaskPossible,
   prepareAdaptiveReview,
   runAdaptiveReview,
   runRoutedAdaptiveReview,
@@ -91,6 +92,17 @@ function harness(
     selected?: string;
     securityFindingStatus?: 'confirmed' | 'unclear' | 'refuted';
     invalidFocusedOutput?: boolean;
+    focusedResult?: {
+      summary: string;
+      findings: Array<{
+        path: string;
+        side: 'old' | 'new';
+        line: number;
+        concern: string;
+        action: string;
+      }>;
+      unclear: string[];
+    };
   } = {},
 ) {
   let nextId = 0;
@@ -159,13 +171,15 @@ function harness(
                       unclear: [],
                     },
                   }
-                : {
-                    result: {
-                      summary: 'No concern',
-                      findings: [],
-                      unclear: [],
-                    },
-                  };
+                : options.focusedResult
+                  ? { result: options.focusedResult }
+                  : {
+                      result: {
+                        summary: 'No concern',
+                        findings: [],
+                        unclear: [],
+                      },
+                    };
       return Promise.resolve({
         kind: 'accepted',
         result: { state: parse(raw) },
@@ -220,6 +234,9 @@ describe('adaptive review orchestration', () => {
   });
 
   it('classifies once, runs a selected focused lane, and screens the others', async () => {
+    expect(classifierTaskPossible(cwd, identity.base, identity.head)).toBe(
+      true,
+    );
     const { tasks, createTask, created } = harness({ selected: 'tests' });
     const report = await review(tasks);
 
@@ -241,6 +258,105 @@ describe('adaptive review orchestration', () => {
     expect(createTask).toHaveBeenCalledTimes(2);
     expect(created.get('task-2')?.input.brief).toContain(sourcePath);
     expect(report.taskIds).toEqual(['task-1', 'task-2']);
+  });
+
+  it('publishes a focused concern with a changed-line citation', async () => {
+    const { tasks } = harness({
+      selected: 'tests',
+      focusedResult: {
+        summary: 'A changed behavior needs a test.',
+        findings: [
+          {
+            path: sourcePath,
+            side: 'new',
+            line: 1,
+            concern: 'The new route is untested.',
+            action: 'Add a route test.',
+          },
+        ],
+        unclear: [],
+      },
+    });
+
+    const report = await review(tasks);
+
+    expect(
+      report.results.find((result) => result.lane === 'tests'),
+    ).toMatchObject({
+      status: 'concern',
+      findings: [
+        { path: sourcePath, line: 1, concern: 'The new route is untested.' },
+      ],
+    });
+  });
+
+  it('marks a focused lane unclear when evidence is insufficient', async () => {
+    const { tasks } = harness({
+      selected: 'tests',
+      focusedResult: {
+        summary: 'The caller is outside the diff.',
+        findings: [],
+        unclear: ['Caller behavior could not be checked.'],
+      },
+    });
+
+    const report = await review(tasks);
+
+    expect(
+      report.results.find((result) => result.lane === 'tests'),
+    ).toMatchObject({
+      status: 'unclear',
+      findings: [],
+    });
+  });
+
+  it('marks incomplete complexity coverage unclear even when reviewed scores pass', async () => {
+    mocks.runComplexityReview.mockResolvedValue({
+      taskIds: ['complexity-task'],
+      output: { verdict: 'Low complexity', scores: [] },
+      unreviewedDomainWork: 1,
+    });
+    const { tasks } = harness({ selected: 'complexity' });
+
+    const report = await review(tasks);
+
+    expect(
+      report.results.find((result) => result.lane === 'complexity'),
+    ).toMatchObject({
+      status: 'unclear',
+      summary:
+        'Low complexity Incomplete coverage: 1 domain segment was not reviewed.',
+    });
+  });
+
+  it('rejects a focused finding cited outside changed lines', async () => {
+    const { tasks } = harness({
+      selected: 'tests',
+      focusedResult: {
+        summary: 'A citation needs checking.',
+        findings: [
+          {
+            path: sourcePath,
+            side: 'new',
+            line: 2,
+            concern: 'The route might be untested.',
+            action: 'Add a route test.',
+          },
+        ],
+        unclear: [],
+      },
+    });
+
+    const report = await review(tasks);
+
+    expect(
+      report.results.find((result) => result.lane === 'tests'),
+    ).toMatchObject({
+      status: 'failed',
+      taskIds: ['task-2'],
+      summary: 'Error: tests finding does not cite a changed line',
+      findings: [],
+    });
   });
 
   it('reuses prepared routing and classifier task IDs without reclassifying', async () => {
@@ -365,6 +481,9 @@ describe('adaptive review orchestration', () => {
     const preparation = await prepareAdaptiveReview(reviewOptions(tasks));
 
     expect(preparation.packetCount).toBe(5);
+    expect(classifierTaskPossible(cwd, identity.base, identity.head)).toBe(
+      false,
+    );
     expect(preparation.classifierTaskIds).toEqual([]);
     expect(createTask).not.toHaveBeenCalled();
     expect(preparation.routing.classifierFailed).toBe(true);

@@ -23,6 +23,7 @@ jobs:
       base: ${{ steps.pin.outputs.base }}
       head: ${{ steps.pin.outputs.head }}
       correlation: ${{ steps.pin.outputs.correlation }}
+      classifier-needed: ${{ steps.plan.outputs.classifier-needed }}
     steps:
       - name: Pin reviewed PR and protect the runtime
         id: pin
@@ -70,6 +71,45 @@ jobs:
             core.setOutput('base', prepared.base);
             core.setOutput('head', prepared.head);
             core.setOutput('correlation', correlationId);
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.pin.outputs.skip == 'false'
+        with:
+          ref: ${{ steps.pin.outputs.base }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        if: steps.pin.outputs.skip == 'false'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: steps.pin.outputs.skip == 'false'
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      - name: Build the trusted classifier planner
+        if: steps.pin.outputs.skip == 'false'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec nx run @themoltnet/adaptive-review-action:build --excludeTaskDependencies
+      - name: Fetch reviewed head as inert Git data
+        if: steps.pin.outputs.skip == 'false'
+        env:
+          HEAD_SHA: ${{ steps.pin.outputs.head }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: Write pinned planner input
+        if: steps.pin.outputs.skip == 'false'
+        env:
+          PREPARED_JSON: ${{ steps.pin.outputs.prepared }}
+        run: |
+          node -e "require('node:fs').writeFileSync('adaptive-prepared.json', process.env.PREPARED_JSON, {mode: 0o600})"
+      - name: Check classifier work budget
+        id: plan
+        if: steps.pin.outputs.skip == 'false'
+        uses: ./packages/adaptive-review-action
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADAPTIVE_PREPARED: ${{ github.workspace }}/adaptive-prepared.json
+        with:
+          step: plan
 
   route:
     needs: prepare
@@ -256,7 +296,7 @@ jobs:
 
   classifier-worker:
     needs: prepare
-    if: needs.prepare.outputs.skip == 'false'
+    if: needs.prepare.outputs.classifier-needed == 'true'
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 60
