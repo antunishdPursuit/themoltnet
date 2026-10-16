@@ -7,8 +7,10 @@ import {
 } from '@moltnet/complexity-review/evidence';
 import { runComplexityReview } from '@moltnet/complexity-review/workflow';
 import {
+  collectChangeSet,
   createGit,
   createSleepingContext,
+  docsGlobs,
   type DocsImpactReport,
   loadReviewConfig,
   runDocsImpactReview,
@@ -107,6 +109,7 @@ export interface AdaptivePreparation {
   routing: RoutingDecision;
   packetCount: number;
   classifierTaskIds: string[];
+  docsTaskPossible: boolean;
   gaps: string[];
   durationMs: number;
 }
@@ -431,6 +434,20 @@ function docsResult(report: DocsImpactReport): LaneResult {
   };
 }
 
+function trackingTaskClient(tasks: TaskClient, taskIds: string[]): TaskClient {
+  const listMessages = tasks.listMessages?.bind(tasks);
+  return {
+    async createTask(body, options) {
+      const task = await tasks.createTask(body, options);
+      taskIds.push(task.id);
+      return task;
+    },
+    getTask: (id) => tasks.getTask(id),
+    listAttempts: (id) => tasks.listAttempts(id),
+    ...(listMessages ? { listMessages } : {}),
+  };
+}
+
 export async function prepareAdaptiveReview(
   options: RunOptions,
 ): Promise<AdaptivePreparation> {
@@ -502,6 +519,23 @@ export async function prepareAdaptiveReview(
     mechanicalConcerns(evidence.files),
     evidence.generatedPaths,
   );
+  let docsTaskPossible = false;
+  if (routing.routes.some((route) => route.lane === 'docs' && route.run)) {
+    try {
+      const { config } = loadReviewConfig(git, identity.base);
+      docsTaskPossible = collectChangeSet(
+        git,
+        identity.base,
+        identity.head,
+        docsGlobs(config),
+      ).files.some(
+        (file) => file.category === 'source' || file.category === 'docs',
+      );
+    } catch {
+      // Let the docs lane report its own failure; keep a worker available.
+      docsTaskPossible = true;
+    }
+  }
   return {
     version: 1,
     mode,
@@ -513,6 +547,7 @@ export async function prepareAdaptiveReview(
     routing,
     packetCount: packets.length,
     classifierTaskIds,
+    docsTaskPossible,
     gaps,
     durationMs: Date.now() - started,
   };
@@ -550,8 +585,10 @@ export async function runRoutedAdaptiveReview(
   );
   if (!Value.Check(Rubric, rubricValue))
     throw new Error('invalid complexity rubric');
+  const createdTaskIds = routing.routes.map((): string[] => []);
   const routed = await Promise.allSettled(
-    routing.routes.map(async (route): Promise<LaneResult> => {
+    routing.routes.map(async (route, index): Promise<LaneResult> => {
+      const laneTasks = trackingTaskClient(tasks, createdTaskIds[index]);
       if (!route.run)
         return {
           lane: route.lane,
@@ -563,7 +600,7 @@ export async function runRoutedAdaptiveReview(
       if (route.lane === 'docs') {
         const { config, source } = loadReviewConfig(git, identity.base);
         const report = await runDocsImpactReview(
-          { git, tasks, ctx: createSleepingContext() },
+          { git, tasks: laneTasks, ctx: createSleepingContext() },
           {
             repo: identity.repo,
             pr: identity.pr,
@@ -579,12 +616,13 @@ export async function runRoutedAdaptiveReview(
             config,
             configSource: source,
           },
+          { serialTaskDispatch: true },
         );
         return docsResult(report);
       }
       if (route.lane === 'complexity') {
         const result = await runComplexityReview(
-          tasks,
+          laneTasks,
           {
             repo: identity.repo,
             pr: identity.pr,
@@ -600,6 +638,7 @@ export async function runRoutedAdaptiveReview(
             rubric: rubricValue,
           },
           evidence,
+          { serialDomainDispatch: true },
         );
         const failed = result.output.scores.filter(
           (score) => score.status === 'fail',
@@ -622,12 +661,12 @@ export async function runRoutedAdaptiveReview(
         };
       }
       if (route.lane === 'security')
-        return runSecurity(identity, evidence, tasks, profiles.security);
+        return runSecurity(identity, evidence, laneTasks, profiles.security);
       return runFocused(
         route.lane,
         identity,
         evidence,
-        tasks,
+        laneTasks,
         profiles.focused,
       );
     }),
@@ -640,7 +679,7 @@ export async function runRoutedAdaptiveReview(
             lane: LANES[index],
             status: 'failed',
             summary: String(item.reason),
-            taskIds: [],
+            taskIds: createdTaskIds[index],
             findings: [],
           },
   );

@@ -15,6 +15,8 @@ import {
 const mocks = vi.hoisted(() => ({
   buildEvidence: vi.fn(),
   createGit: vi.fn(() => vi.fn()),
+  collectChangeSet: vi.fn(),
+  docsGlobs: vi.fn(() => ({})),
   loadReviewConfig: vi.fn(() => ({ config: {}, source: 'base' })),
   runDocsImpactReview: vi.fn(),
   runComplexityReview: vi.fn(),
@@ -28,6 +30,8 @@ vi.mock('@moltnet/complexity-review/evidence', async (importOriginal) => ({
 vi.mock('@moltnet/docs-impact-review', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createGit: mocks.createGit,
+  collectChangeSet: mocks.collectChangeSet,
+  docsGlobs: mocks.docsGlobs,
   loadReviewConfig: mocks.loadReviewConfig,
   runDocsImpactReview: mocks.runDocsImpactReview,
 }));
@@ -86,6 +90,7 @@ function harness(
     classifierFails?: boolean;
     selected?: string;
     securityFindingStatus?: 'confirmed' | 'unclear' | 'refuted';
+    invalidFocusedOutput?: boolean;
   } = {},
 ) {
   let nextId = 0;
@@ -146,9 +151,21 @@ function harness(
                     ],
                   },
                 }
-              : {
-                  result: { summary: 'No concern', findings: [], unclear: [] },
-                };
+              : options.invalidFocusedOutput
+                ? {
+                    result: {
+                      summary: 'Malformed focused result',
+                      findings: 'not an array',
+                      unclear: [],
+                    },
+                  }
+                : {
+                    result: {
+                      summary: 'No concern',
+                      findings: [],
+                      unclear: [],
+                    },
+                  };
       return Promise.resolve({
         kind: 'accepted',
         result: { state: parse(raw) },
@@ -181,9 +198,12 @@ async function review(tasks: TaskClient) {
 describe('adaptive review orchestration', () => {
   beforeEach(() => {
     mocks.buildEvidence.mockReturnValue(evidence);
+    mocks.collectChangeSet.mockReturnValue({
+      files: [{ path: sourcePath, category: 'source' }],
+    });
     mocks.runDocsImpactReview.mockResolvedValue({
       status: 'completed',
-      outcome: 'no-updates-needed',
+      outcome: 'not-needed',
       findings: [],
       timings: { stages: {} },
     });
@@ -242,6 +262,18 @@ describe('adaptive review orchestration', () => {
     expect(
       createTask.mock.calls.filter(([task]) => task.taskType === 'classify'),
     ).toHaveLength(1);
+  });
+
+  it('does not request a docs worker when the docs lane has no relevant files', async () => {
+    const { tasks } = harness({ selected: 'docs' });
+    mocks.collectChangeSet.mockReturnValueOnce({ files: [] });
+
+    const preparation = await prepareAdaptiveReview(reviewOptions(tasks));
+
+    expect(
+      preparation.routing.routes.find((route) => route.lane === 'docs')?.run,
+    ).toBe(true);
+    expect(preparation.docsTaskPossible).toBe(false);
   });
 
   it('rejects prepared routing for another pinned head or mode', async () => {
@@ -355,7 +387,18 @@ describe('adaptive review orchestration', () => {
       true,
     );
     expect(mocks.runDocsImpactReview).toHaveBeenCalledOnce();
+    expect(mocks.runDocsImpactReview).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { serialTaskDispatch: true },
+    );
     expect(mocks.runComplexityReview).toHaveBeenCalledOnce();
+    expect(mocks.runComplexityReview).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      { serialDomainDispatch: true },
+    );
     expect(
       [...created.values()].some((task) =>
         task.title?.includes('security hunt'),
@@ -388,6 +431,57 @@ describe('adaptive review orchestration', () => {
     expect(report.gaps).toEqual([
       expect.stringContaining('classifier unavailable'),
     ]);
+  });
+
+  it.each([
+    [
+      'updates-needed',
+      'concern',
+      [{ path: 'docs/use/entries.md', concern: 'Explain the changed route.' }],
+    ],
+    ['incomplete', 'unclear', []],
+  ] as const)(
+    'maps docs outcome %s to %s',
+    async (outcome, status, findings) => {
+      const { tasks } = harness({ selected: 'docs' });
+      mocks.runDocsImpactReview.mockResolvedValueOnce({
+        status: 'completed',
+        outcome,
+        findings: findings.map((finding) => ({
+          docsPath: finding.path,
+          update: finding.concern,
+        })),
+        timings: { stages: { inspect: { taskId: 'docs-task' } } },
+      });
+
+      const report = await review(tasks);
+
+      expect(
+        report.results.find((result) => result.lane === 'docs'),
+      ).toMatchObject({
+        status,
+        taskIds: ['docs-task'],
+        findings,
+      });
+    },
+  );
+
+  it('keeps the created task ID when a focused result is rejected', async () => {
+    const { tasks } = harness({
+      selected: 'tests',
+      invalidFocusedOutput: true,
+    });
+
+    const report = await review(tasks);
+
+    expect(
+      report.results.find((result) => result.lane === 'tests'),
+    ).toMatchObject({
+      status: 'failed',
+      summary: 'Error: invalid tests result',
+      taskIds: ['task-2'],
+    });
+    expect(report.taskIds).toContain('task-2');
   });
 
   it('reviews retained source and marks generated paths as unassessed', async () => {

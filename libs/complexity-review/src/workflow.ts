@@ -352,6 +352,7 @@ export async function runComplexityReview(
   tasks: TaskClient,
   input: ReviewInput,
   evidence: ReviewEvidence,
+  options: { serialDomainDispatch?: boolean } = {},
 ): Promise<{
   taskId: string;
   taskIds: string[];
@@ -390,20 +391,32 @@ export async function runComplexityReview(
   );
   const mappedAt = Date.now();
   const work = buildDomainWork(groups, evidence);
-  const domains = await parallelTasks({
-    ctx,
-    items: work,
-    createStepName: (item) => 'domain.' + item.id + '.create',
-    create: (item) =>
-      tasks.createTask(buildDomainTask(input, evidence, item), {
-        idempotencyKey: idempotencyKey(input, 'domain:' + item.id),
-      }),
-    awaitResult: (task, item) =>
-      awaitParsed(task.id, (output) =>
-        parseDomainResult(output, item, input.rubric),
-      ),
-    concurrency: 4,
-  });
+  const runDomainBatch = (items: DomainWork[]) =>
+    parallelTasks({
+      ctx,
+      items,
+      createStepName: (item) => 'domain.' + item.id + '.create',
+      create: (item) =>
+        tasks.createTask(buildDomainTask(input, evidence, item), {
+          idempotencyKey: idempotencyKey(input, 'domain:' + item.id),
+        }),
+      awaitResult: (task, item) =>
+        awaitParsed(task.id, (output) =>
+          parseDomainResult(output, item, input.rubric),
+        ),
+      concurrency: 4,
+    });
+  let domains: Awaited<ReturnType<typeof runDomainBatch>>;
+  if (options.serialDomainDispatch) {
+    const batches: Array<Awaited<ReturnType<typeof runDomainBatch>>> = [];
+    for (const item of work) batches.push(await runDomainBatch([item]));
+    domains = {
+      created: batches.flatMap((batch) => batch.created),
+      results: batches.flatMap((batch) => batch.results),
+    };
+  } else {
+    domains = await runDomainBatch(work);
+  }
   const domainsAt = Date.now();
   const synthesisTask = await tasks.createTask(
     buildSynthesisTask(input, evidence, domains.results),

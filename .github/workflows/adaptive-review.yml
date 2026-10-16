@@ -146,8 +146,8 @@ jobs:
           for (const item of route.routing.routes.filter(item => item.run)) {
             const profile = profiles[item.lane];
             if (!profile) throw new Error(`Unknown review lane: ${item.lane}`);
-            const capacity = item.lane === 'complexity' ? 4 : item.lane === 'docs' ? 2 : 1;
-            selected.set(profile, (selected.get(profile) || 0) + capacity);
+            if (item.lane === 'docs' && !route.docsTaskPossible) continue;
+            selected.set(profile, (selected.get(profile) || 0) + 1);
           }
           const matrix = { include: [...selected].flatMap(([profile, capacity]) =>
             Array.from({ length: capacity }, (_, index) => ({ profile, worker: index + 1 }))) };
@@ -312,6 +312,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.base }}
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - name: Fetch reviewed head as inert Git data
         env:
