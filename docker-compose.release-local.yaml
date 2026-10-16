@@ -9,7 +9,7 @@
 
 services:
   npm-registry:
-    image: verdaccio/verdaccio:6
+    image: verdaccio/verdaccio:6@sha256:560744912b640ddc0f23cd475d296b663b656c0fcfa0ba17cc5ca1cbcb620225
     ports:
       - '4873:4873'
     volumes:
@@ -17,14 +17,14 @@ services:
       - npm-registry-data:/verdaccio/storage
 
   docker-registry:
-    image: registry:2
+    image: registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
     ports:
       - '5001:5000'
     volumes:
       - docker-registry-data:/var/lib/registry
 
   go-proxy:
-    image: gomods/athens:v0.15.1
+    image: gomods/athens:v0.15.1@sha256:d37032320b5119faae735099dd2620b2ca474aaf74214980b445fdd713ab753f
     ports:
       - '3000:3000'
     environment:
