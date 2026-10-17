@@ -52,12 +52,7 @@ jobs:
               changed.some(path => protectedPaths.some(prefix => path.startsWith(prefix)));
             core.setOutput('skip', String(skip));
             if (skip) return;
-            const seed = `${repo}:${pr.number}:${pr.head.sha}:${context.runId}:${process.env.GITHUB_RUN_ATTEMPT}`;
-            const bytes = crypto.createHash('sha256').update(seed).digest().subarray(0, 16);
-            bytes[6] = (bytes[6] & 0x0f) | 0x50;
-            bytes[8] = (bytes[8] & 0x3f) | 0x80;
-            const hex = bytes.toString('hex');
-            const correlationId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+            const correlationId = crypto.randomUUID();
             const prepared = {
               repo,
               pr: pr.number,
@@ -143,6 +138,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.base }}
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -230,6 +226,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.base }}
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -308,6 +305,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.base }}
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - name: Fetch reviewed head as inert Git data
         env:
