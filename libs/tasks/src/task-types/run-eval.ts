@@ -12,7 +12,6 @@ import { TaskContext } from '@moltnet/runtime-profiles';
 import { type Static, Type } from 'typebox';
 
 import { SuccessCriteria, VerificationRecord } from '../success-criteria.js';
-import { TaskUsageCost } from '../wire.js';
 
 export const RUN_EVAL_TYPE = 'run_eval' as const;
 
@@ -137,8 +136,6 @@ export const RunEvalOutput = Type.Object(
     totalTokens: Type.Integer({ minimum: 0 }),
     /** Stamped by the executor from the attempt clock. */
     durationMs: Type.Integer({ minimum: 0 }),
-    /** Stamped when the harness priced the attempt's model usage. */
-    estimatedCost: Type.Optional(TaskUsageCost),
     /** Stamped when the claim supplied a W3C trace context. */
     traceparent: Type.Optional(Type.String({ minLength: 1 })),
     /** Required iff input.successCriteria is set. */

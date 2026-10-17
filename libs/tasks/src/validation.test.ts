@@ -1107,40 +1107,6 @@ describe('agent submission and runtime materialization', () => {
     expect(output).not.toHaveProperty('traceparent');
     expect(validateTaskOutput('run_eval', output, runEvalInput)).toEqual([]);
   });
-
-  it('stamps the harness cost estimate on durable eval output', () => {
-    const cost = {
-      currency: 'USD' as const,
-      total: 0.42,
-      input: 0.1,
-      output: 0.32,
-      cacheRead: 0,
-      cacheWrite: 0,
-      complete: false,
-    };
-
-    const output = materializeTaskOutput(
-      'run_eval',
-      { ...submission, estimatedCost: { ...cost, total: 0 } },
-      { usage: { inputTokens: 12, outputTokens: 30, cost }, durationMs: 456 },
-    );
-
-    expect(output).toMatchObject({ estimatedCost: cost });
-    expect(validateTaskOutput('run_eval', output, runEvalInput)).toEqual([]);
-  });
-
-  it('leaves eval output unpriced when the harness has no cost', () => {
-    const output = materializeTaskOutput(
-      'run_eval',
-      { ...submission, estimatedCost: { total: 1 } },
-      {
-        usage: { inputTokens: 12, outputTokens: 30 },
-        durationMs: 456,
-      },
-    );
-
-    expect(output).not.toHaveProperty('estimatedCost');
-  });
 });
 
 describe('getTaskExecutionPolicy', () => {
