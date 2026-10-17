@@ -379,10 +379,13 @@ export function materializeTaskOutput(
   const traceparent = facts.traceparent?.trim();
   const trace = traceparent ? { traceparent } : {};
   if (taskType === RUN_EVAL_TYPE) {
+    // Telemetry is the executor's to state; drop any value the agent sent.
+    const { estimatedCost: _ignored, ...submitted } = submission;
     return {
-      ...submission,
+      ...submitted,
       totalTokens: facts.usage.inputTokens + facts.usage.outputTokens,
       durationMs: facts.durationMs,
+      ...(facts.usage.cost ? { estimatedCost: facts.usage.cost } : {}),
       ...trace,
     };
   }
