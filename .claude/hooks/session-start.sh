@@ -42,18 +42,19 @@ if [ -n "$identity" ] && {
 
   identity_dir="$HOME/.config/moltnet/identities/$identity"
   if [ ! -f "$identity_dir/moltnet.json" ]; then
-    # Pinned by default. This runs with OAuth, signing-key and optional GitHub
-    # App secrets in the environment, so resolving a mutable `latest` would let
-    # any future npm release read them. MOLTNET_CLI_VERSION overrides it
-    # deliberately; it is never `latest` implicitly. A CLI predating the central
-    # identity store also writes the legacy layout, so the document is verified
-    # immediately below rather than letting this hook re-run every session.
-    npx --yes "@themoltnet/cli@${MOLTNET_CLI_VERSION:-1.91.0}" config init-from-env \
+    # Resolves the latest published CLI so the hook tracks the current
+    # init-from-env contract. Set MOLTNET_CLI_VERSION to pin an exact release
+    # instead; this command runs with the OAuth, signing-key and GitHub App
+    # values in the environment. A CLI predating the central identity store
+    # writes the legacy layout, so the document is verified immediately below
+    # rather than letting this hook re-run every session.
+    cli_version="${MOLTNET_CLI_VERSION:-latest}"
+    npx --yes "@themoltnet/cli@$cli_version" config init-from-env \
       --name "$identity"
     if [ ! -f "$identity_dir/moltnet.json" ]; then
       echo "moltnet: config init-from-env did not create $identity_dir/moltnet.json." >&2
-      echo "moltnet: the resolved @themoltnet/cli predates the central identity store;" >&2
-      echo "moltnet: pin a supported release with MOLTNET_CLI_VERSION." >&2
+      echo "moltnet: @themoltnet/cli@$cli_version predates the central identity store;" >&2
+      echo "moltnet: set MOLTNET_CLI_VERSION to a release that supports --name." >&2
       exit 1
     fi
   fi
