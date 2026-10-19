@@ -3,7 +3,7 @@
  *
  * Text, titles, tags, importance and queries are copied from the source tests at
  * SOURCE_REVISION. Stable IDs and relevance judgments are new evaluation metadata.
- * These proposed binary judgments need review before retrieval evaluation.
+ * These binary judgments define this baseline; changing them requires review.
  *
  * Every query is judged against the ENTIRE corpus. Entries absent from relevantIds
  * are nonrelevant for that query, including lexical matches that do not answer it.
